@@ -2173,7 +2173,7 @@ export default function App() {
 
 // STYLES
 const styles=StyleSheet.create({
-  app:{flex:1,backgroundColor:C.bg},
+  app:{flex:1,backgroundColor:C.bg,paddingTop:Platform.OS==="android"?(StatusBar.currentHeight||24):0,paddingBottom:Platform.OS==="android"?24:0},
   launchScreen:{flex:1,backgroundColor:"#100019",alignItems:"center",justifyContent:"center",padding:24},
   launchLogo:{width:150,height:150,marginBottom:18},
   launchTitle:{color:C.white,fontSize:24,fontWeight:"900",letterSpacing:2},
