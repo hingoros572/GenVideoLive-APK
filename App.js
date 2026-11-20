@@ -1740,7 +1740,7 @@ export default function App() {
 
 // STYLES
 const styles=StyleSheet.create({
-  app:{flex:1,backgroundColor:C.bg},
+  app:{flex:1,backgroundColor:C.bg,paddingTop:Platform.OS==="android"?(StatusBar.currentHeight||24):0},
   screen:{flex:1,backgroundColor:C.bg},
   authScreen:{flex:1,backgroundColor:C.bg},
   authContent:{flexGrow:1,justifyContent:"center",padding:22},
@@ -1794,7 +1794,7 @@ const styles=StyleSheet.create({
   discAvatar:{width:18,height:18,borderRadius:9},
   emptyFeed:{alignItems:"center",justifyContent:"center",padding:25,backgroundColor:C.bg},
   emptyText:{color:C.gray,textAlign:"center",marginTop:15,fontSize:14},
-  bottomNav:{height:66,backgroundColor:"#151522",borderTopWidth:1,borderTopColor:"#2b293b",flexDirection:"row",justifyContent:"space-around",alignItems:"center",paddingHorizontal:2},
+  bottomNav:{height:Platform.OS==="android"?90:66,paddingBottom:Platform.OS==="android"?24:0,backgroundColor:"#151522",borderTopWidth:1,borderTopColor:"#2b293b",flexDirection:"row",justifyContent:"space-around",alignItems:"center",paddingHorizontal:2},
   navItem:{alignItems:"center",justifyContent:"center",flex:1},
   navIcon:{fontSize:22,fontWeight:"800"},
   navLabel:{fontSize:9,marginTop:2,fontWeight:"700"},
