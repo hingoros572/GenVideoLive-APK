@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "Gen Video Live",
+    "slug": "gen-video-live",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "android": {
+      "package": "com.genvideolive.app",
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Gen Video Live ko aapki gallery se photos aur videos select karne ki ijazat dein.",
+          "cameraPermission": "Gen Video Live ko video record karne ke liye camera ki ijazat dein.",
+          "microphonePermission": "Gen Video Live ko video ke sath audio record karne ki ijazat dein."
+        }
+      ]
+    ]
+  }
+}
