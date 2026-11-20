@@ -100,8 +100,43 @@ function SpinningDisc({ avatarUrl }) {
 // REEL CARD
 function ReelCard({
   reel,height,liked,saved,following,isActive,
-  onLike,onSave,onFollow,onComment,onShare,onSound
+  onLike,onDoubleLike,onSave,onFollow,onComment,onShare,onSound
 }) {
+  const lastTapRef = useRef(0);
+  const touchStartRef = useRef(null);
+  const heartScale = useRef(new Animated.Value(0.35)).current;
+  const heartOpacity = useRef(new Animated.Value(0)).current;
+
+  function handleVideoTouchStart(event) {
+    const {pageX,pageY} = event.nativeEvent;
+    touchStartRef.current = {x:pageX,y:pageY};
+  }
+
+  function handleVideoTouchEnd(event) {
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+    if (!start) return;
+    const {pageX,pageY} = event.nativeEvent;
+    if (Math.abs(pageX-start.x)>22 || Math.abs(pageY-start.y)>22) return;
+
+    const now = Date.now();
+    if (now-lastTapRef.current < 320) {
+      lastTapRef.current = 0;
+      onDoubleLike?.();
+      heartScale.setValue(0.35);
+      heartOpacity.setValue(1);
+      Animated.sequence([
+        Animated.spring(heartScale,{toValue:1.2,useNativeDriver:true,friction:4}),
+        Animated.parallel([
+          Animated.timing(heartOpacity,{toValue:0,duration:420,useNativeDriver:true}),
+          Animated.timing(heartScale,{toValue:0.9,duration:420,useNativeDriver:true})
+        ])
+      ]).start();
+    } else {
+      lastTapRef.current = now;
+    }
+  }
+
   return (
     <View style={[styles.reelPage,{height,backgroundColor:reel.background||"#21172d"}]}>
       {reel.videoUrl ? (
@@ -121,6 +156,21 @@ function ReelCard({
           <Text style={styles.demoLabel}>Sample Reel</Text>
         </View>
       )}
+
+      <View
+        style={styles.doubleTapArea}
+        onTouchStart={handleVideoTouchStart}
+        onTouchEnd={handleVideoTouchEnd}
+      />
+      <Animated.Text
+        pointerEvents="none"
+        style={[
+          styles.doubleTapHeart,
+          {opacity:heartOpacity,transform:[{scale:heartScale}]}
+        ]}
+      >
+        ❤️
+      </Animated.Text>
 
       <View style={styles.reelBottom}>
         <Text style={styles.creatorName}>@{reel.creator||"Creator"}</Text>
@@ -1115,12 +1165,15 @@ export default function App() {
         <Text style={styles.logo}>👑 Gen-Live</Text>
         <View style={styles.headerTabs}>
           {["Following","For You"].map(tab=>(
-            <TouchableOpacity key={tab} onPress={()=>setFeedTab(tab)}>
+            <TouchableOpacity key={tab} onPress={()=>setFeedTab(tab)} style={styles.headerTabTouch}>
               <Text style={[styles.headerTab,feedTab===tab&&styles.headerTabActive]}>{tab}</Text>
               {feedTab===tab&&<View style={styles.tabUnderline}/>}
             </TouchableOpacity>
           ))}
         </View>
+        <TouchableOpacity style={styles.searchButton} onPress={()=>setPage("Explore")}>
+          <Text style={styles.searchIcon}>⌕</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.liveButton} onPress={openLive}>
           <Text style={styles.liveText}>{liveUnlocked?"🔴 LIVE":"🔒 LIVE"}</Text>
         </TouchableOpacity>
@@ -1234,6 +1287,7 @@ export default function App() {
                 saved={!!saved[reel.id]}
                 following={!!(reel.ownerId&&following[reel.ownerId])}
                 onLike={()=>toggleLike(reel.id)}
+                onDoubleLike={()=>{if(!liked[reel.id]) toggleLike(reel.id);}}
                 onSave={()=>toggleSave(reel.id)}
                 onFollow={()=>toggleFollow(reel)}
                 onComment={()=>showPlaceholder("Comments")}
@@ -1718,7 +1772,7 @@ export default function App() {
       {page!=="EditProfile"&&page!=="Sound"&&page!=="Settings"&&(
         <View style={styles.bottomNav}>
           <NavItem icon="⌂" label="Home" active={page==="Home"} onPress={()=>setPage("Home")}/>
-          <NavItem icon="⌕" label="Explore" active={page==="Explore"} onPress={()=>setPage("Explore")}/>
+          <NavItem icon="♧" label="Friends" active={page==="Explore"} onPress={()=>setPage("Explore")}/>
           <NavItem icon="＋" label="Create+" active={page==="Create"} onPress={()=>setPage("Create")}/>
           <NavItem icon="✉" label="Inbox" active={page==="Inbox"} onPress={()=>setPage("Inbox")}/>
           <NavItem
@@ -1755,28 +1809,33 @@ const styles=StyleSheet.create({
   buttonText:{color:C.white,fontWeight:"800",fontSize:15},
   switchText:{color:C.magenta,textAlign:"center",fontWeight:"700"},
   smallMuted:{color:C.gray,fontSize:12,marginTop:5},
-  header:{height:62,paddingHorizontal:10,backgroundColor:C.bg,flexDirection:"row",alignItems:"center",justifyContent:"space-between",borderBottomWidth:1,borderBottomColor:"#29283a"},
-  logo:{color:C.white,fontSize:15,fontWeight:"900"},
-  headerTabs:{flexDirection:"row",alignItems:"center",gap:12},
-  headerTab:{color:C.gray,fontSize:12,fontWeight:"700",paddingVertical:10},
-  headerTabActive:{color:C.white},
-  tabUnderline:{height:3,backgroundColor:C.pink,borderRadius:3},
-  liveButton:{backgroundColor:"#321b31",borderRadius:9,paddingHorizontal:8,paddingVertical:8},
+  header:{height:62,paddingHorizontal:9,backgroundColor:C.bg,flexDirection:"row",alignItems:"center",justifyContent:"space-between",borderBottomWidth:1,borderBottomColor:"#29283a"},
+  logo:{color:C.white,fontSize:14,fontWeight:"900"},
+  headerTabs:{flex:1,flexDirection:"row",alignItems:"center",justifyContent:"center",gap:10,marginHorizontal:5},
+  headerTabTouch:{alignItems:"center",justifyContent:"center"},
+  headerTab:{color:C.gray,fontSize:11,fontWeight:"700",paddingVertical:10},
+  headerTabActive:{color:C.white,fontSize:12},
+  tabUnderline:{height:3,backgroundColor:C.pink,borderRadius:3,width:"75%"},
+  searchButton:{width:27,alignItems:"center",justifyContent:"center"},
+  searchIcon:{color:C.white,fontSize:27,fontWeight:"400",lineHeight:30},
+  liveButton:{backgroundColor:"#321b31",borderRadius:9,paddingHorizontal:7,paddingVertical:8},
   liveText:{color:C.magenta,fontWeight:"900",fontSize:10},
   reelScroll:{flex:1},
   reelPage:{width:"100%",position:"relative",justifyContent:"center",overflow:"hidden"},
   reelVideo:{width:"100%",height:"100%",backgroundColor:"#000"},
+  doubleTapArea:{position:"absolute",left:0,top:0,bottom:0,right:78,zIndex:1},
+  doubleTapHeart:{position:"absolute",left:"38%",top:"39%",fontSize:92,zIndex:2,textShadowColor:"rgba(255,49,95,0.55)",textShadowOffset:{width:0,height:3},textShadowRadius:16},
   reelCenter:{flex:1,alignItems:"center",justifyContent:"center"},
   reelEmoji:{fontSize:100},
   demoLabel:{color:"rgba(255,255,255,0.78)",fontSize:13,fontWeight:"700",marginTop:10},
-  reelBottom:{position:"absolute",left:15,right:88,bottom:25},
+  reelBottom:{position:"absolute",left:15,right:88,bottom:25,zIndex:3},
   creatorName:{color:C.white,fontSize:15,fontWeight:"900"},
   caption:{color:C.white,fontSize:13,lineHeight:19,marginTop:8,marginBottom:11},
   audioLine:{flexDirection:"row",alignItems:"center",backgroundColor:"rgba(0,0,0,0.5)",alignSelf:"flex-start",paddingHorizontal:10,paddingVertical:7,borderRadius:20},
   musicNote:{color:C.magenta,fontSize:17,marginRight:7},
   music:{color:C.white,fontSize:12,fontWeight:"700",maxWidth:160},
   audioArrow:{color:C.white,marginLeft:8,fontSize:18},
-  actionStack:{position:"absolute",right:10,bottom:20,alignItems:"center",gap:14},
+  actionStack:{position:"absolute",right:10,bottom:20,alignItems:"center",gap:14,zIndex:4},
   creatorFollow:{alignItems:"center",marginBottom:2},
   creatorAvatarRing:{width:55,height:55,borderRadius:28,borderWidth:3,borderColor:C.gold,padding:2,backgroundColor:"#151522",alignItems:"center",justifyContent:"center",overflow:"hidden"},
   creatorAvatarImage:{width:"100%",height:"100%",borderRadius:25},
