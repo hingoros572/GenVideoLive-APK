@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
-  StyleSheet, StatusBar, Alert, Image, Animated,
+  StyleSheet, StatusBar, Alert, Image, Animated, RefreshControl,
   KeyboardAvoidingView, Platform, ActivityIndicator,
   Share, Dimensions
 } from "react-native";
@@ -257,6 +257,8 @@ export default function App() {
 
   const [posts,setPosts] = useState([]);
   const [following,setFollowing] = useState({});
+  const [mutualFriends,setMutualFriends] = useState([]);
+  const [refreshing,setRefreshing] = useState(false);
   const [followerCount,setFollowerCount] = useState(0);
   const [liked,setLiked] = useState({});
   const [saved,setSaved] = useState({});
@@ -513,6 +515,44 @@ export default function App() {
     }
   }
 
+  async function loadMutualFriends() {
+    if(!user?.token) return;
+    try {
+      const response=await fetch(
+        `${DATABASE_URL}/followers/${user.id}.json?auth=${encodeURIComponent(user.token)}`
+      );
+      const data=await response.json();
+      if(!response.ok) throw new Error("Friends list load nahi hui.");
+      const followers=data&&typeof data==="object"?data:{};
+      const mutualIds=Object.keys(following).filter(id=>!!followers[id]&&id!==user.id);
+      const list=mutualIds.map(id=>({
+        id,
+        username:userProfiles[id]?.username||following[id]?.username||followers[id]?.username||"Friend",
+        profileImage:userProfiles[id]?.profileImage||"",
+      }));
+      setMutualFriends(list);
+    } catch(error) {
+      console.log("FRIENDS LOAD ERROR:",error.message);
+    }
+  }
+
+  async function refreshAllFeeds() {
+    if(!user?.token) return;
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        loadPosts(),
+        loadFollowing(),
+        loadFollowerCount(),
+        loadLikeSave(),
+        loadMyProfile()
+      ]);
+      await loadMutualFriends();
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   useEffect(()=>{
     if(user?.token) {
       loadMyProfile();
@@ -520,6 +560,7 @@ export default function App() {
       loadFollowerCount();
       loadFollowing();
       loadLikeSave();
+      loadMutualFriends();
     }
   },[user]);
 
@@ -1267,6 +1308,7 @@ export default function App() {
             decelerationRate="fast"
             disableIntervalMomentum
             showsVerticalScrollIndicator={false}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshAllFeeds} tintColor={C.magenta} colors={[C.pink,C.magenta]} />}
             onMomentumScrollEnd={event=>{
               const index=Math.round(event.nativeEvent.contentOffset.y/reelHeight);
               setActiveReelIndex(Math.max(0,Math.min(index,visibleReels.length-1)));
@@ -1309,30 +1351,63 @@ export default function App() {
   }
 
   function renderExplore() {
-    return (
-      <ScrollView style={styles.pageScroll} contentContainerStyle={styles.pageContent}>
-        <Text style={styles.pageTitle}>Explore 🔍</Text>
-        <Text style={styles.pageSubtitle}>Discover creators and trending videos</Text>
-        <Text style={styles.sectionTitle}>Trending Reels</Text>
+    const friendIds=new Set(mutualFriends.map(friend=>friend.id));
+    const friendReels=allReels.filter(reel=>reel.ownerId&&friendIds.has(reel.ownerId));
 
-        {allReels.map(reel=>(
-          <TouchableOpacity
-            key={reel.id}
-            style={styles.exploreRow}
-            onPress={()=>{setFeedTab("For You");setPage("Home");}}
-          >
-            <View style={[styles.exploreThumb,{backgroundColor:reel.background||C.card2}]}>
-              <Text style={{fontSize:30}}>{reel.videoUrl?"▶":reel.emoji||"🎬"}</Text>
+    return (
+      <View style={styles.screen}>
+        <View style={styles.friendsHeader}>
+          <Text style={styles.pageTitle}>Friends</Text>
+          <TouchableOpacity onPress={()=>setPage("Explore")}><Text style={styles.searchIcon}>⌕</Text></TouchableOpacity>
+        </View>
+        <ScrollView
+          style={styles.pageScroll}
+          contentContainerStyle={styles.friendsContent}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refreshAllFeeds} tintColor={C.magenta} colors={[C.pink,C.magenta]} />}
+        >
+          <Text style={styles.friendsSectionTitle}>Friends</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.friendAvatarsRow}>
+            {mutualFriends.map(friend=>(
+              <TouchableOpacity key={friend.id} style={styles.friendAvatarItem} onPress={()=>showPlaceholder(friend.username+" profile")}>
+                <View style={styles.friendAvatarRing}>
+                  {friend.profileImage
+                    ? <Image source={{uri:friend.profileImage}} style={styles.friendAvatarImage}/>
+                    : <Text style={styles.friendAvatarFallback}>👤</Text>}
+                </View>
+                <Text numberOfLines={1} style={styles.friendAvatarName}>{friend.username}</Text>
+              </TouchableOpacity>
+            ))}
+            {mutualFriends.length===0&&<Text style={styles.smallMuted}>Follow back karne wale friends yahan dikhai denge.</Text>}
+          </ScrollView>
+          <Text style={styles.friendsSectionTitle}>Friends' Reels</Text>
+          {friendReels.map((reel,index)=>(
+            <View key={reel.id} style={styles.friendReelCard}>
+              <ReelCard
+                reel={reel}
+                height={560}
+                isActive={page==="Explore"}
+                liked={!!liked[reel.id]}
+                saved={!!saved[reel.id]}
+                following={!!following[reel.ownerId]}
+                onLike={()=>toggleLike(reel.id)}
+                onDoubleLike={()=>{if(!liked[reel.id]) toggleLike(reel.id);}}
+                onSave={()=>toggleSave(reel.id)}
+                onFollow={()=>toggleFollow(reel)}
+                onComment={()=>showPlaceholder("Comments")}
+                onShare={()=>shareReel(reel)}
+                onSound={()=>openSound(reel)}
+              />
             </View>
-            <View style={{flex:1}}>
-              <Text style={styles.creatorName}>@{reel.creator}</Text>
-              <Text style={styles.smallMuted} numberOfLines={2}>{reel.caption}</Text>
-              <Text style={styles.exploreMusic}>♫ {reel.music||"Original Sound"}</Text>
+          ))}
+          {friendReels.length===0&&(
+            <View style={styles.friendsEmpty}>
+              <Text style={{fontSize:42}}>👥</Text>
+              <Text style={styles.emptyText}>Aapke friends ki uploaded Reels yahan nazar aayengi.</Text>
+              <Text style={styles.smallMuted}>Friends tabhi bante hain jab dono users ek doosre ko follow karte hain.</Text>
             </View>
-            <Text style={styles.settingArrow}>›</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+          )}
+        </ScrollView>
+      </View>
     );
   }
 
@@ -1933,6 +2008,17 @@ const styles=StyleSheet.create({
   soundCreatorAvatar:{width:25,height:25,borderRadius:13,marginRight:7},
   soundVideoRow:{flexDirection:"row",alignItems:"center",backgroundColor:C.card,borderRadius:13,padding:12,marginTop:9,gap:12},
   exploreRow:{flexDirection:"row",alignItems:"center",backgroundColor:C.card,borderRadius:14,padding:10,marginTop:10,gap:12},
+  friendsHeader:{height:58,backgroundColor:C.bg,flexDirection:"row",alignItems:"center",justifyContent:"space-between",paddingHorizontal:17,borderBottomWidth:1,borderBottomColor:"#29283a"},
+  friendsContent:{paddingBottom:24},
+  friendsSectionTitle:{color:C.white,fontSize:17,fontWeight:"900",paddingHorizontal:15,paddingTop:17,paddingBottom:10},
+  friendAvatarsRow:{paddingHorizontal:12,gap:13,alignItems:"flex-start"},
+  friendAvatarItem:{width:68,alignItems:"center"},
+  friendAvatarRing:{width:60,height:60,borderRadius:30,borderWidth:2,borderColor:C.magenta,backgroundColor:C.card2,alignItems:"center",justifyContent:"center",overflow:"hidden"},
+  friendAvatarImage:{width:"100%",height:"100%",borderRadius:30},
+  friendAvatarFallback:{fontSize:28},
+  friendAvatarName:{color:C.white,fontSize:10,marginTop:5,maxWidth:66},
+  friendReelCard:{height:560,marginHorizontal:9,marginTop:10,borderRadius:16,overflow:"hidden",backgroundColor:"#000"},
+  friendsEmpty:{alignItems:"center",justifyContent:"center",padding:28,minHeight:210},
   exploreThumb:{width:65,height:75,borderRadius:10,alignItems:"center",justifyContent:"center"},
   exploreMusic:{color:C.magenta,fontSize:11,marginTop:5},
   settingRow:{flexDirection:"row",alignItems:"center",paddingVertical:15,borderBottomWidth:1,borderBottomColor:"#333044"},
