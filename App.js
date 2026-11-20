@@ -7,12 +7,14 @@ import {
   Share, Dimensions
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Video, ResizeMode, Audio } from "expo-av";
 
 const API_KEY = "AIzaSyCoE-u18gD7wBg20dtLBtctQbM6KHzUFtk";
 const DATABASE_URL = "https://gen-video-live-default-rtdb.asia-southeast1.firebasedatabase.app";
 const CLOUD_NAME = "esfbp8hc";
 const UPLOAD_PRESET = "gen_video_live_upload";
+const SESSION_STORAGE_KEY = "genVideoLive.session.v1";
 
 const C = {
   bg: "#10101a",
@@ -276,6 +278,7 @@ export default function App() {
   const [loading,setLoading] = useState(false);
 
   const [user,setUser] = useState(null);
+  const [sessionLoading,setSessionLoading] = useState(true);
   const [username,setUsername] = useState("");
   const [bio,setBio] = useState("Welcome to my Gen Video Live profile! 👑");
   const [location,setLocation] = useState("");
@@ -346,6 +349,59 @@ export default function App() {
     }).catch(error=>console.log("AUDIO MODE ERROR:",error));
   },[]);
 
+  // Restore the signed-in account using Firebase's refresh token.
+  // Keep the branded launch screen visible for at least two seconds.
+  useEffect(()=>{
+    let active=true;
+    async function restoreSession(){
+      const startedAt=Date.now();
+      try {
+        const stored=await AsyncStorage.getItem(SESSION_STORAGE_KEY);
+        if(stored) {
+          const saved=JSON.parse(stored);
+          if(saved?.refreshToken) {
+            const response=await fetch(
+              `https://securetoken.googleapis.com/v1/token?key=${API_KEY}`,
+              {
+                method:"POST",
+                headers:{"Content-Type":"application/x-www-form-urlencoded"},
+                body:`grant_type=refresh_token&refresh_token=${encodeURIComponent(saved.refreshToken)}`
+              }
+            );
+            const data=await response.json();
+            if(!response.ok) throw new Error(data.error?.message||"Session expired");
+            const restoredUser={
+              email:saved.email||"",
+              id:data.user_id||saved.id,
+              token:data.id_token,
+              refreshToken:data.refresh_token||saved.refreshToken
+            };
+            if(active) {
+              setUser(restoredUser);
+              setUsername(saved.username||saved.email?.split("@")[0]||"User");
+              setEditUsername(saved.username||saved.email?.split("@")[0]||"User");
+              setPage("Home");
+              await AsyncStorage.setItem(SESSION_STORAGE_KEY,JSON.stringify({
+                ...restoredUser,username:saved.username||saved.email?.split("@")[0]||"User"
+              }));
+            }
+          } else {
+            await AsyncStorage.removeItem(SESSION_STORAGE_KEY);
+          }
+        }
+      } catch(error) {
+        console.log("SESSION RESTORE ERROR:",error.message);
+        await AsyncStorage.removeItem(SESSION_STORAGE_KEY).catch(()=>{});
+      } finally {
+        const remaining=2000-(Date.now()-startedAt);
+        if(remaining>0) await new Promise(resolve=>setTimeout(resolve,remaining));
+        if(active) setSessionLoading(false);
+      }
+    }
+    restoreSession();
+    return ()=>{active=false;};
+  },[]);
+
   // Authentication
   async function authenticate() {
     if(isSignup&&!signupUsername.trim())
@@ -401,7 +457,20 @@ export default function App() {
 
       if(!finalUsername) finalUsername=data.email?.split("@")[0]||"User";
 
-      setUser({email:data.email,id:data.localId,token:data.idToken});
+      const signedInUser={
+        email:data.email,
+        id:data.localId,
+        token:data.idToken,
+        refreshToken:data.refreshToken
+      };
+      try {
+        await AsyncStorage.setItem(SESSION_STORAGE_KEY,JSON.stringify({
+          ...signedInUser,username:finalUsername
+        }));
+      } catch(storageError) {
+        console.log("SESSION SAVE ERROR:",storageError.message);
+      }
+      setUser(signedInUser);
       setUsername(finalUsername);
       setEditUsername(finalUsername);
       setEditBio(bio);
@@ -1196,7 +1265,8 @@ export default function App() {
       {
         text:"Log out",
         style:"destructive",
-        onPress:()=>{
+        onPress:async()=>{
+          await AsyncStorage.removeItem(SESSION_STORAGE_KEY).catch(error=>console.log("SESSION CLEAR ERROR:",error.message));
           setUser(null);
           setEmail("");
           setPassword("");
@@ -1905,6 +1975,16 @@ export default function App() {
     );
   }
 
+  if(sessionLoading) return (
+    <View style={styles.launchScreen}>
+      <StatusBar backgroundColor="#100019" barStyle="light-content"/>
+      <Image source={require("./assets/icon.png")} style={styles.launchLogo} resizeMode="contain"/>
+      <Text style={styles.launchTitle}>GEN VIDEO LIVE</Text>
+      <Text style={styles.launchSubtitle}>WATCH • CREATE • CONNECT</Text>
+      <ActivityIndicator size="small" color={C.magenta} style={{marginTop:22}}/>
+    </View>
+  );
+
   if(!user) return renderLogin();
 
   if(playingPost) return (
@@ -1953,6 +2033,10 @@ export default function App() {
 // STYLES
 const styles=StyleSheet.create({
   app:{flex:1,backgroundColor:C.bg,paddingTop:Platform.OS==="android"?(StatusBar.currentHeight||24):0},
+  launchScreen:{flex:1,backgroundColor:"#100019",alignItems:"center",justifyContent:"center",padding:24},
+  launchLogo:{width:150,height:150,marginBottom:18},
+  launchTitle:{color:C.white,fontSize:24,fontWeight:"900",letterSpacing:2},
+  launchSubtitle:{color:C.magenta,fontSize:11,fontWeight:"800",letterSpacing:2,marginTop:9},
   screen:{flex:1,backgroundColor:C.bg},
   authScreen:{flex:1,backgroundColor:C.bg},
   authContent:{flexGrow:1,justifyContent:"center",padding:22},
