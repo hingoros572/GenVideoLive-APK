@@ -1,4 +1,3 @@
-
 name: Build Gen Video Live APK
 
 on:
@@ -9,11 +8,8 @@ on:
 
 jobs:
   build:
-    name: Build Android APK
+    name: Build Standalone Android APK
     runs-on: ubuntu-latest
-
-    env:
-      ANDROID_HOME: /usr/local/lib/android/sdk
 
     steps:
       - name: Checkout project
@@ -33,19 +29,21 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Generate Android project
+      - name: Generate native Android project
         run: npx expo prebuild --platform android --no-install --non-interactive
 
-      - name: Build Debug APK
+      # IMPORTANT: assembleRelease bundles the JavaScript into the APK.
+      # assembleDebug is a development build and expects Metro to be running.
+      - name: Build standalone Release APK
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleRelease --no-daemon
 
-      - name: Upload APK
+      - name: Upload standalone APK
         uses: actions/upload-artifact@v4
         with:
-          name: Gen-Video-Live-Debug-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: Gen-Video-Live-Standalone-APK
+          path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
