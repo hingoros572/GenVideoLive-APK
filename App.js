@@ -132,7 +132,7 @@ function SpinningDisc({ avatarUrl }) {
 // REEL CARD
 function ReelCard({
   reel,height,liked,saved,following,isActive,
-  onLike,onDoubleLike,onSave,onFollow,onComment,onShare,onSound
+  onLike,onDoubleLike,onSave,onFollow,onComment,onShare,onSound,isOwner,onDelete
 }) {
   const lastTapRef = useRef(0);
   const touchStartRef = useRef(null);
@@ -215,6 +215,11 @@ function ReelCard({
       </View>
 
       <View style={styles.actionStack}>
+        {isOwner&&(
+          <TouchableOpacity style={styles.postMoreButton} onPress={onDelete} accessibilityRole="button" accessibilityLabel="Delete your post">
+            <Text style={styles.postMoreText}>•••</Text>
+          </TouchableOpacity>
+        )}
         <View style={styles.creatorFollow}>
           <View style={styles.creatorAvatarRing}>
             {reel.avatarUrl ? (
@@ -603,6 +608,40 @@ export default function App() {
     },100);
     return ()=>clearTimeout(timer);
   },[feedTab]);
+
+  function confirmDeletePost(post) {
+    if(!post?.id || post.ownerId!==user?.id) {
+      return Alert.alert("Delete unavailable","Aap sirf apni post delete kar sakte hain.");
+    }
+
+    Alert.alert(
+      "Delete post?",
+      "Kya aap waqai apni yeh post delete karna chahte hain? Yeh app se remove ho jayegi.",
+      [
+        {text:"Cancel",style:"cancel"},
+        {
+          text:"Delete",
+          style:"destructive",
+          onPress:async()=>{
+            try {
+              const response=await fetch(
+                `${DATABASE_URL}/posts/${post.id}.json?auth=${encodeURIComponent(user.token)}`,
+                {method:"DELETE"}
+              );
+              const result=await response.json().catch(()=>null);
+              if(!response.ok) throw new Error(result?.error||"Post delete nahi hui.");
+              setPosts(old=>old.filter(item=>item.id!==post.id));
+              setLiked(old=>{const next={...old};delete next[post.id];return next;});
+              setSaved(old=>{const next={...old};delete next[post.id];return next;});
+              Alert.alert("Deleted","Aapki post app se delete ho gayi hai.");
+            } catch(error) {
+              Alert.alert("Delete failed",error.message||"Post delete nahi ho saki. Dobara try karein.");
+            }
+          }
+        }
+      ]
+    );
+  }
 
   async function toggleLike(id) {
     const wasLiked=!!liked[id];
@@ -1367,6 +1406,8 @@ export default function App() {
                 onComment={()=>showPlaceholder("Comments")}
                 onShare={()=>shareReel(reel)}
                 onSound={()=>openSound(reel)}
+                isOwner={reel.ownerId===user?.id}
+                onDelete={()=>confirmDeletePost(reel)}
               />
             ))}
 
@@ -1691,6 +1732,16 @@ export default function App() {
                     <View style={styles.videoGridNoThumbnail}/>
                   )}
                   <View style={styles.videoGridOverlay}>
+                    {item.ownerId===user?.id&&profileTab!=="Liked"&&(
+                      <TouchableOpacity
+                        style={styles.profileDeleteButton}
+                        onPress={()=>confirmDeletePost(item)}
+                        accessibilityRole="button"
+                        accessibilityLabel="Delete your post"
+                      >
+                        <Text style={styles.profileDeleteText}>•••</Text>
+                      </TouchableOpacity>
+                    )}
                     <Text style={styles.videoGridPlay}>▶</Text>
                     <Text style={styles.videoGridCaption} numberOfLines={2}>{item.caption||""}</Text>
                     <Text style={styles.videoGridViews}>
@@ -1943,6 +1994,10 @@ const styles=StyleSheet.create({
   music:{color:C.white,fontSize:12,fontWeight:"700",maxWidth:160},
   audioArrow:{color:C.white,marginLeft:8,fontSize:18},
   actionStack:{position:"absolute",right:10,bottom:20,alignItems:"center",gap:14,zIndex:4},
+  postMoreButton:{width:34,height:30,borderRadius:15,backgroundColor:"rgba(0,0,0,0.58)",alignItems:"center",justifyContent:"center",marginBottom:2},
+  postMoreText:{color:C.white,fontSize:16,fontWeight:"900",letterSpacing:1,lineHeight:18},
+  profileDeleteButton:{position:"absolute",top:5,right:5,zIndex:5,width:27,height:25,borderRadius:13,backgroundColor:"rgba(0,0,0,0.72)",alignItems:"center",justifyContent:"center"},
+  profileDeleteText:{color:C.white,fontSize:13,fontWeight:"900",letterSpacing:1},
   creatorFollow:{alignItems:"center",marginBottom:2},
   creatorAvatarRing:{width:55,height:55,borderRadius:28,borderWidth:3,borderColor:C.gold,padding:2,backgroundColor:"#151522",alignItems:"center",justifyContent:"center",overflow:"hidden"},
   creatorAvatarImage:{width:"100%",height:"100%",borderRadius:25},
