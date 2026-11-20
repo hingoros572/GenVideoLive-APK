@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
   StyleSheet, StatusBar, Alert, Image, Animated, RefreshControl,
-  KeyboardAvoidingView, Platform, ActivityIndicator,
+  KeyboardAvoidingView, Platform, ActivityIndicator, Modal,
   Share, Dimensions
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
@@ -302,6 +302,14 @@ export default function App() {
   const [followerCount,setFollowerCount] = useState(0);
   const [liked,setLiked] = useState({});
   const [saved,setSaved] = useState({});
+  const [commentsVisible,setCommentsVisible] = useState(false);
+  const [commentPost,setCommentPost] = useState(null);
+  const [comments,setComments] = useState([]);
+  const [commentsLoading,setCommentsLoading] = useState(false);
+  const [commentText,setCommentText] = useState("");
+  const [commentImage,setCommentImage] = useState(null);
+  const [commentSending,setCommentSending] = useState(false);
+  const commentInputRef = useRef(null);
 
   const [selectedVideo,setSelectedVideo] = useState(null);
   const [caption,setCaption] = useState("");
@@ -1316,6 +1324,59 @@ export default function App() {
     }
   }
 
+  async function openComments(reel) {
+    if(reel?.allowComments===false) return Alert.alert("Comments disabled","Is video par comments band hain.");
+    setCommentPost(reel); setComments([]); setCommentText(""); setCommentImage(null);
+    setCommentsVisible(true); setCommentsLoading(true);
+    try {
+      const response=await fetch(DATABASE_URL+"/comments/"+reel.id+".json?auth="+encodeURIComponent(user.token));
+      const data=await response.json();
+      if(!response.ok) throw new Error(data?.error||"Comments load nahi hue.");
+      const list=data&&typeof data==="object" ? Object.entries(data).filter(([id,item])=>item&&typeof item==="object").map(([id,item])=>({id,...item})).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0)) : [];
+      setComments(list);
+    } catch(error) { Alert.alert("Comments",error.message||"Comments load nahi hue."); }
+    finally { setCommentsLoading(false); }
+  }
+
+  async function submitComment(value) {
+    const textValue=String(value===undefined?commentText:value).trim();
+    if(!commentPost||(!textValue&&!commentImage)||commentSending) return;
+    setCommentSending(true);
+    try {
+      let imageUrl="";
+      if(commentImage) imageUrl=await uploadImageToCloudinary(commentImage.uri,"comment");
+      const commentData={userId:user.id,username:username||user.email?.split("@")[0]||"User",profileImage:profileImage||"",text:textValue,imageUrl,createdAt:Date.now()};
+      const response=await fetch(DATABASE_URL+"/comments/"+commentPost.id+".json?auth="+encodeURIComponent(user.token),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(commentData)});
+      const result=await response.json();
+      if(!response.ok||!result?.name) throw new Error(result?.error||"Comment post nahi hua.");
+      setComments(old=>[...old,{id:result.name,...commentData}]); setCommentText(""); setCommentImage(null);
+    } catch(error) { Alert.alert("Comment error",error.message||"Comment post nahi hua."); }
+    finally { setCommentSending(false); }
+  }
+
+  async function chooseCommentImage() {
+    try {
+      const permission=await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if(!permission.granted) return Alert.alert("Permission","Gallery permission allow karein.");
+      const result=await ImagePicker.launchImageLibraryAsync({mediaTypes:["images"],allowsEditing:true,quality:0.85});
+      if(!result.canceled&&result.assets?.length) setCommentImage(result.assets[0]);
+    } catch(error) { Alert.alert("Image",error.message||"Image select nahi hui."); }
+  }
+
+  function deleteComment(comment) {
+    if(comment.userId!==user?.id) return;
+    Alert.alert("Delete comment","Kya aap apna comment delete karna chahte hain?",[
+      {text:"Cancel",style:"cancel"},
+      {text:"Delete",style:"destructive",onPress:async()=>{
+        try {
+          const response=await fetch(DATABASE_URL+"/comments/"+commentPost.id+"/"+comment.id+".json?auth="+encodeURIComponent(user.token),{method:"DELETE"});
+          if(!response.ok) throw new Error("Comment delete nahi hua.");
+          setComments(old=>old.filter(item=>item.id!==comment.id));
+        } catch(error) { Alert.alert("Delete error",error.message||"Comment delete nahi hua."); }
+      }}
+    ]);
+  }
+
   function showPlaceholder(title) {
     Alert.alert(title,"Yeh feature aglay development step mein add hoga.");
   }
@@ -1473,7 +1534,7 @@ export default function App() {
                 onDoubleLike={()=>{if(!liked[reel.id]) toggleLike(reel.id);}}
                 onSave={()=>toggleSave(reel.id)}
                 onFollow={()=>toggleFollow(reel)}
-                onComment={()=>showPlaceholder("Comments")}
+                onComment={()=>openComments(reel)}
                 onShare={()=>shareReel(reel)}
                 onSound={()=>openSound(reel)}
                 isOwner={reel.ownerId===user?.id}
@@ -1536,7 +1597,7 @@ export default function App() {
                 onDoubleLike={()=>{if(!liked[reel.id]) toggleLike(reel.id);}}
                 onSave={()=>toggleSave(reel.id)}
                 onFollow={()=>toggleFollow(reel)}
-                onComment={()=>showPlaceholder("Comments")}
+                onComment={()=>openComments(reel)}
                 onShare={()=>shareReel(reel)}
                 onSound={()=>openSound(reel)}
               />
@@ -2007,6 +2068,58 @@ export default function App() {
       {page==="Sound"&&renderSound()}
       {page==="Settings"&&renderSettings()}
 
+      <Modal visible={commentsVisible} transparent animationType="slide" statusBarTranslucent onRequestClose={()=>setCommentsVisible(false)}>
+        <View style={styles.commentsModalRoot}>
+          <TouchableOpacity style={styles.commentsBackdrop} activeOpacity={1} onPress={()=>setCommentsVisible(false)}/>
+          <KeyboardAvoidingView style={styles.commentsKeyboard} behavior={Platform.OS==="ios"?"padding":"height"} keyboardVerticalOffset={Platform.OS==="ios"?24:0}>
+            <View style={styles.commentsSheet}>
+              <View style={styles.commentsHeader}>
+                <Text style={styles.commentsTitle}>{comments.length} comments</Text>
+                <TouchableOpacity onPress={()=>setCommentsVisible(false)} style={styles.commentsClose}><Text style={styles.commentsCloseText}>×</Text></TouchableOpacity>
+              </View>
+              {commentsLoading ? <View style={styles.commentsLoading}><ActivityIndicator color={C.magenta}/><Text style={styles.commentsMuted}>Loading comments...</Text></View> : (
+                <ScrollView style={styles.commentsList} contentContainerStyle={styles.commentsListContent} keyboardShouldPersistTaps="handled">
+                  {comments.map(comment=>(
+                    <View key={comment.id} style={styles.commentRow}>
+                      {comment.profileImage ? <Image source={{uri:comment.profileImage}} style={styles.commentAvatar}/> : <View style={styles.commentAvatarFallback}><Text>👤</Text></View>}
+                      <View style={styles.commentBody}>
+                        <View style={styles.commentNameRow}>
+                          <Text style={styles.commentUsername}>{comment.username||"User"}</Text>
+                          {comment.userId===commentPost?.ownerId&&<Text style={styles.commentCreatorBadge}>Creator</Text>}
+                        </View>
+                        {!!comment.text&&<Text style={styles.commentMessage}>{comment.text}</Text>}
+                        {!!comment.imageUrl&&<Image source={{uri:comment.imageUrl}} style={styles.commentImage}/>}
+                        <View style={styles.commentActions}>
+                          <Text style={styles.commentDate}>{comment.createdAt?new Date(comment.createdAt).toLocaleDateString():""}</Text>
+                          <TouchableOpacity onPress={()=>{setCommentText("@"+(comment.username||"User")+" ");commentInputRef.current?.focus();}}><Text style={styles.commentActionText}>Reply</Text></TouchableOpacity>
+                          {comment.userId===user?.id&&<TouchableOpacity onPress={()=>deleteComment(comment)}><Text style={styles.commentDeleteText}>Delete</Text></TouchableOpacity>}
+                        </View>
+                      </View>
+                    </View>
+                  ))}
+                  {!comments.length&&<View style={styles.commentsEmpty}><Text style={{fontSize:34}}>💬</Text><Text style={styles.commentsMuted}>Abhi koi comment nahi. Pehla comment aap karein!</Text></View>}
+                </ScrollView>
+              )}
+              <View style={styles.commentComposer}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.commentEmojiRow}>
+                  {["🥰","😁","😂","😮","😉","😅"].map(emoji=><TouchableOpacity key={emoji} style={styles.commentEmojiButton} onPress={()=>submitComment(emoji)} disabled={commentSending}><Text style={styles.commentEmoji}>{emoji}</Text></TouchableOpacity>)}
+                </ScrollView>
+                {commentImage&&<View style={styles.commentImagePreviewRow}><Image source={{uri:commentImage.uri}} style={styles.commentImagePreview}/><TouchableOpacity onPress={()=>setCommentImage(null)}><Text style={styles.commentRemoveImage}>×</Text></TouchableOpacity></View>}
+                <View style={styles.commentInputRow}>
+                  {profileImage ? <Image source={{uri:profileImage}} style={styles.commentMyAvatar}/> : <View style={styles.commentMyAvatarFallback}><Text>👤</Text></View>}
+                  <TextInput ref={commentInputRef} style={styles.commentInput} value={commentText} onChangeText={setCommentText} placeholder="Add comment..." placeholderTextColor="#92929c" multiline maxLength={1000} returnKeyType="default"/>
+                  <TouchableOpacity style={styles.commentToolButton} onPress={chooseCommentImage}><Text style={styles.commentToolIcon}>▧</Text></TouchableOpacity>
+                  <TouchableOpacity style={styles.commentToolButton} onPress={()=>setCommentText(old=>old+"@")}><Text style={styles.commentToolIcon}>@</Text></TouchableOpacity>
+                  <TouchableOpacity style={[styles.commentSendButton,(!commentText.trim()&&!commentImage)&&styles.commentSendDisabled]} onPress={()=>submitComment()} disabled={commentSending||(!commentText.trim()&&!commentImage)}>
+                    {commentSending?<ActivityIndicator color="#fff" size="small"/>:<Text style={styles.commentSendText}>↑</Text>}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
       {page!=="EditProfile"&&page!=="Sound"&&page!=="Settings"&&(
         <View style={styles.bottomNav}>
           <NavItem icon="home" label="Home" active={page==="Home"} onPress={()=>setPage("Home")}/>
@@ -2082,6 +2195,48 @@ const styles=StyleSheet.create({
   postMoreText:{color:C.white,fontSize:16,fontWeight:"900",letterSpacing:1,lineHeight:18},
   profileDeleteButton:{position:"absolute",top:5,right:5,zIndex:5,width:27,height:25,borderRadius:13,backgroundColor:"rgba(0,0,0,0.72)",alignItems:"center",justifyContent:"center"},
   profileDeleteText:{color:C.white,fontSize:13,fontWeight:"900",letterSpacing:1},
+  commentsModalRoot:{flex:1,justifyContent:"flex-end"},
+  commentsBackdrop:{...StyleSheet.absoluteFillObject,backgroundColor:"rgba(0,0,0,0.58)"},
+  commentsKeyboard:{width:"100%",maxHeight:"82%"},
+  commentsSheet:{height:SCREEN_HEIGHT*0.68,maxHeight:SCREEN_HEIGHT*0.82,backgroundColor:"#fff",borderTopLeftRadius:22,borderTopRightRadius:22,overflow:"hidden"},
+  commentsHeader:{height:52,alignItems:"center",justifyContent:"center",borderBottomWidth:1,borderBottomColor:"#eee"},
+  commentsTitle:{color:"#171717",fontSize:16,fontWeight:"800"},
+  commentsClose:{position:"absolute",right:12,top:7,width:36,height:36,alignItems:"center",justifyContent:"center"},
+  commentsCloseText:{color:"#777",fontSize:29,lineHeight:32},
+  commentsList:{flex:1},
+  commentsListContent:{paddingHorizontal:15,paddingTop:14,paddingBottom:10},
+  commentsLoading:{flex:1,alignItems:"center",justifyContent:"center"},
+  commentsMuted:{color:"#777",fontSize:13,marginTop:7,textAlign:"center"},
+  commentsEmpty:{paddingVertical:35,alignItems:"center",justifyContent:"center"},
+  commentRow:{flexDirection:"row",alignItems:"flex-start",marginBottom:19,gap:10},
+  commentAvatar:{width:40,height:40,borderRadius:20,backgroundColor:"#ddd"},
+  commentAvatarFallback:{width:40,height:40,borderRadius:20,backgroundColor:"#eee",alignItems:"center",justifyContent:"center"},
+  commentBody:{flex:1},
+  commentNameRow:{flexDirection:"row",alignItems:"center",gap:7},
+  commentUsername:{color:"#777",fontSize:13,fontWeight:"800"},
+  commentCreatorBadge:{color:C.pink,fontSize:10,fontWeight:"800"},
+  commentMessage:{color:"#171717",fontSize:15,lineHeight:21,marginTop:5},
+  commentImage:{width:180,height:180,borderRadius:9,marginTop:8,resizeMode:"cover"},
+  commentActions:{flexDirection:"row",alignItems:"center",gap:18,marginTop:9},
+  commentDate:{color:"#999",fontSize:11},
+  commentActionText:{color:"#777",fontSize:12,fontWeight:"800"},
+  commentDeleteText:{color:"#d83b5c",fontSize:12,fontWeight:"800"},
+  commentComposer:{backgroundColor:"#fff",borderTopWidth:1,borderTopColor:"#eee",paddingBottom:Platform.OS==="android"?10:18},
+  commentEmojiRow:{paddingHorizontal:14,paddingTop:10,paddingBottom:8,justifyContent:"space-between",alignItems:"center",width:"100%"},
+  commentEmojiButton:{width:48,height:42,alignItems:"center",justifyContent:"center"},
+  commentEmoji:{fontSize:27},
+  commentImagePreviewRow:{flexDirection:"row",alignItems:"center",paddingHorizontal:15,paddingBottom:8,gap:10},
+  commentImagePreview:{width:55,height:55,borderRadius:8},
+  commentRemoveImage:{color:C.pink,fontSize:25,fontWeight:"800"},
+  commentInputRow:{flexDirection:"row",alignItems:"center",paddingHorizontal:12,gap:7},
+  commentMyAvatar:{width:38,height:38,borderRadius:19},
+  commentMyAvatarFallback:{width:38,height:38,borderRadius:19,backgroundColor:"#eee",alignItems:"center",justifyContent:"center"},
+  commentInput:{flex:1,minHeight:48,maxHeight:100,backgroundColor:"#f1f1f1",borderRadius:23,paddingHorizontal:15,paddingVertical:12,color:"#111",fontSize:14,textAlignVertical:"center"},
+  commentToolButton:{width:27,alignItems:"center",justifyContent:"center"},
+  commentToolIcon:{color:"#111",fontSize:22,fontWeight:"800"},
+  commentSendButton:{width:43,height:43,borderRadius:22,backgroundColor:C.pink,alignItems:"center",justifyContent:"center"},
+  commentSendDisabled:{backgroundColor:"#e6a5b4"},
+  commentSendText:{color:"#fff",fontSize:25,fontWeight:"900",lineHeight:28},
   creatorFollow:{alignItems:"center",marginBottom:2},
   creatorAvatarRing:{width:55,height:55,borderRadius:28,borderWidth:3,borderColor:C.gold,padding:2,backgroundColor:"#151522",alignItems:"center",justifyContent:"center",overflow:"hidden"},
   creatorAvatarImage:{width:"100%",height:"100%",borderRadius:25},
