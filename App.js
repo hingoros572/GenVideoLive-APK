@@ -134,12 +134,13 @@ function SpinningDisc({ avatarUrl }) {
 // REEL CARD
 function ReelCard({
   reel,height,liked,saved,following,isActive,
-  onLike,onDoubleLike,onSave,onFollow,onComment,onShare,onSound,isOwner,onDelete
+  onLike,onDoubleLike,onSave,onFollow,onComment,onCommentLongPress,onQuickReaction,onShare,onSound,isOwner,onDelete
 }) {
   const lastTapRef = useRef(0);
   const touchStartRef = useRef(null);
   const heartScale = useRef(new Animated.Value(0.35)).current;
   const heartOpacity = useRef(new Animated.Value(0)).current;
+  const [showReactionPicker,setShowReactionPicker] = useState(false);
 
   function handleVideoTouchStart(event) {
     const {pageX,pageY} = event.nativeEvent;
@@ -242,10 +243,27 @@ function ReelCard({
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.actionButton} onPress={onComment}>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={()=>{setShowReactionPicker(false);onComment?.();}}
+          onLongPress={()=>setShowReactionPicker(true)}
+          delayLongPress={450}
+        >
           <Text style={styles.actionIcon}>💬</Text>
           <Text style={styles.actionCount}>Comment</Text>
         </TouchableOpacity>
+        {showReactionPicker&&(
+          <>
+            <TouchableOpacity style={styles.reactionDismissArea} activeOpacity={1} onPress={()=>setShowReactionPicker(false)}/>
+            <View style={styles.quickReactionPicker}>
+              {["🥰","😁","😂","😮"].map(emoji=>(
+                <TouchableOpacity key={emoji} style={styles.quickReactionButton} onPress={()=>{setShowReactionPicker(false);onQuickReaction?.(emoji);}}>
+                  <Text style={styles.quickReactionEmoji}>{emoji}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
 
         <TouchableOpacity style={styles.actionButton} onPress={onSave}>
           <Text style={styles.actionIcon}>{saved?"🔖":"📑"}</Text>
@@ -1338,6 +1356,17 @@ export default function App() {
     finally { setCommentsLoading(false); }
   }
 
+  async function postQuickReaction(reel,emoji) {
+    if(reel?.allowComments===false) return Alert.alert("Comments disabled","Is video par comments band hain.");
+    try {
+      const commentData={userId:user.id,username:username||user.email?.split("@")[0]||"User",profileImage:profileImage||"",text:emoji,imageUrl:"",createdAt:Date.now()};
+      const response=await fetch(DATABASE_URL+"/comments/"+reel.id+".json?auth="+encodeURIComponent(user.token),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(commentData)});
+      const result=await response.json();
+      if(!response.ok||!result?.name) throw new Error(result?.error||"Emoji comment post nahi hua.");
+      if(commentsVisible&&commentPost?.id===reel.id) setComments(old=>[...old,{id:result.name,...commentData}]);
+    } catch(error) { Alert.alert("Emoji comment",error.message||"Emoji comment post nahi hua."); }
+  }
+
   async function submitComment(value) {
     const textValue=String(value===undefined?commentText:value).trim();
     if(!commentPost||(!textValue&&!commentImage)||commentSending) return;
@@ -1535,6 +1564,7 @@ export default function App() {
                 onSave={()=>toggleSave(reel.id)}
                 onFollow={()=>toggleFollow(reel)}
                 onComment={()=>openComments(reel)}
+                onQuickReaction={(emoji)=>postQuickReaction(reel,emoji)}
                 onShare={()=>shareReel(reel)}
                 onSound={()=>openSound(reel)}
                 isOwner={reel.ownerId===user?.id}
@@ -1598,6 +1628,7 @@ export default function App() {
                 onSave={()=>toggleSave(reel.id)}
                 onFollow={()=>toggleFollow(reel)}
                 onComment={()=>openComments(reel)}
+                onQuickReaction={(emoji)=>postQuickReaction(reel,emoji)}
                 onShare={()=>shareReel(reel)}
                 onSound={()=>openSound(reel)}
               />
@@ -2101,9 +2132,6 @@ export default function App() {
                 </ScrollView>
               )}
               <View style={styles.commentComposer}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.commentEmojiRow}>
-                  {["🥰","😁","😂","😮","😉","😅"].map(emoji=><TouchableOpacity key={emoji} style={styles.commentEmojiButton} onPress={()=>submitComment(emoji)} disabled={commentSending}><Text style={styles.commentEmoji}>{emoji}</Text></TouchableOpacity>)}
-                </ScrollView>
                 {commentImage&&<View style={styles.commentImagePreviewRow}><Image source={{uri:commentImage.uri}} style={styles.commentImagePreview}/><TouchableOpacity onPress={()=>setCommentImage(null)}><Text style={styles.commentRemoveImage}>×</Text></TouchableOpacity></View>}
                 <View style={styles.commentInputRow}>
                   {profileImage ? <Image source={{uri:profileImage}} style={styles.commentMyAvatar}/> : <View style={styles.commentMyAvatarFallback}><Text>👤</Text></View>}
@@ -2195,6 +2223,10 @@ const styles=StyleSheet.create({
   postMoreText:{color:C.white,fontSize:16,fontWeight:"900",letterSpacing:1,lineHeight:18},
   profileDeleteButton:{position:"absolute",top:5,right:5,zIndex:5,width:27,height:25,borderRadius:13,backgroundColor:"rgba(0,0,0,0.72)",alignItems:"center",justifyContent:"center"},
   profileDeleteText:{color:C.white,fontSize:13,fontWeight:"900",letterSpacing:1},
+  reactionDismissArea:{position:"absolute",top:-2000,left:-1000,right:-1000,bottom:-1000,zIndex:5},
+  quickReactionPicker:{position:"absolute",right:58,bottom:235,zIndex:7,flexDirection:"row",alignItems:"center",backgroundColor:"#fff",borderRadius:40,paddingHorizontal:8,paddingVertical:7,elevation:12,shadowColor:"#000",shadowOpacity:0.25,shadowRadius:12,shadowOffset:{width:0,height:4}},
+  quickReactionButton:{width:48,height:52,alignItems:"center",justifyContent:"center"},
+  quickReactionEmoji:{fontSize:34},
   commentsModalRoot:{flex:1,justifyContent:"flex-end"},
   commentsBackdrop:{...StyleSheet.absoluteFillObject,backgroundColor:"rgba(0,0,0,0.58)"},
   commentsKeyboard:{width:"100%",maxHeight:"82%"},
