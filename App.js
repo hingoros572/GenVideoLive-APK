@@ -509,13 +509,15 @@ export default function App() {
       );
       const data = await response.json();
       if(!response.ok) throw new Error("Following load nahi hui.");
-      setFollowing(data&&typeof data==="object"?data:{});
+      const nextFollowing=data&&typeof data==="object"?data:{};
+      setFollowing(nextFollowing);
+      await loadMutualFriends(nextFollowing);
     } catch(error) {
       console.log("FOLLOWING ERROR:",error.message);
     }
   }
 
-  async function loadMutualFriends() {
+  async function loadMutualFriends(followingData=following) {
     if(!user?.token) return;
     try {
       const response=await fetch(
@@ -524,10 +526,10 @@ export default function App() {
       const data=await response.json();
       if(!response.ok) throw new Error("Friends list load nahi hui.");
       const followers=data&&typeof data==="object"?data:{};
-      const mutualIds=Object.keys(following).filter(id=>!!followers[id]&&id!==user.id);
+      const mutualIds=Object.keys(followingData).filter(id=>!!followers[id]&&id!==user.id);
       const list=mutualIds.map(id=>({
         id,
-        username:userProfiles[id]?.username||following[id]?.username||followers[id]?.username||"Friend",
+        username:userProfiles[id]?.username||followingData[id]?.username||followers[id]?.username||"Friend",
         profileImage:userProfiles[id]?.profileImage||"",
       }));
       setMutualFriends(list);
@@ -547,7 +549,6 @@ export default function App() {
         loadLikeSave(),
         loadMyProfile()
       ]);
-      await loadMutualFriends();
     } finally {
       setRefreshing(false);
     }
@@ -560,7 +561,6 @@ export default function App() {
       loadFollowerCount();
       loadFollowing();
       loadLikeSave();
-      loadMutualFriends();
     }
   },[user]);
 
