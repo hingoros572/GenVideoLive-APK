@@ -215,11 +215,6 @@ function ReelCard({
       </View>
 
       <View style={styles.actionStack}>
-        {isOwner&&(
-          <TouchableOpacity style={styles.postMoreButton} onPress={onDelete} accessibilityRole="button" accessibilityLabel="Delete your post">
-            <Text style={styles.postMoreText}>•••</Text>
-          </TouchableOpacity>
-        )}
         <View style={styles.creatorFollow}>
           <View style={styles.creatorAvatarRing}>
             {reel.avatarUrl ? (
@@ -259,6 +254,11 @@ function ReelCard({
           <Text style={styles.actionIcon}>↗️</Text>
           <Text style={styles.actionCount}>Share</Text>
         </TouchableOpacity>
+        {isOwner&&(
+          <TouchableOpacity style={styles.postMoreButton} onPress={onDelete} accessibilityRole="button" accessibilityLabel="Delete your post">
+            <Text style={styles.postMoreText}>•••</Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity style={styles.discButton} onPress={onSound}>
           <SpinningDisc avatarUrl={reel.avatarUrl}/>
