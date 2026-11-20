@@ -58,9 +58,41 @@ function Button({ title, onPress, secondary, disabled, style }) {
 }
 
 function NavItem({ icon, label, active, onPress }) {
+  const iconColor = active ? C.white : "#d8d8e2";
   return (
-    <TouchableOpacity style={styles.navItem} onPress={onPress}>
-      <Text style={[styles.navIcon,{color:active?C.pink:C.white}]}>{icon}</Text>
+    <TouchableOpacity style={styles.navItem} onPress={onPress} activeOpacity={0.75}>
+      {icon === "create" ? (
+        <View style={styles.createNavIcon}>
+          <View style={styles.createNavBlue}/>
+          <View style={styles.createNavPink}/>
+          <View style={styles.createNavWhite}>
+            <Text style={styles.createNavPlus}>+</Text>
+          </View>
+        </View>
+      ) : icon === "home" ? (
+        <View style={styles.navHomeIcon}>
+          <View style={[styles.navHomeRoof,{borderColor:iconColor}]}/>
+          <View style={[styles.navHomeBody,{borderColor:iconColor}]}>
+            <View style={[styles.navHomeDoor,{backgroundColor:active?C.pink:iconColor}]}/>
+          </View>
+        </View>
+      ) : icon === "friends" ? (
+        <View style={styles.navPeopleIcon}>
+          <View style={[styles.navPersonHead,{backgroundColor:iconColor,left:7}]}/>
+          <View style={[styles.navPersonHeadSmall,{backgroundColor:iconColor,right:3}]}/>
+          <View style={[styles.navPersonBody,{backgroundColor:iconColor,left:1}]}/>
+          <View style={[styles.navPersonBodySmall,{backgroundColor:iconColor,right:0}]}/>
+        </View>
+      ) : icon === "inbox" ? (
+        <View style={[styles.navInboxIcon,{borderColor:iconColor}]}>
+          <View style={[styles.navInboxFlap,{borderColor:iconColor}]}/>
+        </View>
+      ) : (
+        <View style={styles.navProfileIcon}>
+          <View style={[styles.navProfileHead,{borderColor:iconColor}]}/>
+          <View style={[styles.navProfileShoulders,{borderColor:iconColor}]}/>
+        </View>
+      )}
       <Text style={[styles.navLabel,{color:active?C.pink:C.gray}]}>{label}</Text>
     </TouchableOpacity>
   );
@@ -1846,12 +1878,12 @@ export default function App() {
 
       {page!=="EditProfile"&&page!=="Sound"&&page!=="Settings"&&(
         <View style={styles.bottomNav}>
-          <NavItem icon="⌂" label="Home" active={page==="Home"} onPress={()=>setPage("Home")}/>
-          <NavItem icon="♧" label="Friends" active={page==="Explore"} onPress={()=>setPage("Explore")}/>
-          <NavItem icon="＋" label="Create+" active={page==="Create"} onPress={()=>setPage("Create")}/>
-          <NavItem icon="✉" label="Inbox" active={page==="Inbox"} onPress={()=>setPage("Inbox")}/>
+          <NavItem icon="home" label="Home" active={page==="Home"} onPress={()=>setPage("Home")}/>
+          <NavItem icon="friends" label="Friends" active={page==="Explore"} onPress={()=>setPage("Explore")}/>
+          <NavItem icon="create" label="Create+" active={page==="Create"} onPress={()=>setPage("Create")}/>
+          <NavItem icon="inbox" label="Inbox" active={page==="Inbox"} onPress={()=>setPage("Inbox")}/>
           <NavItem
-            icon="👤"
+            icon="profile"
             label="Profile"
             active={page==="Profile"}
             onPress={()=>{
@@ -1930,8 +1962,26 @@ const styles=StyleSheet.create({
   emptyText:{color:C.gray,textAlign:"center",marginTop:15,fontSize:14},
   bottomNav:{height:Platform.OS==="android"?90:66,paddingBottom:Platform.OS==="android"?24:0,backgroundColor:"#151522",borderTopWidth:1,borderTopColor:"#2b293b",flexDirection:"row",justifyContent:"space-around",alignItems:"center",paddingHorizontal:2},
   navItem:{alignItems:"center",justifyContent:"center",flex:1},
-  navIcon:{fontSize:22,fontWeight:"800"},
-  navLabel:{fontSize:9,marginTop:2,fontWeight:"700"},
+  navLabel:{fontSize:9,marginTop:5,fontWeight:"700"},
+  navHomeIcon:{width:27,height:25,alignItems:"center",justifyContent:"flex-end"},
+  navHomeRoof:{position:"absolute",top:1,width:17,height:17,borderLeftWidth:2.3,borderTopWidth:2.3,transform:[{rotate:45}],borderRadius:2},
+  navHomeBody:{width:20,height:15,borderWidth:2.3,borderTopWidth:0,borderRadius:3,alignItems:"center",justifyContent:"flex-end"},
+  navHomeDoor:{width:5,height:9,borderTopLeftRadius:2,borderTopRightRadius:2},
+  navPeopleIcon:{width:29,height:26,position:"relative"},
+  navPersonHead:{position:"absolute",top:1,width:9,height:9,borderRadius:5},
+  navPersonHeadSmall:{position:"absolute",top:4,width:7,height:7,borderRadius:4,opacity:0.8},
+  navPersonBody:{position:"absolute",bottom:0,width:18,height:12,borderTopLeftRadius:10,borderTopRightRadius:10},
+  navPersonBodySmall:{position:"absolute",bottom:0,width:12,height:9,borderTopLeftRadius:8,borderTopRightRadius:8,opacity:0.8},
+  navInboxIcon:{width:25,height:21,borderWidth:2.2,borderRadius:5,alignItems:"center",justifyContent:"center",overflow:"hidden"},
+  navInboxFlap:{position:"absolute",top:-7,width:15,height:15,borderLeftWidth:2,borderBottomWidth:2,transform:[{rotate:-45}]},
+  navProfileIcon:{width:27,height:27,alignItems:"center",justifyContent:"flex-end"},
+  navProfileHead:{position:"absolute",top:0,width:10,height:10,borderRadius:6,borderWidth:2.2},
+  navProfileShoulders:{width:23,height:13,borderWidth:2.2,borderBottomWidth:0,borderTopLeftRadius:14,borderTopRightRadius:14},
+  createNavIcon:{width:38,height:27,alignItems:"center",justifyContent:"center"},
+  createNavBlue:{position:"absolute",width:34,height:25,borderRadius:7,backgroundColor:"#25f4ee",left:0,top:1},
+  createNavPink:{position:"absolute",width:34,height:25,borderRadius:7,backgroundColor:"#fe2c55",right:0,top:1},
+  createNavWhite:{width:34,height:25,borderRadius:7,backgroundColor:"#ffffff",alignItems:"center",justifyContent:"center"},
+  createNavPlus:{fontSize:25,lineHeight:27,color:"#111111",fontWeight:"500",marginTop:-2},
   pageScroll:{flex:1,backgroundColor:C.bg},
   pageContent:{padding:16,paddingBottom:35},
   pageTitle:{color:C.white,fontSize:26,fontWeight:"900",marginBottom:7},
