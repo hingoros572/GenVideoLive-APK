@@ -22,6 +22,15 @@
     },
     "plugins": [
       [
+        "expo-splash-screen",
+        {
+          "image": "./assets/icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#100019"
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "photosPermission": "Gen Video Live ko aapki gallery se photos aur videos select karne ki ijazat dein.",
@@ -30,6 +39,11 @@
         }
       ]
     ],
-    "icon": "./assets/icon.png"
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#100019"
+    }
   }
 }
