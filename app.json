@@ -37,7 +37,8 @@
           "cameraPermission": "Gen Video Live ko video record karne ke liye camera ki ijazat dein.",
           "microphonePermission": "Gen Video Live ko video ke sath audio record karne ki ijazat dein."
         }
-      ]
+      ],
+      "@dahab-tech/react-native-media-editor"
     ],
     "icon": "./assets/icon.png",
     "splash": {
