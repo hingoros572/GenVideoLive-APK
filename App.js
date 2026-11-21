@@ -606,17 +606,32 @@ export default function App() {
 
       setPosts(list);
 
-      // Public creator profiles are used to show each creator's own photo.
-      const profileResponse=await fetch(
-        `${DATABASE_URL}/users.json?auth=${encodeURIComponent(user.token)}`
-      );
-      const profileData=await profileResponse.json();
-
-      if(profileResponse.ok&&profileData&&typeof profileData==="object") {
-        setUserProfiles(profileData);
+      // Load each post owner's profile by UID. A broad /users.json read can be
+      // blocked by Firebase rules even when individual public profile reads work.
+      const ownerIds=[...new Set(list.map(post=>post.ownerId).filter(Boolean))];
+      const profileResults=await Promise.all(ownerIds.map(async ownerId=>{
+        try {
+          const profileResponse=await fetch(
+            `${DATABASE_URL}/users/${encodeURIComponent(ownerId)}.json?auth=${encodeURIComponent(user.token)}`
+          );
+          const profileData=await profileResponse.json();
+          if(profileResponse.ok&&profileData&&typeof profileData==="object") {
+            return [ownerId,profileData];
+          }
+        } catch(profileError) {
+          console.log("CREATOR PROFILE LOAD ERROR:",ownerId,profileError.message);
+        }
+        return null;
+      }));
+      const profilesByOwner={};
+      profileResults.forEach(entry=>{
+        if(entry) profilesByOwner[entry[0]]=entry[1];
+      });
+      if(Object.keys(profilesByOwner).length) {
+        setUserProfiles(old=>({...old,...profilesByOwner}));
       }
 
-      console.log("POSTS LOADED:",list.length);
+      console.log("POSTS LOADED:",list.length,"CREATOR PROFILES:",Object.keys(profilesByOwner).length);
     } catch(error) {
       console.log("POST LOAD ERROR:",error.message);
       Alert.alert(
