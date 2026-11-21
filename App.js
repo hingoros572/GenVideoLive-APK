@@ -133,7 +133,7 @@ function SpinningDisc({ avatarUrl }) {
 
 // REEL CARD
 function ReelCard({
-  reel,height,liked,saved,following,isActive,showViews=true,commentCount=0,saveCount=0,
+  reel,height,liked,saved,following,isActive,showViews=true,likeCount,commentCount=0,saveCount=0,
   onLike,onDoubleLike,onSave,onFollow,onComment,onCommentLongPress,onQuickReaction,onShare,onSound,isOwner,onDelete
 }) {
   const lastTapRef = useRef(0);
@@ -240,7 +240,7 @@ function ReelCard({
         <TouchableOpacity style={styles.actionButton} onPress={onLike}>
           <Text style={styles.actionIcon}>{liked?"❤️":"🤍"}</Text>
           <Text style={styles.actionCount}>
-            {(Number(reel.likes||0)+(liked?1:0)).toLocaleString()}
+            {Number(likeCount??(Number(reel.likes||0)+(liked?1:0))).toLocaleString()}
           </Text>
         </TouchableOpacity>
 
@@ -324,6 +324,7 @@ export default function App() {
   const [followerCount,setFollowerCount] = useState(0);
   const [liked,setLiked] = useState({});
   const [saved,setSaved] = useState({});
+  const [likeCounts,setLikeCounts] = useState({});
   const [commentCounts,setCommentCounts] = useState({});
   const [saveCounts,setSaveCounts] = useState({});
   const [commentsVisible,setCommentsVisible] = useState(false);
@@ -547,6 +548,9 @@ export default function App() {
         setEditProfileImage(data.profileImage||"");
         setEditCoverImage(data.coverImage||"");
         setUserProfiles(old=>({...old,[user.id]:data}));
+        await AsyncStorage.setItem(SESSION_STORAGE_KEY,JSON.stringify({
+          ...user,username:data.username||username||user.email?.split("@")[0]||"User"
+        })).catch(error=>console.log("PROFILE SESSION SYNC ERROR:",error.message));
       } else {
         setEditUsername(username);
         setEditBio(bio);
@@ -596,7 +600,7 @@ export default function App() {
       const list = data&&typeof data==="object"
         ? Object.entries(data)
             .filter(([id,post])=>post&&typeof post==="object")
-            .map(([id,post])=>({id,...post}))
+            .map(([id,post])=>({id,...post,ownerId:post.ownerId||post.userId||post.uid||""}))
             .sort((a,b)=>(b.createdAt||0)-(a.createdAt||0))
         : [];
 
@@ -648,14 +652,17 @@ export default function App() {
     if(!user?.token) return;
 
     try {
-      const [commentsResponse,savesResponse]=await Promise.all([
+      const [commentsResponse,savesResponse,likesResponse]=await Promise.all([
         fetch(`${DATABASE_URL}/comments.json?auth=${encodeURIComponent(user.token)}`),
-        fetch(`${DATABASE_URL}/userSaves.json?auth=${encodeURIComponent(user.token)}`)
+        fetch(`${DATABASE_URL}/userSaves.json?auth=${encodeURIComponent(user.token)}`),
+        fetch(`${DATABASE_URL}/userLikes.json?auth=${encodeURIComponent(user.token)}`)
       ]);
       const commentsData=await commentsResponse.json();
       const savesData=await savesResponse.json();
+      const likesData=await likesResponse.json();
       if(!commentsResponse.ok) throw new Error("Comment counts load nahi hue.");
       if(!savesResponse.ok) throw new Error("Save counts load nahi hue.");
+      if(!likesResponse.ok) throw new Error("Like counts load nahi hue.");
 
       const nextCommentCounts={};
       if(commentsData&&typeof commentsData==="object") {
@@ -676,8 +683,19 @@ export default function App() {
           }
         });
       }
+      const nextLikeCounts={};
+      if(likesData&&typeof likesData==="object") {
+        Object.values(likesData).forEach(userLikes=>{
+          if(userLikes&&typeof userLikes==="object") {
+            Object.entries(userLikes).forEach(([postId,isLiked])=>{
+              if(isLiked) nextLikeCounts[postId]=(nextLikeCounts[postId]||0)+1;
+            });
+          }
+        });
+      }
       setCommentCounts(nextCommentCounts);
       setSaveCounts(nextSaveCounts);
+      setLikeCounts(nextLikeCounts);
     } catch(error) {
       console.log("ENGAGEMENT COUNTS LOAD ERROR:",error.message);
     }
@@ -811,6 +829,7 @@ export default function App() {
     const nextValue=!wasLiked;
 
     setLiked(old=>({...old,[id]:nextValue}));
+    setLikeCounts(old=>({...old,[id]:Math.max(0,(old[id]||0)+(nextValue?1:-1))}));
 
     if(id.startsWith("demo")) return;
     if(!user?.token) return;
@@ -827,6 +846,7 @@ export default function App() {
       if(!response.ok) throw new Error("Like save nahi hua.");
     } catch(error) {
       setLiked(old=>({...old,[id]:wasLiked}));
+      setLikeCounts(old=>({...old,[id]:Math.max(0,(old[id]||0)+(wasLiked?1:-1))}));
       Alert.alert("Like Error","Like Firebase mein save nahi hua. Database Rules check karein.");
     }
   }
@@ -1184,6 +1204,7 @@ export default function App() {
 
       const postData={
         ownerId:user.id,
+        userId:user.id,
         creator:username,
         avatarUrl:profileImage||"",
         location:location||"",
@@ -1347,6 +1368,12 @@ export default function App() {
       setEditCoverImage(profileData.coverImage);
       setUser(old=>({...old,token:data.idToken||old.token}));
       setUserProfiles(old=>({...old,[user.id]:profileData}));
+      await AsyncStorage.setItem(SESSION_STORAGE_KEY,JSON.stringify({
+        ...user,
+        token:data.idToken||user.token,
+        refreshToken:data.refreshToken||user.refreshToken,
+        username:profileData.username
+      }));
 
       setPage("Profile");
       Alert.alert("Saved","Aapki profile save ho gayi hai.");
@@ -1642,6 +1669,7 @@ export default function App() {
                 isActive={page==="Home"&&index===activeReelIndex}
                 liked={!!liked[reel.id]}
                 saved={!!saved[reel.id]}
+                likeCount={likeCounts[reel.id]??Number(reel.likes||0)}
                 commentCount={commentCounts[reel.id]||0}
                 saveCount={saveCounts[reel.id]||0}
                 following={!!(reel.ownerId&&following[reel.ownerId])}
@@ -1708,6 +1736,7 @@ export default function App() {
                 isActive={page==="Explore"}
                 liked={!!liked[reel.id]}
                 saved={!!saved[reel.id]}
+                likeCount={likeCounts[reel.id]??Number(reel.likes||0)}
                 following={!!following[reel.ownerId]}
                 onLike={()=>toggleLike(reel.id)}
                 onDoubleLike={()=>{if(!liked[reel.id]) toggleLike(reel.id);}}
@@ -1923,7 +1952,7 @@ export default function App() {
             <View style={styles.statDivider}/>
             <View style={styles.stat}><Text style={styles.statNumber}>{Object.keys(following).length}</Text><Text style={styles.statLabel}>Following</Text></View>
             <View style={styles.statDivider}/>
-            <View style={styles.stat}><Text style={styles.statNumber}>{Object.values(liked).filter(Boolean).length}</Text><Text style={styles.statLabel}>Likes</Text></View>
+            <View style={styles.stat}><Text style={styles.statNumber}>{myPosts.reduce((total,post)=>total+(likeCounts[post.id]||0),0)}</Text><Text style={styles.statLabel}>Likes</Text></View>
           </View>
 
           <View style={styles.profileButtons}>
@@ -2026,6 +2055,7 @@ export default function App() {
           isActive={true}
           liked={!!liked[reel.id]}
           saved={!!saved[reel.id]}
+          likeCount={likeCounts[reel.id]??Number(reel.likes||0)}
           following={!!(reel.ownerId&&following[reel.ownerId])}
           onLike={()=>toggleLike(reel.id)}
           onDoubleLike={()=>{if(!liked[reel.id]) toggleLike(reel.id);}}
