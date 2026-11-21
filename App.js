@@ -1933,12 +1933,9 @@ export default function App() {
                         <Text style={styles.profileDeleteText}>•••</Text>
                       </TouchableOpacity>
                     )}
-                    <Text style={styles.videoGridPlay}>▶</Text>
-                    <Text style={styles.videoGridCaption} numberOfLines={2}>{item.caption||""}</Text>
-                    <Text style={styles.videoGridViews}>
-                      {profileTab==="Liked"?"❤️ Liked":item.privacy==="Private"?"🔒 Private":"♫ Public"}
-                    </Text>
-                    <View style={styles.videoGridViewBadge}><Text style={styles.videoGridViewText}>◉ {Object.keys(item.viewsByUser||{}).length}</Text></View>
+                    <View style={styles.videoGridViewBadge}>
+                      <Text style={styles.videoGridViewText}>▷ {Object.keys(item.viewsByUser||{}).length}</Text>
+                    </View>
                   </View>
                 </View>
               </TouchableOpacity>
@@ -2466,7 +2463,7 @@ const styles=StyleSheet.create({
   videoGridPlay:{color:C.white,fontSize:27,textShadowColor:"#000",textShadowRadius:5},
   videoGridCaption:{color:C.white,fontSize:9,textAlign:"center",marginTop:5},
   videoGridViews:{color:C.magenta,fontSize:9,marginTop:4},
-  videoGridViewBadge:{position:"absolute",right:5,bottom:5,backgroundColor:"rgba(0,0,0,0.62)",paddingHorizontal:5,paddingVertical:3,borderRadius:9},
+  videoGridViewBadge:{position:"absolute",left:6,bottom:6,backgroundColor:"rgba(0,0,0,0.48)",paddingHorizontal:5,paddingVertical:3,borderRadius:8},
   videoGridViewText:{color:C.white,fontSize:9,fontWeight:"800"},
   emptyProfileVideos:{alignItems:"center",justifyContent:"center",padding:35,minHeight:220},
   emptyProfileTitle:{color:C.white,fontSize:17,fontWeight:"900",marginTop:12,marginBottom:5},
