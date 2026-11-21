@@ -1,7 +1,8 @@
 diff --git a/node_modules/expo-video/android/src/main/java/expo/modules/video/player/DefaultLoadControl.java b/node_modules/expo-video/android/src/main/java/expo/modules/video/player/DefaultLoadControl.java
+index 0000000..0000000 100644
 --- a/node_modules/expo-video/android/src/main/java/expo/modules/video/player/DefaultLoadControl.java
 +++ b/node_modules/expo-video/android/src/main/java/expo/modules/video/player/DefaultLoadControl.java
-@@ --1,4 +-1,9 @@
+@@ -391,4 +391,9 @@
    @Override
    public Allocator getAllocator() {
      return allocator;
