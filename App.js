@@ -1779,9 +1779,9 @@ export default function App() {
 
   function renderLogin() {
     return (
-      <KeyboardAvoidingView style={styles.authScreen} behavior={Platform.OS==="ios"?"padding":undefined}>
+      <KeyboardAvoidingView style={styles.authScreen} behavior={Platform.OS==="ios"?"padding":"height"} keyboardVerticalOffset={0}>
         <StatusBar backgroundColor={C.bg} barStyle="light-content"/>
-        <ScrollView contentContainerStyle={styles.authContent} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={styles.authContent} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" scrollsChildToFocus={true} showsVerticalScrollIndicator={true}>
           <Text style={styles.crown}>👑</Text>
           <Text style={styles.authTitle}>Gen Video Live</Text>
           <Text style={styles.authSubtitle}>Watch • Create • Connect</Text>
@@ -2765,7 +2765,7 @@ const styles=StyleSheet.create({
   launchSubtitle:{color:C.magenta,fontSize:11,fontWeight:"800",letterSpacing:2,marginTop:9},
   screen:{flex:1,backgroundColor:C.bg},
   authScreen:{flex:1,backgroundColor:C.bg},
-  authContent:{flexGrow:1,justifyContent:"center",padding:22},
+  authContent:{flexGrow:1,justifyContent:"center",padding:22,paddingBottom:42},
   crown:{fontSize:54,textAlign:"center",marginBottom:8},
   authTitle:{color:C.white,fontSize:30,fontWeight:"900",textAlign:"center"},
   authSubtitle:{color:C.magenta,textAlign:"center",marginTop:7,marginBottom:28},
