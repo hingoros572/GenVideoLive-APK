@@ -776,6 +776,12 @@ export default function App() {
       if(!b.ok)throw new Error("Recipient Inbox update nahi hua. Rules check karein.");
       const response=await fetch(`${DATABASE_URL}/messages/${encodeURIComponent(chatId)}.json?auth=${encodeURIComponent(user.token)}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(message)});
       const result=await response.json();if(!response.ok||!result?.name)throw new Error(result?.error||"Video message save nahi hua.");
+      const sharePath=`${DATABASE_URL}/shares/${post.id}/${user.id}.json?auth=${encodeURIComponent(user.token)}`;
+      const shareCheck=await fetch(sharePath),shareExisting=await shareCheck.json();
+      if(!shareCheck.ok)throw new Error("Share record check nahi ho saka.");
+      const shareSave=await fetch(sharePath,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({userId:user.id,destination:"in_app",firstSharedAt:shareExisting?.firstSharedAt||now,lastSharedAt:now,shareAttempts:Number(shareExisting?.shareAttempts||0)+1})});
+      if(!shareSave.ok)throw new Error("Message bheja gaya, lekin Share count save nahi hua.");
+      if(!shareExisting)setShareCounts(old=>({...old,[post.id]:(old[post.id]||0)+1}));
       setUserChats(old=>({...old,[chatId]:mine}));setShareModalVisible(false);setShareTargetPost(null);setRecipientQuery("");setRecipientResults([]);setMessageText("");
       Alert.alert("Sent","Video "+(recipient.username||"user")+" ko bhej di gayi.");
     } catch(error){Alert.alert("Send failed",error.message||"Video send nahi hui.");}
@@ -1884,7 +1890,7 @@ export default function App() {
   function renderInbox() {
     if(selectedChat)return (
       <View style={styles.inboxPage}>
-        <View style={styles.inboxHeader}><TouchableOpacity onPress={()=>setSelectedChat(null)}><Text style={styles.inboxBack}>‹</Text></TouchableOpacity><Text style={styles.inboxTitle}>@{selectedChat.otherUsername||"User"}</Text></View>
+        <View style={styles.inboxHeader}><TouchableOpacity onPress={()=>setSelectedChat(null)}><Text style={styles.inboxBack}>‹</Text></TouchableOpacity><Text style={styles.inboxTitle}>@{selectedChat.otherUsername||"User"}</Text><TouchableOpacity onPress={()=>openInboxConversation(selectedChat)}><Text style={styles.recipientSend}>Refresh ↻</Text></TouchableOpacity></View>
         {conversationLoading?<ActivityIndicator color={C.magenta} style={{marginTop:24}}/>:<ScrollView style={styles.messageList} contentContainerStyle={styles.messageListContent}>
           {conversationMessages.map(message=><View key={message.id} style={[styles.messageBubble,message.senderId===user.id?styles.myMessageBubble:styles.theirMessageBubble]}>
             {message.type==="video"&&message.post&&<TouchableOpacity style={styles.messageVideoCard} onPress={()=>{const item=allReels.find(p=>p.id===message.post.postId);if(item){setPlayingPost(item);setPage("Home");}else Alert.alert("Video unavailable","Original video abhi load nahi hui.");}}>
@@ -1897,7 +1903,7 @@ export default function App() {
       </View>
     );
     const chats=Object.entries(userChats).map(([chatId,item])=>({chatId,...item})).sort((a,b)=>(b.lastMessageAt||0)-(a.lastMessageAt||0));
-    return <View style={styles.inboxPage}><View style={styles.inboxHeader}><Text style={styles.inboxTitle}>Inbox</Text></View><ScrollView contentContainerStyle={styles.inboxList}>
+    return <View style={styles.inboxPage}><View style={styles.inboxHeader}><Text style={styles.inboxTitle}>Inbox</Text><TouchableOpacity onPress={loadSocialRecords}><Text style={styles.recipientSend}>Refresh ↻</Text></TouchableOpacity></View><ScrollView contentContainerStyle={styles.inboxList}>
       {chats.map(chat=><TouchableOpacity key={chat.chatId} style={styles.inboxChatRow} onPress={()=>openInboxConversation(chat)}>
         <View style={styles.inboxAvatar}><Text>👤</Text></View><View style={{flex:1}}><Text style={styles.inboxChatName}>@{chat.otherUsername||"User"}</Text><Text style={styles.inboxPreview}>{chat.lastMessageType==="video"?"🎬 Video":chat.lastMessageText||"Message"}</Text></View><Text style={styles.inboxTime}>{chat.lastMessageAt?new Date(chat.lastMessageAt).toLocaleDateString():""}</Text>
       </TouchableOpacity>)}
@@ -2088,6 +2094,15 @@ export default function App() {
             <View style={styles.stat}><Text style={styles.statNumber}>{Object.keys(following).length}</Text><Text style={styles.statLabel}>Following</Text></View>
             <View style={styles.statDivider}/>
             <View style={styles.stat}><Text style={styles.statNumber}>{myPosts.reduce((total,post)=>total+(likeCounts[post.id]||0),0)}</Text><Text style={styles.statLabel}>Likes</Text></View>
+          </View>
+          <View style={[styles.statsRow,{marginTop:12}]}>
+            <View style={styles.stat}><Text style={styles.statNumber}>{myPosts.reduce((t,p)=>t+(commentCounts[p.id]||0),0)}</Text><Text style={styles.statLabel}>Comments</Text></View>
+            <View style={styles.statDivider}/>
+            <View style={styles.stat}><Text style={styles.statNumber}>{myPosts.reduce((t,p)=>t+(shareCounts[p.id]||0),0)}</Text><Text style={styles.statLabel}>Shares</Text></View>
+            <View style={styles.statDivider}/>
+            <View style={styles.stat}><Text style={styles.statNumber}>{myPosts.reduce((t,p)=>t+(saveCounts[p.id]||0),0)}</Text><Text style={styles.statLabel}>Saves</Text></View>
+            <View style={styles.statDivider}/>
+            <View style={styles.stat}><Text style={styles.statNumber}>{myPosts.reduce((t,p)=>t+(repostCounts[p.id]||0),0)}</Text><Text style={styles.statLabel}>Reposts</Text></View>
           </View>
 
           <View style={styles.profileButtons}>
@@ -2490,7 +2505,7 @@ export default function App() {
           <NavItem icon="home" label="Home" active={page==="Home"} onPress={()=>setPage("Home")}/>
           <NavItem icon="friends" label="Friends" active={page==="Explore"} onPress={()=>setPage("Explore")}/>
           <NavItem icon="create" label="Create+" active={page==="Create"} onPress={()=>setPage("Create")}/>
-          <NavItem icon="inbox" label="Inbox" active={page==="Inbox"} onPress={()=>setPage("Inbox")}/>
+          <NavItem icon="inbox" label="Inbox" active={page==="Inbox"} onPress={()=>{setPage("Inbox");loadSocialRecords();}}/>
           <NavItem
             icon="profile"
             label="Profile"
