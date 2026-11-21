@@ -2099,7 +2099,7 @@ export default function App() {
       {page==="Sound"&&renderSound()}
       {page==="Settings"&&renderSettings()}
 
-      <Modal visible={commentsVisible} transparent animationType="slide" statusBarTranslucent onRequestClose={()=>setCommentsVisible(false)}>
+      <Modal visible={commentsVisible} transparent animationType="slide" statusBarTranslucent navigationBarTranslucent={true} onRequestClose={()=>setCommentsVisible(false)}>
         <View style={styles.commentsModalRoot}>
           <TouchableOpacity style={styles.commentsBackdrop} activeOpacity={1} onPress={()=>setCommentsVisible(false)}/>
           <KeyboardAvoidingView style={styles.commentsKeyboard} behavior={Platform.OS==="ios"?"padding":"height"} keyboardVerticalOffset={Platform.OS==="ios"?24:0}>
@@ -2227,7 +2227,7 @@ const styles=StyleSheet.create({
   quickReactionPicker:{position:"absolute",right:58,bottom:235,zIndex:7,flexDirection:"row",alignItems:"center",backgroundColor:"#fff",borderRadius:40,paddingHorizontal:8,paddingVertical:7,elevation:12,shadowColor:"#000",shadowOpacity:0.25,shadowRadius:12,shadowOffset:{width:0,height:4}},
   quickReactionButton:{width:48,height:52,alignItems:"center",justifyContent:"center"},
   quickReactionEmoji:{fontSize:34},
-  commentsModalRoot:{flex:1,justifyContent:"flex-end"},
+  commentsModalRoot:{flex:1,justifyContent:"flex-end",paddingBottom:Platform.OS==="android"?30:0},
   commentsBackdrop:{...StyleSheet.absoluteFillObject,backgroundColor:"rgba(0,0,0,0.58)"},
   commentsKeyboard:{width:"100%",maxHeight:"82%"},
   commentsSheet:{height:SCREEN_HEIGHT*0.68,maxHeight:SCREEN_HEIGHT*0.82,backgroundColor:"#fff",borderTopLeftRadius:22,borderTopRightRadius:22,overflow:"hidden"},
