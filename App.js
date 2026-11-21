@@ -2190,7 +2190,7 @@ export default function App() {
     async function openUserProfile(profileId) {
     if(!profileId||profileId===user?.id){setSelectedProfileId(null);setSelectedProfileData(null);setProfileTab("Videos");setPage("Profile");return;}
     setSelectedProfileId(profileId);setSelectedProfileData(userProfiles[profileId]||null);setSelectedProfileFollowerCount(0);setProfileTab("Videos");setPage("Profile");
-    try{const [pr,fr]=await Promise.all([fetch(`${DATABASE_URL}/users/${encodeURIComponent(profileId)}.json?auth=${encodeURIComponent(user.token)}`),fetch(`${DATABASE_URL}/followers/${encodeURIComponent(profileId)}.json?auth=${encodeURIComponent(user.token)}`)]);const p=await pr.json(),f=await fr.json();if(!pr.ok)throw new Error(p?.error||"Profile load nahi hui.");const clean=p&&typeof p==="object"?p:{};setSelectedProfileData(clean);setUserProfiles(old=>({...old,[profileId]:clean}));setSelectedProfileFollowerCount(f&&typeof f==="object"?Object.keys(f).length:0);}catch(error){Alert.alert("Profile",error.message||"Profile load nahi hui.");}
+    try{const [pr,fr,fg]=await Promise.all([fetch(`${DATABASE_URL}/users/${encodeURIComponent(profileId)}.json?auth=${encodeURIComponent(user.token)}`),fetch(`${DATABASE_URL}/followers/${encodeURIComponent(profileId)}.json?auth=${encodeURIComponent(user.token)}`),fetch(`${DATABASE_URL}/following/${encodeURIComponent(profileId)}.json?auth=${encodeURIComponent(user.token)}`)]);const p=await pr.json(),f=await fr.json(),g=await fg.json();if(!pr.ok)throw new Error(p?.error||"Profile load nahi hui.");const clean={...(p&&typeof p==="object"?p:{}),followingCount:g&&typeof g==="object"?Object.keys(g).length:0};setSelectedProfileData(clean);setUserProfiles(old=>({...old,[profileId]:clean}));setSelectedProfileFollowerCount(f&&typeof f==="object"?Object.keys(f).length:0);}catch(error){Alert.alert("Profile",error.message||"Profile load nahi hui.");}
   }
 
   async function openDirectMessage(profileId,profile) {
@@ -2209,6 +2209,67 @@ export default function App() {
     const shownUsername=shownProfile.username||"User";
     const shownPosts=viewingOther?posts.filter(post=>post.ownerId===selectedProfileId&&post.privacy!=="Private"&&isRealVideoPost(post)):myPosts;
     const profileVideos=viewingOther?shownPosts:(profileTab==="Videos"?myPublicPosts:profileTab==="Private"?privatePosts:profileTab==="Reposted"?myRepostedPosts:allReels.filter(post=>!!liked[post.id]&&isRealVideoPost(post)));
+
+    if(viewingOther) {
+      const otherYoutube=String(shownProfile.youtubeLink||"").trim();
+      const openOtherYoutube=()=>{
+        if(!otherYoutube)return Alert.alert("YouTube","Is user ne abhi YouTube channel link add nahi kiya.");
+        const url=otherYoutube.startsWith("http")?otherYoutube:`https://${otherYoutube}`;
+        Linking.openURL(url).catch(()=>Alert.alert("YouTube","YouTube channel open nahi hua."));
+      };
+      const otherFollowing=!!following[selectedProfileId];
+      const otherLikes=shownPosts.reduce((total,post)=>total+(likeCounts[post.id]||0),0);
+      return (
+        <ScrollView style={styles.pageScroll} contentContainerStyle={{paddingBottom:24}}>
+          <View style={{height:52,flexDirection:"row",alignItems:"center",justifyContent:"space-between",paddingHorizontal:16}}>
+            <TouchableOpacity onPress={()=>{setSelectedProfileId(null);setSelectedProfileData(null);setPage("Home");}}><Text style={styles.profileTopIcon}>‹</Text></TouchableOpacity>
+            <Text style={styles.profileTopUsername}>@{shownUsername}</Text>
+            <TouchableOpacity onPress={()=>Share.share({message:`Check out @${shownUsername} on Gen Video Live!`})}><Text style={{fontSize:24,color:C.white}}>↗</Text></TouchableOpacity>
+          </View>
+          {shownProfile.coverImage?<Image source={{uri:shownProfile.coverImage}} style={{width:"100%",height:118,resizeMode:"cover"}}/>:null}
+          <View style={{paddingHorizontal:18,paddingTop:18}}>
+            <View style={{flexDirection:"row",alignItems:"center",justifyContent:"space-between"}}>
+              <View style={{flex:1,paddingRight:12}}>
+                <Text style={{color:C.white,fontSize:23,fontWeight:"900"}}>{shownUsername}</Text>
+                <Text style={{color:C.gray,fontSize:13,marginTop:4}}>@{String(shownUsername).replace(/^@/,"")}</Text>
+              </View>
+              <View style={{width:92,height:92,borderRadius:46,backgroundColor:C.card2,borderWidth:1,borderColor:C.magenta,overflow:"hidden",alignItems:"center",justifyContent:"center"}}>
+                {shownProfile.profileImage?<Image source={{uri:shownProfile.profileImage}} style={{width:"100%",height:"100%"}}/>:<Text style={{fontSize:34}}>👤</Text>}
+              </View>
+            </View>
+            <View style={{flexDirection:"row",justifyContent:"space-between",marginTop:22,marginBottom:18}}>
+              <View style={{flex:1}}><Text style={{color:C.white,fontSize:20,fontWeight:"900"}}>{Number(shownProfile.followingCount||0)}</Text><Text style={{color:C.gray,fontSize:12}}>Following</Text></View>
+              <View style={{flex:1}}><Text style={{color:C.white,fontSize:20,fontWeight:"900"}}>{selectedProfileFollowerCount}</Text><Text style={{color:C.gray,fontSize:12}}>Followers</Text></View>
+              <View style={{flex:1}}><Text style={{color:C.white,fontSize:20,fontWeight:"900"}}>{otherLikes}</Text><Text style={{color:C.gray,fontSize:12}}>Likes</Text></View>
+            </View>
+            <View style={{flexDirection:"row",gap:8,marginBottom:17}}>
+              <TouchableOpacity style={[styles.profileActionButton,styles.profileActionButtonRed,{paddingVertical:12}]} onPress={()=>toggleFollow({ownerId:selectedProfileId,creator:shownUsername})}><Text style={styles.profileActionText}>{otherFollowing?"Following":"Follow"}</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.profileActionButton,{backgroundColor:"#efeff2",paddingVertical:12}]} onPress={()=>openDirectMessage(selectedProfileId,shownProfile)}><Text style={{color:"#111",fontSize:12,fontWeight:"900"}}>Message</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.profileActionButton,{backgroundColor:"#efeff2",paddingVertical:12}]} onPress={openOtherYoutube}><Text style={{color:"#111",fontSize:12,fontWeight:"900"}}>▶ YouTube</Text></TouchableOpacity>
+            </View>
+            {!!shownProfile.bio&&<Text style={{color:C.white,fontSize:14,lineHeight:20,marginBottom:10}}>{shownProfile.bio}</Text>}
+            {!!shownProfile.location&&<Text style={{color:C.gray,fontSize:12,marginBottom:12}}>📍 {shownProfile.location}</Text>}
+          </View>
+          <View style={{flexDirection:"row",borderBottomWidth:1,borderBottomColor:"#302d43",marginTop:4}}>
+            <View style={{flex:1,alignItems:"center",paddingVertical:12,borderBottomWidth:3,borderBottomColor:C.pink}}><Text style={{color:C.white,fontSize:13,fontWeight:"800"}}>▦ Videos</Text></View>
+          </View>
+          {profileVideos.length>0?(
+            <View style={styles.videoGrid}>
+              {profileVideos.map(item=>(
+                <TouchableOpacity key={item.id} style={styles.videoGridItem} onPress={()=>{if(item.videoUrl){recordPostView(item);setPlayingPost(item);}else Alert.alert("Video unavailable","Yeh video abhi play nahi ho sakti.");}}>
+                  <View style={styles.videoGridPlaceholder}>
+                    {getVideoThumbnail(item)?<Image source={{uri:getVideoThumbnail(item)}} style={styles.videoGridThumbnail}/>:<View style={styles.videoGridNoThumbnail}/>}
+                    <View style={styles.videoGridOverlay}><View style={styles.videoGridViewBadge}><Text style={styles.videoGridViewText}>▷ {Object.keys(item.viewsByUser||{}).length}</Text></View></View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ):(
+            <View style={styles.emptyProfileVideos}><Text style={styles.emptyProfileTitle}>No public videos yet</Text><Text style={styles.emptyText}>Is user ki public videos yahan nazar aayengi.</Text></View>
+          )}
+        </ScrollView>
+      );
+    }
 
     return (
       <ScrollView style={styles.pageScroll} contentContainerStyle={styles.profilePageContent}>
