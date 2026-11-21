@@ -207,6 +207,10 @@ function ReelCard({
         ❤️
       </Animated.Text>
 
+      <View style={styles.reelViewBadge}>
+        <Text style={styles.reelViewText}>◉ {Object.keys(reel.viewsByUser||{}).length}</Text>
+      </View>
+
       <View style={styles.reelBottom}>
         <Text style={styles.creatorName}>@{reel.creator||"Creator"}</Text>
         <Text style={styles.caption}>{reel.caption||""}</Text>
@@ -359,6 +363,7 @@ export default function App() {
   const [playingPost,setPlayingPost] = useState(null);
 
   const [activeReelIndex,setActiveReelIndex] = useState(0);
+  const viewedPostIdsRef = useRef({});
   const [feedHeight,setFeedHeight] = useState(0);
   const feedScrollRef = useRef(null);
 
@@ -549,6 +554,26 @@ export default function App() {
       }
     } catch(error) {
       console.log("PROFILE LOAD ERROR:",error.message);
+    }
+  }
+
+  // Count one view per signed-in account for each video.
+  async function recordPostView(post) {
+    if(!user?.token||!user?.id||!post?.id||viewedPostIdsRef.current[post.id]) return;
+    viewedPostIdsRef.current[post.id]=true;
+    try {
+      const viewUrl=`${DATABASE_URL}/posts/${post.id}/viewsByUser/${user.id}.json?auth=${encodeURIComponent(user.token)}`;
+      const check=await fetch(viewUrl);
+      const alreadyViewed=await check.json();
+      if(!check.ok) throw new Error("View check failed");
+      if(alreadyViewed===true) return;
+      const response=await fetch(viewUrl,{method:"PUT",headers:{"Content-Type":"application/json"},body:"true"});
+      if(!response.ok) throw new Error("View save failed");
+      setPosts(old=>old.map(item=>item.id===post.id?{...item,viewsByUser:{...(item.viewsByUser||{}),[user.id]:true}}:item));
+      setPlayingPost(old=>old?.id===post.id?{...old,viewsByUser:{...(old.viewsByUser||{}),[user.id]:true}}:old);
+    } catch(error) {
+      delete viewedPostIdsRef.current[post.id];
+      console.log("POST VIEW ERROR:",error.message);
     }
   }
 
@@ -1426,6 +1451,11 @@ export default function App() {
   const visibleReels=feedTab==="Following"
     ? allReels.filter(reel=>reel.ownerId&&following[reel.ownerId])
     : allReels;
+  const activeReelId=page==="Home"?visibleReels[activeReelIndex]?.id:null;
+  useEffect(()=>{
+    const activePost=visibleReels.find(item=>item.id===activeReelId);
+    if(activePost) recordPostView(activePost);
+  },[activeReelId]);
 
   const myPosts=posts.filter(post=>post.ownerId===user?.id && isRealVideoPost(post));
   const myPublicPosts=myPosts.filter(post=>post.privacy!=="Private");
@@ -1827,7 +1857,6 @@ export default function App() {
             )}
           </View>
           <Text style={styles.profileName}>@{username}</Text>
-          <Text style={styles.profileEmail}>{user?.email}</Text>
           {location ? <Text style={styles.profileLocation}>📍 {location}</Text> : null}
           <Text style={styles.profileBio}>{bio}</Text>
 
@@ -1883,7 +1912,7 @@ export default function App() {
                 key={item.id}
                 style={styles.videoGridItem}
                 onPress={()=>{
-                  if(item.videoUrl) setPlayingPost(item);
+                  if(item.videoUrl) { recordPostView(item); setPlayingPost(item); }
                   else Alert.alert("Sample Reel","Yeh demo video player se nahi chalegi.");
                 }}
               >
@@ -1909,6 +1938,7 @@ export default function App() {
                     <Text style={styles.videoGridViews}>
                       {profileTab==="Liked"?"❤️ Liked":item.privacy==="Private"?"🔒 Private":"♫ Public"}
                     </Text>
+                    <View style={styles.videoGridViewBadge}><Text style={styles.videoGridViewText}>◉ {Object.keys(item.viewsByUser||{}).length}</Text></View>
                   </View>
                 </View>
               </TouchableOpacity>
@@ -2204,6 +2234,8 @@ const styles=StyleSheet.create({
   liveButton:{backgroundColor:"#321b31",borderRadius:9,paddingHorizontal:7,paddingVertical:8},
   liveText:{color:C.magenta,fontWeight:"900",fontSize:10},
   reelScroll:{flex:1},
+  reelViewBadge:{position:"absolute",right:12,bottom:18,zIndex:5,backgroundColor:"rgba(0,0,0,0.48)",paddingHorizontal:7,paddingVertical:4,borderRadius:12},
+  reelViewText:{color:C.white,fontSize:10,fontWeight:"800"},
   reelPage:{width:"100%",position:"relative",justifyContent:"center",overflow:"hidden"},
   reelVideo:{width:"100%",height:"100%",backgroundColor:"#000"},
   doubleTapArea:{position:"absolute",left:0,top:0,bottom:0,right:78,zIndex:1},
@@ -2369,6 +2401,8 @@ const styles=StyleSheet.create({
   videoGridPlay:{color:C.white,fontSize:27,textShadowColor:"#000",textShadowRadius:5},
   videoGridCaption:{color:C.white,fontSize:9,textAlign:"center",marginTop:5},
   videoGridViews:{color:C.magenta,fontSize:9,marginTop:4},
+  videoGridViewBadge:{position:"absolute",right:5,bottom:5,backgroundColor:"rgba(0,0,0,0.62)",paddingHorizontal:5,paddingVertical:3,borderRadius:9},
+  videoGridViewText:{color:C.white,fontSize:9,fontWeight:"800"},
   emptyProfileVideos:{alignItems:"center",justifyContent:"center",padding:35,minHeight:220},
   emptyProfileTitle:{color:C.white,fontSize:17,fontWeight:"900",marginTop:12,marginBottom:5},
   backText:{color:C.magenta,fontSize:18,fontWeight:"800",marginBottom:15},
