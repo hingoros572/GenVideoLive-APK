@@ -2479,7 +2479,7 @@ export default function App() {
       <StatusBar backgroundColor="#000" barStyle="light-content" hidden={true}/>
       {renderVideoPlayer()}
       <Modal visible={shareModalVisible} transparent animationType="slide" statusBarTranslucent navigationBarTranslucent={true} onRequestClose={()=>setShareModalVisible(false)}>
-        <View style={styles.shareModalRoot}>
+        <KeyboardAvoidingView style={styles.shareModalRoot} behavior={Platform.OS==="ios"?"padding":"height"} keyboardVerticalOffset={0}>
           <TouchableOpacity style={styles.shareBackdrop} activeOpacity={1} onPress={()=>setShareModalVisible(false)}/>
           <View style={styles.shareSheet}>
             <ScrollView style={styles.shareSheetScroll} contentContainerStyle={styles.shareSheetScrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={true}>
@@ -2499,7 +2499,7 @@ export default function App() {
               )}
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <Modal visible={commentsVisible} transparent animationType="slide" statusBarTranslucent navigationBarTranslucent={true} onRequestClose={()=>setCommentsVisible(false)}>
@@ -2982,9 +2982,9 @@ const styles=StyleSheet.create({
   messageTime:{color:"#aaa",fontSize:9,textAlign:"right",marginTop:7},
   shareModalRoot:{flex:1,justifyContent:"flex-end"},
   shareBackdrop:{...StyleSheet.absoluteFillObject,backgroundColor:"rgba(0,0,0,0.65)"},
-  shareSheet:{backgroundColor:C.bg,borderTopLeftRadius:22,borderTopRightRadius:22,padding:18,paddingBottom:12,maxHeight:"88%"},
-  shareSheetScroll:{flexGrow:0},
-  shareSheetScrollContent:{paddingBottom:24},
+  shareSheet:{backgroundColor:C.bg,borderTopLeftRadius:22,borderTopRightRadius:22,padding:18,paddingBottom:28,height:"88%",maxHeight:"88%"},
+  shareSheetScroll:{flex:1},
+  shareSheetScrollContent:{flexGrow:1,paddingBottom:32},
   shareSheetHeader:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",marginBottom:10},
   shareSheetTitle:{color:C.white,fontSize:19,fontWeight:"900"},
   shareClose:{color:C.white,fontSize:30},
