@@ -1,24 +1,13 @@
 diff --git a/node_modules/expo-video/android/src/main/java/expo/modules/video/player/DefaultLoadControl.java b/node_modules/expo-video/android/src/main/java/expo/modules/video/player/DefaultLoadControl.java
-index 4ffe72b..8b1cf1d 100644
 --- a/node_modules/expo-video/android/src/main/java/expo/modules/video/player/DefaultLoadControl.java
 +++ b/node_modules/expo-video/android/src/main/java/expo/modules/video/player/DefaultLoadControl.java
-@@ -394,6 +394,11 @@ public class DefaultLoadControl implements LoadControl {
+@@ --1,4 +-1,9 @@
    @Override
    public Allocator getAllocator() {
      return allocator;
    }
- 
++
 +  @Override
 +  public Allocator getAllocator(PlayerId playerId) {
 +    return allocator;
 +  }
-+
-   @Override
-   public long getBackBufferDurationUs(PlayerId playerId) {
-     return backBufferDurationUs;
-   }
- 
-   @Override
-   public boolean retainBackBufferFromKeyframe(PlayerId playerId) {
-     return retainBackBufferFromKeyframe;
-   }
