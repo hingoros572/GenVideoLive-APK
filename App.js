@@ -267,7 +267,10 @@ function ReelCard({
         )}
 
         <TouchableOpacity style={styles.actionButton} onPress={onSave}>
-          <Text style={styles.actionIcon}>{saved?"🔖":"📑"}</Text>
+          <View style={[styles.bookmarkIcon,{borderColor:saved?C.gold:C.white}]}>
+            <View style={[styles.bookmarkCutLeft,{backgroundColor:saved?C.gold:C.white}]}/>
+            <View style={[styles.bookmarkCutRight,{backgroundColor:saved?C.gold:C.white}]}/>
+          </View>
           <Text style={styles.actionCount}>{Number(saveCount||0).toLocaleString()}</Text>
         </TouchableOpacity>
 
@@ -1490,8 +1493,10 @@ export default function App() {
     const creatorProfile=reel.ownerId?userProfiles[reel.ownerId]:null;
     const ownPhoto=reel.ownerId===user?.id?profileImage:"";
 
+    const creatorUsername=creatorProfile?.username||(reel.ownerId===user?.id?username:reel.creator)||"Creator";
     return {
       ...reel,
+      creator:String(creatorUsername).replace(/^@/,""),
       avatarUrl:creatorProfile?.profileImage||ownPhoto||reel.avatarUrl||""
     };
   });
@@ -2426,6 +2431,9 @@ const styles=StyleSheet.create({
   actionButton:{alignItems:"center",minWidth:40},
   actionIcon:{fontSize:22,color:C.white},
   actionCount:{color:C.white,fontSize:9,fontWeight:"800",marginTop:2},
+  bookmarkIcon:{width:16,height:20,borderWidth:2,borderBottomWidth:0,borderTopLeftRadius:2,borderTopRightRadius:2,position:"relative",marginTop:1},
+  bookmarkCutLeft:{position:"absolute",width:9,height:2,bottom:1,left:-1,transform:[{rotate:38}]},
+  bookmarkCutRight:{position:"absolute",width:9,height:2,bottom:1,right:-1,transform:[{rotate:-38}]},
   discButton:{marginTop:2,marginBottom:4},
   disc:{width:42,height:42,borderRadius:21,backgroundColor:"#15151d",borderWidth:4,borderColor:"#393944",alignItems:"center",justifyContent:"center"},
   discCenter:{width:16,height:16,borderRadius:8,backgroundColor:C.magenta,alignItems:"center",justifyContent:"center",overflow:"hidden"},
