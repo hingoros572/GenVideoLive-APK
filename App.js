@@ -133,7 +133,7 @@ function SpinningDisc({ avatarUrl }) {
 
 // REEL CARD
 function ReelCard({
-  reel,height,liked,saved,following,isActive,
+  reel,height,liked,saved,following,isActive,showViews=true,
   onLike,onDoubleLike,onSave,onFollow,onComment,onCommentLongPress,onQuickReaction,onShare,onSound,isOwner,onDelete
 }) {
   const lastTapRef = useRef(0);
@@ -207,9 +207,11 @@ function ReelCard({
         ❤️
       </Animated.Text>
 
-      <View style={styles.reelViewBadge}>
-        <Text style={styles.reelViewText}>◉ {Object.keys(reel.viewsByUser||{}).length}</Text>
-      </View>
+      {showViews&&(
+        <View style={styles.reelViewBadge}>
+          <Text style={styles.reelViewText}>◉ {Object.keys(reel.viewsByUser||{}).length}</Text>
+        </View>
+      )}
 
       <View style={styles.reelBottom}>
         <Text style={styles.creatorName}>@{reel.creator||"Creator"}</Text>
@@ -1458,7 +1460,7 @@ export default function App() {
 
   function renderHeader() {
     return (
-      <View style={styles.header}>
+      <View style={[styles.header,styles.headerOverlay]}>
         <Text style={styles.logo}>👑 Gen-Live</Text>
         <View style={styles.headerTabs}>
           {["Following","For You"].map(tab=>(
@@ -1580,6 +1582,7 @@ export default function App() {
                 key={reel.id}
                 reel={reel}
                 height={reelHeight}
+                showViews={false}
                 isActive={page==="Home"&&index===activeReelIndex}
                 liked={!!liked[reel.id]}
                 saved={!!saved[reel.id]}
@@ -2280,6 +2283,7 @@ const styles=StyleSheet.create({
   switchText:{color:C.magenta,textAlign:"center",fontWeight:"700"},
   smallMuted:{color:C.gray,fontSize:12,marginTop:5},
   header:{height:62,paddingHorizontal:9,backgroundColor:C.bg,flexDirection:"row",alignItems:"center",justifyContent:"space-between",borderBottomWidth:1,borderBottomColor:"#29283a"},
+  headerOverlay:{position:"absolute",top:0,left:0,right:0,zIndex:10,backgroundColor:"transparent",borderBottomWidth:0},
   logo:{color:C.white,fontSize:14,fontWeight:"900"},
   headerTabs:{flex:1,flexDirection:"row",alignItems:"center",justifyContent:"center",gap:10,marginHorizontal:5},
   headerTabTouch:{alignItems:"center",justifyContent:"center"},
