@@ -2654,6 +2654,8 @@ export default function App() {
             label="Profile"
             active={page==="Profile"}
             onPress={()=>{
+              setSelectedProfileId(null);
+              setSelectedProfileData(null);
               setPage("Profile");
               loadMyProfile();
               loadPosts();
