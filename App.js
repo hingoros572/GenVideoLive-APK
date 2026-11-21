@@ -214,11 +214,6 @@ function ReelCard({
       <View style={styles.reelBottom}>
         <Text style={styles.creatorName}>@{reel.creator||"Creator"}</Text>
         <Text style={styles.caption}>{reel.caption||""}</Text>
-        <TouchableOpacity style={styles.audioLine} onPress={onSound}>
-          <Text style={styles.musicNote}>♫</Text>
-          <Text style={styles.music}>{reel.music||"Original Sound"}</Text>
-          <Text style={styles.audioArrow}>›</Text>
-        </TouchableOpacity>
       </View>
 
       <View style={styles.actionStack}>
