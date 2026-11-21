@@ -942,12 +942,14 @@ export default function App() {
     try {
       const url=`${DATABASE_URL}/userLikes/${user.id}/${id}.json?auth=${encodeURIComponent(user.token)}`;
 
-      const options=nextValue?{method:"PUT",headers:{"Content-Type":"application/json"},body:"true"}:{method:"DELETE"};
-      const [response,publicResponse]=await Promise.all([
-        fetch(url,options),
-        fetch(`${DATABASE_URL}/postEngagement/${id}/likes/${user.id}.json?auth=${encodeURIComponent(user.token)}`,options)
-      ]);
-      if(!response.ok||!publicResponse.ok) throw new Error("Like save nahi hua.");
+      const patch={
+        [`userLikes/${user.id}/${id}`]:nextValue?true:null,
+        [`postEngagement/${id}/likes/${user.id}`]:nextValue?true:null
+      };
+      const response=await fetch(`${DATABASE_URL}/.json?auth=${encodeURIComponent(user.token)}`,{
+        method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(patch)
+      });
+      if(!response.ok) throw new Error("Like save nahi hua.");
     } catch(error) {
       setLiked(old=>({...old,[id]:wasLiked}));
       setLikeCounts(old=>({...old,[id]:Math.max(0,(old[id]||0)+(wasLiked?1:-1))}));
@@ -970,12 +972,14 @@ export default function App() {
     try {
       const url=`${DATABASE_URL}/userSaves/${user.id}/${id}.json?auth=${encodeURIComponent(user.token)}`;
 
-      const options=nextValue?{method:"PUT",headers:{"Content-Type":"application/json"},body:"true"}:{method:"DELETE"};
-      const [response,publicResponse]=await Promise.all([
-        fetch(url,options),
-        fetch(`${DATABASE_URL}/postEngagement/${id}/saves/${user.id}.json?auth=${encodeURIComponent(user.token)}`,options)
-      ]);
-      if(!response.ok||!publicResponse.ok) throw new Error("Save nahi hua.");
+      const patch={
+        [`userSaves/${user.id}/${id}`]:nextValue?true:null,
+        [`postEngagement/${id}/saves/${user.id}`]:nextValue?true:null
+      };
+      const response=await fetch(`${DATABASE_URL}/.json?auth=${encodeURIComponent(user.token)}`,{
+        method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(patch)
+      });
+      if(!response.ok) throw new Error("Save nahi hua.");
     } catch(error) {
       setSaved(old=>({...old,[id]:wasSaved}));
       setSaveCounts(old=>({...old,[id]:Math.max(0,(old[id]||0)+(wasSaved?1:-1))}));
@@ -1643,7 +1647,8 @@ export default function App() {
   const repostFeedEntries=Object.entries(reposts).flatMap(([postId,users])=>{
     const original=allReels.find(item=>item.id===postId);
     if(!original||!users||typeof users!=="object")return [];
-    return Object.values(users).filter(record=>record&&record.reposterId&&following[record.reposterId]).map(record=>({...original,repostedByUsername:record.reposterUsername||"User",repostedById:record.reposterId,repostedAt:record.createdAt||0}));
+    const latestRepost=Object.values(users).filter(record=>record&&record.reposterId&&following[record.reposterId]).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0))[0];
+    return latestRepost?[{...original,repostedByUsername:latestRepost.reposterUsername||"User",repostedById:latestRepost.reposterId,repostedAt:latestRepost.createdAt||0}]:[];
   });
   const visibleReels=feedTab==="Following"
     ? [...allReels.filter(reel=>reel.ownerId&&following[reel.ownerId]),...repostFeedEntries].sort((a,b)=>(b.repostedAt||b.createdAt||0)-(a.repostedAt||a.createdAt||0))
