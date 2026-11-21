@@ -678,6 +678,18 @@ export default function App() {
 
       setLiked(likeData&&typeof likeData==="object"?likeData:{});
       setSaved(saveData&&typeof saveData==="object"?saveData:{});
+      // Migrate this signed-in user's older Likes/Saves into the public per-post
+      // engagement index without making the private userSaves list readable.
+      const migrationPatch={};
+      Object.entries(likeData||{}).forEach(([postId,value])=>{if(value)migrationPatch[`postEngagement/${postId}/likes/${user.id}`]=true;});
+      Object.entries(saveData||{}).forEach(([postId,value])=>{if(value)migrationPatch[`postEngagement/${postId}/saves/${user.id}`]=true;});
+      if(Object.keys(migrationPatch).length) {
+        const migrationResponse=await fetch(`${DATABASE_URL}/.json?auth=${encodeURIComponent(user.token)}`,{
+          method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(migrationPatch)
+        });
+        if(!migrationResponse.ok) throw new Error("Purane Likes/Saves counts migrate nahi hue. Firebase Rules update required.");
+        await loadEngagementCounts();
+      }
     } catch(error) {
       console.log("LIKE/SAVE LOAD ERROR:",error.message);
     }
@@ -1662,7 +1674,10 @@ export default function App() {
   const myPosts=posts.filter(post=>post.ownerId===user?.id && isRealVideoPost(post));
   const myPublicPosts=myPosts.filter(post=>post.privacy!=="Private");
   const privatePosts=myPosts.filter(post=>post.privacy==="Private");
-  const myRepostedPosts=Object.keys(myReposts).map(id=>allReels.find(post=>post.id===id)).filter(Boolean);
+  const myRepostedPosts=Object.keys(myReposts).map(id=>{
+    const original=allReels.find(post=>post.id===id);
+    return original?{...original,repostedByUsername:username||"User",repostedById:user?.id}:null;
+  }).filter(Boolean);
 
   function renderHeader() {
     return (
