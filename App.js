@@ -134,7 +134,7 @@ function SpinningDisc({ avatarUrl }) {
 // REEL CARD
 function ReelCard({
   reel,height,liked,saved,following,isActive,showViews=true,likeCount,commentCount=0,saveCount=0,shareCount=0,repostCount=0,reposted=false,
-  onLike,onDoubleLike,onSave,onFollow,onComment,onCommentLongPress,onQuickReaction,onShare,onRepost,onSound,isOwner,onDelete
+  onLike,onDoubleLike,onSave,onFollow,onComment,onCommentLongPress,onQuickReaction,onShare,onRepost,onSound,onOpenProfile,isOwner,onDelete
 }) {
   const lastTapRef = useRef(0);
   const touchStartRef = useRef(null);
@@ -215,13 +215,13 @@ function ReelCard({
 
       <View style={styles.reelBottom}>
         {!!reel.repostedByUsername&&<Text style={styles.repostAttribution}>↻ Reposted by @{reel.repostedByUsername}</Text>}
-        <Text style={styles.creatorName}>@{reel.creator||"Creator"}</Text>
+        <TouchableOpacity onPress={()=>onOpenProfile?.(reel.ownerId)} disabled={!reel.ownerId}><Text style={styles.creatorName}>@{reel.creator||"Creator"}</Text></TouchableOpacity>
         <Text style={styles.caption}>{reel.caption||""}</Text>
       </View>
 
       <View style={styles.actionStack}>
         <View style={styles.creatorFollow}>
-          <View style={styles.creatorAvatarRing}>
+          <TouchableOpacity style={styles.creatorAvatarRing} onPress={()=>onOpenProfile?.(reel.ownerId)} disabled={!reel.ownerId}>
             {reel.avatarUrl ? (
               <Image source={{uri:reel.avatarUrl}} style={styles.creatorAvatarImage}/>
             ) : (
@@ -229,7 +229,7 @@ function ReelCard({
                 <Text style={styles.avatarEmoji}>👤</Text>
               </View>
             )}
-          </View>
+          </TouchableOpacity>
           <TouchableOpacity
             style={[styles.followPlus,following&&styles.followedButton]}
             onPress={onFollow}
@@ -317,6 +317,11 @@ export default function App() {
   const [editProfileImage,setEditProfileImage] = useState("");
   const [editCoverImage,setEditCoverImage] = useState("");
   const [userProfiles,setUserProfiles] = useState({});
+  const [selectedProfileId,setSelectedProfileId] = useState(null);
+  const [selectedProfileData,setSelectedProfileData] = useState(null);
+  const [selectedProfileFollowerCount,setSelectedProfileFollowerCount] = useState(0);
+  const [messageDraft,setMessageDraft] = useState("");
+  const [messageSendingText,setMessageSendingText] = useState(false);
 
   const [page,setPage] = useState("Home");
   const [feedTab,setFeedTab] = useState("For You");
@@ -1881,6 +1886,7 @@ export default function App() {
                 onShare={()=>shareReel(reel)}
                 onRepost={()=>toggleRepost(reel)}
                 onSound={()=>openSound(reel)}
+                onOpenProfile={openUserProfile}
                 isOwner={reel.ownerId===user?.id}
                 onDelete={()=>confirmDeletePost(reel)}
               />
@@ -1916,7 +1922,7 @@ export default function App() {
           <Text style={styles.friendsSectionTitle}>Friends</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.friendAvatarsRow}>
             {mutualFriends.map(friend=>(
-              <TouchableOpacity key={friend.id} style={styles.friendAvatarItem} onPress={()=>showPlaceholder(friend.username+" profile")}>
+              <TouchableOpacity key={friend.id} style={styles.friendAvatarItem} onPress={()=>openUserProfile(friend.id)}>
                 <View style={styles.friendAvatarRing}>
                   {friend.profileImage
                     ? <Image source={{uri:friend.profileImage}} style={styles.friendAvatarImage}/>
@@ -1968,7 +1974,7 @@ export default function App() {
   function renderInbox() {
     if(selectedChat)return (
       <View style={styles.inboxPage}>
-        <View style={styles.inboxHeader}><TouchableOpacity onPress={()=>setSelectedChat(null)}><Text style={styles.inboxBack}>‹</Text></TouchableOpacity><Text style={styles.inboxTitle}>@{selectedChat.otherUsername||"User"}</Text><TouchableOpacity onPress={()=>openInboxConversation(selectedChat)}><Text style={styles.recipientSend}>Refresh ↻</Text></TouchableOpacity></View>
+        <View style={styles.inboxHeader}><TouchableOpacity onPress={()=>setSelectedChat(null)}><Text style={styles.inboxBack}>‹</Text></TouchableOpacity><TouchableOpacity onPress={()=>openUserProfile(selectedChat.otherUserId)}><Text style={styles.inboxTitle}>@{selectedChat.otherUsername||"User"}</Text></TouchableOpacity><TouchableOpacity onPress={()=>openInboxConversation(selectedChat)}><Text style={styles.recipientSend}>Refresh ↻</Text></TouchableOpacity></View>
         {conversationLoading?<ActivityIndicator color={C.magenta} style={{marginTop:24}}/>:<ScrollView style={styles.messageList} contentContainerStyle={styles.messageListContent}>
           {conversationMessages.map(message=><View key={message.id} style={[styles.messageBubble,message.senderId===user.id?styles.myMessageBubble:styles.theirMessageBubble]}>
             {message.type==="video"&&message.post&&<TouchableOpacity style={styles.messageVideoCard} onPress={()=>{const item=allReels.find(p=>p.id===message.post.postId);if(item){setPlayingPost(item);setPage("Home");}else Alert.alert("Video unavailable","Original video abhi load nahi hui.");}}>
@@ -1978,6 +1984,7 @@ export default function App() {
           </View>)}
           {!conversationMessages.length&&<Text style={styles.smallMuted}>Abhi koi message nahi.</Text>}
         </ScrollView>}
+        <View style={styles.messageComposer}><TextInput value={messageDraft} onChangeText={setMessageDraft} placeholder="Message likhein..." placeholderTextColor={C.gray} style={styles.messageComposerInput} multiline/><TouchableOpacity style={styles.messageSendButton} onPress={sendDirectMessage} disabled={messageSendingText||!messageDraft.trim()}><Text style={styles.messageSendText}>{messageSendingText?"...":"Send"}</Text></TouchableOpacity></View>
       </View>
     );
     const chats=Object.entries(userChats).map(([chatId,item])=>({chatId,...item})).sort((a,b)=>(b.lastMessageAt||0)-(a.lastMessageAt||0));
@@ -2169,26 +2176,40 @@ export default function App() {
     );
   }
 
-    function renderProfile() {
-    const profileVideos=profileTab==="Videos"
-      ?myPublicPosts
-      :profileTab==="Private"
-        ?privatePosts
-        :profileTab==="Reposted"
-          ?myRepostedPosts
-          :allReels.filter(post=>!!liked[post.id] && isRealVideoPost(post));
+    async function openUserProfile(profileId) {
+    if(!profileId||profileId===user?.id){setSelectedProfileId(null);setSelectedProfileData(null);setProfileTab("Videos");setPage("Profile");return;}
+    setSelectedProfileId(profileId);setSelectedProfileData(userProfiles[profileId]||null);setSelectedProfileFollowerCount(0);setProfileTab("Videos");setPage("Profile");
+    try{const [pr,fr]=await Promise.all([fetch(`${DATABASE_URL}/users/${encodeURIComponent(profileId)}.json?auth=${encodeURIComponent(user.token)}`),fetch(`${DATABASE_URL}/followers/${encodeURIComponent(profileId)}.json?auth=${encodeURIComponent(user.token)}`)]);const p=await pr.json(),f=await fr.json();if(!pr.ok)throw new Error(p?.error||"Profile load nahi hui.");const clean=p&&typeof p==="object"?p:{};setSelectedProfileData(clean);setUserProfiles(old=>({...old,[profileId]:clean}));setSelectedProfileFollowerCount(f&&typeof f==="object"?Object.keys(f).length:0);}catch(error){Alert.alert("Profile",error.message||"Profile load nahi hui.");}
+  }
+
+  async function openDirectMessage(profileId,profile) {
+    if(!profileId||profileId===user?.id)return;const other=profile||userProfiles[profileId]||{};const chatId=[String(user.id),String(profileId)].sort().join("__");const chat={chatId,otherUserId:profileId,otherUsername:other.username||"User",lastMessageType:"text",lastMessageText:"",lastMessageAt:Date.now(),lastMessageSenderId:""};
+    try{const a=await fetch(`${DATABASE_URL}/userChats/${user.id}/${encodeURIComponent(chatId)}.json?auth=${encodeURIComponent(user.token)}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(chat)});if(!a.ok)throw new Error("Chat open nahi hui. Firebase Rules check karein.");const b=await fetch(`${DATABASE_URL}/userChats/${profileId}/${encodeURIComponent(chatId)}.json?auth=${encodeURIComponent(user.token)}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({...chat,otherUserId:user.id,otherUsername:username||"User"})});if(!b.ok)throw new Error("Doosre user ki Inbox update nahi hui.");setUserChats(old=>({...old,[chatId]:chat}));setSelectedChat(chat);setConversationMessages([]);setMessageDraft("");setPage("Inbox");await openInboxConversation(chat);}catch(error){Alert.alert("Message",error.message||"Chat open nahi hui.");}
+  }
+
+  async function sendDirectMessage() {
+    const text=messageDraft.trim();if(!text||!selectedChat||messageSendingText)return;setMessageSendingText(true);
+    try{const now=Date.now(),message={type:"text",senderId:user.id,senderUsername:username||"User",recipientId:selectedChat.otherUserId,recipientUsername:selectedChat.otherUsername||"User",text,createdAt:now,seen:false};const r=await fetch(`${DATABASE_URL}/messages/${encodeURIComponent(selectedChat.chatId)}.json?auth=${encodeURIComponent(user.token)}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(message)});const result=await r.json();if(!r.ok||!result?.name)throw new Error(result?.error||"Message send nahi hua.");const updated={...selectedChat,lastMessageType:"text",lastMessageText:text,lastMessageAt:now,lastMessageSenderId:user.id};await Promise.all([fetch(`${DATABASE_URL}/userChats/${user.id}/${encodeURIComponent(selectedChat.chatId)}.json?auth=${encodeURIComponent(user.token)}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({lastMessageType:"text",lastMessageText:text,lastMessageAt:now,lastMessageSenderId:user.id})}),fetch(`${DATABASE_URL}/userChats/${selectedChat.otherUserId}/${encodeURIComponent(selectedChat.chatId)}.json?auth=${encodeURIComponent(user.token)}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({lastMessageType:"text",lastMessageText:text,lastMessageAt:now,lastMessageSenderId:user.id})})]);setConversationMessages(old=>[...old,{id:result.name,...message}]);setSelectedChat(updated);setUserChats(old=>({...old,[updated.chatId]:updated}));setMessageDraft("");}catch(error){Alert.alert("Message",error.message||"Message send nahi hua.");}finally{setMessageSendingText(false);}
+  }
+
+  function renderProfile() {
+    const viewingOther=!!selectedProfileId&&selectedProfileId!==user?.id;
+    const shownProfile=viewingOther?(selectedProfileData||userProfiles[selectedProfileId]||{}):{username,bio,location,profileImage,coverImage};
+    const shownUsername=shownProfile.username||"User";
+    const shownPosts=viewingOther?posts.filter(post=>post.ownerId===selectedProfileId&&post.privacy!=="Private"&&isRealVideoPost(post)):myPosts;
+    const profileVideos=viewingOther?shownPosts:(profileTab==="Videos"?myPublicPosts:profileTab==="Private"?privatePosts:profileTab==="Reposted"?myRepostedPosts:allReels.filter(post=>!!liked[post.id]&&isRealVideoPost(post)));
 
     return (
       <ScrollView style={styles.pageScroll} contentContainerStyle={styles.profilePageContent}>
         <View style={styles.profileTopBar}>
-          <TouchableOpacity onPress={()=>setPage("Home")}><Text style={styles.profileTopIcon}>‹</Text></TouchableOpacity>
-          <Text style={styles.profileTopUsername}>@{username}</Text>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Open Settings" style={styles.gearButton} onPress={()=>setPage("Settings")}><Text style={{fontSize:27,color:C.white}}>☰</Text></TouchableOpacity>
+          <TouchableOpacity onPress={()=>{setSelectedProfileId(null);setSelectedProfileData(null);setPage("Home");}}><Text style={styles.profileTopIcon}>‹</Text></TouchableOpacity>
+          <Text style={styles.profileTopUsername}>@{shownUsername}</Text>
+          {!viewingOther&&<TouchableOpacity accessibilityRole="button" accessibilityLabel="Open Settings" style={styles.gearButton} onPress={()=>setPage("Settings")}><Text style={{fontSize:27,color:C.white}}>☰</Text></TouchableOpacity>}
         </View>
 
         <View style={styles.profileCoverWrap}>
-          {coverImage ? (
-            <Image source={{uri:coverImage}} style={styles.profileCoverImage}/>
+          {shownProfile.coverImage ? (
+            <Image source={{uri:shownProfile.coverImage}} style={styles.profileCoverImage}/>
           ) : (
             <View style={styles.profileCoverPlaceholder}/>
           )}
@@ -2196,47 +2217,34 @@ export default function App() {
 
         <View style={styles.profileMain}>
           <View style={styles.profileAvatarBig}>
-            {profileImage ? (
-              <Image source={{uri:profileImage}} style={styles.profileAvatarImage}/>
+            {shownProfile.profileImage ? (
+              <Image source={{uri:shownProfile.profileImage}} style={styles.profileAvatarImage}/>
             ) : (
               <Text style={{fontSize:42}}>👤</Text>
             )}
           </View>
-          <Text style={styles.profileName}>@{username}</Text>
-          {location ? <Text style={styles.profileLocation}>📍 {location}</Text> : null}
-          <Text style={styles.profileBio}>{bio}</Text>
+          <Text style={styles.profileName}>@{shownUsername}</Text>
+          {shownProfile.location ? <Text style={styles.profileLocation}>📍 {shownProfile.location}</Text> : null}
+          <Text style={styles.profileBio}>{shownProfile.bio||"Welcome to my Gen Video Live profile! 👑"}</Text>
 
           <View style={styles.statsRow}>
-            <View style={styles.stat}><Text style={styles.statNumber}>{myPosts.length}</Text><Text style={styles.statLabel}>Posts</Text></View>
+            <View style={styles.stat}><Text style={styles.statNumber}>{shownPosts.length}</Text><Text style={styles.statLabel}>Posts</Text></View>
             <View style={styles.statDivider}/>
-            <View style={styles.stat}><Text style={styles.statNumber}>{followerCount}</Text><Text style={styles.statLabel}>Followers</Text></View>
+            <View style={styles.stat}><Text style={styles.statNumber}>{viewingOther?selectedProfileFollowerCount:followerCount}</Text><Text style={styles.statLabel}>Followers</Text></View>
             <View style={styles.statDivider}/>
             <View style={styles.stat}><Text style={styles.statNumber}>{Object.keys(following).length}</Text><Text style={styles.statLabel}>Following</Text></View>
             <View style={styles.statDivider}/>
-            <View style={styles.stat}><Text style={styles.statNumber}>{myPosts.reduce((total,post)=>total+(likeCounts[post.id]||0),0)}</Text><Text style={styles.statLabel}>Likes</Text></View>
+            <View style={styles.stat}><Text style={styles.statNumber}>{shownPosts.reduce((total,post)=>total+(likeCounts[post.id]||0),0)}</Text><Text style={styles.statLabel}>Likes</Text></View>
           </View>
 
           <View style={styles.profileButtons}>
-            <TouchableOpacity
-              style={styles.profileActionButton}
-              onPress={()=>{
-                setEditUsername(username);
-                setEditBio(bio);
-                setEditLocation(location);
-                setEditProfileImage(profileImage);
-                setEditCoverImage(coverImage);
-                setPage("EditProfile");
-              }}
-            >
-              <Text style={styles.profileActionText}>Edit Profile</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.profileActionButton} onPress={()=>Share.share({message:`Check out @${username} on Gen Video Live!`})}>
-              <Text style={styles.profileActionText}>Share Profile</Text>
-            </TouchableOpacity>
+            <TouchableOpacity style={[styles.profileActionButton,styles.profileActionButtonRed]} onPress={()=>{if(viewingOther)return Alert.alert("Edit Profile","Aap sirf apni profile edit kar sakte hain.");setEditUsername(username);setEditBio(bio);setEditLocation(location);setEditProfileImage(profileImage);setEditCoverImage(coverImage);setPage("EditProfile");}}><Text style={styles.profileActionText}>Edit Profile</Text></TouchableOpacity>
+            <TouchableOpacity style={[styles.profileActionButton,styles.profileActionButtonRed]} onPress={()=>viewingOther?openDirectMessage(selectedProfileId,shownProfile):setPage("Inbox")}><Text style={styles.profileActionText}>Message</Text></TouchableOpacity>
+            <TouchableOpacity style={[styles.profileActionButton,styles.profileActionButtonRed]} onPress={()=>Share.share({message:`Check out @${shownUsername} on Gen Video Live!`})}><Text style={styles.profileActionText}>Share Profile</Text></TouchableOpacity>
           </View>
         </View>
 
-        <View style={styles.profileTabBar}>
+        {!viewingOther&&<View style={styles.profileTabBar}>
           {["Videos","Reposted","Liked","Private"].map(tab=>(
             <TouchableOpacity
               key={tab}
@@ -2249,7 +2257,7 @@ export default function App() {
               {profileTab===tab&&<View style={styles.profileTabUnderline}/>}
             </TouchableOpacity>
           ))}
-        </View>
+        </View>}
 
         {profileVideos.length>0?(
           <View style={styles.videoGrid}>
@@ -2845,9 +2853,10 @@ const styles=StyleSheet.create({
   statNumber:{color:C.white,fontSize:18,fontWeight:"900"},
   statLabel:{color:C.gray,fontSize:10,marginTop:4},
   statDivider:{height:27,width:1,backgroundColor:"#39364c"},
-  profileButtons:{flexDirection:"row",width:"100%",gap:8,marginTop:14},
-  profileActionButton:{flex:1,backgroundColor:C.card2,borderRadius:9,paddingVertical:11,alignItems:"center"},
-  profileActionText:{color:C.white,fontSize:12,fontWeight:"800"},
+  profileButtons:{flexDirection:"row",width:"100%",gap:6,marginTop:14},
+  profileActionButton:{flex:1,backgroundColor:C.card2,borderRadius:8,paddingVertical:8,alignItems:"center",justifyContent:"center"},
+  profileActionButtonRed:{backgroundColor:"#d92f4b"},
+  profileActionText:{color:C.white,fontSize:10,fontWeight:"800"},
   profileTabBar:{flexDirection:"row",borderBottomWidth:1,borderBottomColor:"#302d43",marginTop:20},
   profileTab:{flex:1,alignItems:"center",paddingVertical:12},
   profileTabText:{color:C.gray,fontSize:12,fontWeight:"700"},
@@ -2980,6 +2989,10 @@ const styles=StyleSheet.create({
   messageVideoCaption:{color:C.gray,fontSize:11,marginTop:4},
   messageText:{color:C.white,fontSize:14,marginTop:7},
   messageTime:{color:"#aaa",fontSize:9,textAlign:"right",marginTop:7},
+  messageComposer:{flexDirection:"row",alignItems:"center",paddingHorizontal:12,paddingVertical:9,borderTopWidth:1,borderTopColor:"#302b40",gap:8},
+  messageComposerInput:{flex:1,minHeight:42,maxHeight:100,backgroundColor:C.card,borderRadius:20,paddingHorizontal:14,paddingVertical:9,color:C.white,fontSize:14},
+  messageSendButton:{backgroundColor:"#d92f4b",borderRadius:18,paddingHorizontal:15,paddingVertical:11},
+  messageSendText:{color:C.white,fontSize:12,fontWeight:"900"},
   shareModalRoot:{flex:1,justifyContent:"flex-end"},
   shareBackdrop:{...StyleSheet.absoluteFillObject,backgroundColor:"rgba(0,0,0,0.65)"},
   shareSheet:{backgroundColor:C.bg,borderTopLeftRadius:22,borderTopRightRadius:22,padding:18,paddingBottom:28,height:"88%",maxHeight:"88%"},
