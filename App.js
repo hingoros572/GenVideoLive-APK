@@ -9,6 +9,8 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Video, ResizeMode, Audio } from "expo-av";
+import { VideoEditor } from "@dahab-tech/react-native-media-editor/videoEditor";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 const API_KEY = "AIzaSyCoE-u18gD7wBg20dtLBtctQbM6KHzUFtk";
 const DATABASE_URL = "https://gen-video-live-default-rtdb.asia-southeast1.firebasedatabase.app";
@@ -2056,6 +2058,46 @@ export default function App() {
   }
 
   function renderCreate() {
+    if(createStep==="editor") {
+      if(!selectedVideo?.uri) {
+        return <View style={{flex:1,backgroundColor:C.bg,padding:20,justifyContent:"center"}}>
+          <Text style={styles.helpText}>Pehle video select karein.</Text>
+          <Button title="Back to Video Preview" onPress={()=>setCreateStep("selected")}/>
+        </View>;
+      }
+      return (
+        <View style={{flex:1,backgroundColor:C.bg}}>
+          <VideoEditor
+            key={selectedVideo.uri}
+            source={selectedVideo.uri}
+            locale="en"
+            theme={{colors:{accent:C.magenta,background:C.bg}}}
+            onCancel={()=>setCreateStep("selected")}
+            onCoverSelected={(cover)=>{
+              if(cover?.uri) setPostCoverImage(cover.uri);
+            }}
+            onExport={(result)=>{
+              if(!result?.uri) {
+                Alert.alert("Export Error","Edited video file nahi mili. Dobara export karein.");
+                return;
+              }
+              setSelectedVideo(current=>({
+                ...(current||{}),
+                uri:result.uri,
+                fileName:"gen-video-edited-"+Date.now()+".mp4",
+                mimeType:"video/mp4",
+                duration:result.durationMs?result.durationMs/1000:(current?.duration||null)
+              }));
+              setCreateStep("location");
+              Alert.alert("Video ready","Aapki edited video final MP4 mein save ho gayi. Ab location aur post details complete karein.");
+            }}
+            onError={(error)=>{
+              Alert.alert("Video Editor Error",error?.message||"Video edit/export nahi ho saka.");
+            }}
+          />
+        </View>
+      );
+    }
     const pageTitle={camera:"Create Video",gallery:"Select Video",selected:"Video Preview",editor:"Video Editor",location:"Add Location",post:"Post Video"}[createStep]||"Create Video";
     const stepNumber={camera:"1/6",gallery:"2/6",selected:"3/6",editor:"4/6",location:"5/6",post:"6/6"}[createStep]||"1/6";
     const goBack=()=>{
@@ -2096,18 +2138,8 @@ export default function App() {
         </View>}
 
         {createStep==="editor"&&<View style={styles.card}>
-          <Text style={styles.sectionTitle}>✂️ Prepare your video</Text>
-          {selectedVideo?.uri&&<Video source={{uri:selectedVideo.uri}} style={{width:"100%",height:320,backgroundColor:"#000",borderRadius:14}} useNativeControls resizeMode={ResizeMode.CONTAIN}/>}
-          <Text style={styles.fieldLabel}>Video Cover</Text>
-          <Button title="Choose Cover from Gallery" secondary onPress={choosePostCoverImage}/>
-          {postCoverImage&&<Image source={{uri:postCoverImage}} style={{width:"100%",height:150,borderRadius:12,marginTop:8}}/>}
-          <Text style={styles.fieldLabel}>Music / Sound</Text>
-          <TouchableOpacity style={styles.soundSelect} onPress={()=>{setSoundReturnPage("Create");setPage("Sound");}}>
-            <Text style={styles.soundSelectText}>♫  {selectedSound||"Choose music or use original sound"}</Text>
-            <Text style={{color:C.magenta,fontWeight:"900"}}>Choose ›</Text>
-          </TouchableOpacity>
-          <Text style={styles.helpText}>Aapki selected video original audio ke saath upload hogi. Extra music select karne par uska naam post ke saath save hoga. Is build mein trim, visual filters aur text ko video file mein permanently render karne ka editor engine abhi connected nahi hai.</Text>
-          <Button title="Continue to Location" onPress={()=>setCreateStep("location")}/>
+          <Text style={styles.sectionTitle}>Video Editor</Text>
+          <Text style={styles.helpText}>Editor yahan open hoga.</Text>
         </View>}
 
         {createStep==="location"&&<View style={styles.card}>
@@ -2607,6 +2639,7 @@ export default function App() {
   );
 
   return (
+    <GestureHandlerRootView style={{flex:1}}>
     <View style={styles.app}>
       <StatusBar backgroundColor={C.bg} barStyle="light-content"/>
 
@@ -2710,6 +2743,7 @@ export default function App() {
         </View>
       )}
     </View>
+    </GestureHandlerRootView>
   );
 }
 
