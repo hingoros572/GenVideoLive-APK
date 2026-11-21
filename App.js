@@ -1964,21 +1964,30 @@ export default function App() {
 
   function renderVideoPlayer() {
     if(!playingPost) return null;
-
+    const reel=playingPost;
     return (
       <View style={styles.playerScreen}>
-        <TouchableOpacity onPress={()=>setPlayingPost(null)} style={styles.playerBack}>
-          <Text style={styles.backText}>‹ Back to Profile</Text>
-        </TouchableOpacity>
-        <Video
-          source={{uri:playingPost.videoUrl}}
-          style={styles.fullVideo}
-          useNativeControls
-          resizeMode={ResizeMode.CONTAIN}
-          shouldPlay
-          isLooping
+        <ReelCard
+          reel={reel}
+          height={SCREEN_HEIGHT}
+          isActive={true}
+          liked={!!liked[reel.id]}
+          saved={!!saved[reel.id]}
+          following={!!(reel.ownerId&&following[reel.ownerId])}
+          onLike={()=>toggleLike(reel.id)}
+          onDoubleLike={()=>{if(!liked[reel.id]) toggleLike(reel.id);}}
+          onSave={()=>toggleSave(reel.id)}
+          onFollow={()=>toggleFollow(reel)}
+          onComment={()=>openComments(reel)}
+          onQuickReaction={(emoji)=>postQuickReaction(reel,emoji)}
+          onShare={()=>shareReel(reel)}
+          onSound={()=>openSound(reel)}
+          isOwner={reel.ownerId===user?.id}
+          onDelete={()=>confirmDeletePost(reel)}
         />
-        <Text style={styles.playerCaption}>{playingPost.caption}</Text>
+        <TouchableOpacity onPress={()=>setPlayingPost(null)} style={styles.playerBackOverlay}>
+          <Text style={styles.playerBackOverlayText}>‹</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -2111,8 +2120,56 @@ export default function App() {
 
   if(playingPost) return (
     <View style={styles.app}>
-      <StatusBar backgroundColor={C.bg} barStyle="light-content"/>
+      <StatusBar backgroundColor="#000" barStyle="light-content" hidden={true}/>
       {renderVideoPlayer()}
+      <Modal visible={commentsVisible} transparent animationType="slide" statusBarTranslucent navigationBarTranslucent={true} onRequestClose={()=>setCommentsVisible(false)}>
+        <View style={styles.commentsModalRoot}>
+          <TouchableOpacity style={styles.commentsBackdrop} activeOpacity={1} onPress={()=>setCommentsVisible(false)}/>
+          <KeyboardAvoidingView style={styles.commentsKeyboard} behavior={Platform.OS==="ios"?"padding":"height"} keyboardVerticalOffset={Platform.OS==="ios"?24:0}>
+            <View style={styles.commentsSheet}>
+              <View style={styles.commentsHeader}>
+                <Text style={styles.commentsTitle}>{comments.length} comments</Text>
+                <TouchableOpacity onPress={()=>setCommentsVisible(false)} style={styles.commentsClose}><Text style={styles.commentsCloseText}>×</Text></TouchableOpacity>
+              </View>
+              {commentsLoading ? <View style={styles.commentsLoading}><ActivityIndicator color={C.magenta}/><Text style={styles.commentsMuted}>Loading comments...</Text></View> : (
+                <ScrollView style={styles.commentsList} contentContainerStyle={styles.commentsListContent} keyboardShouldPersistTaps="handled">
+                  {comments.map(comment=>(
+                    <View key={comment.id} style={styles.commentRow}>
+                      {comment.profileImage ? <Image source={{uri:comment.profileImage}} style={styles.commentAvatar}/> : <View style={styles.commentAvatarFallback}><Text>👤</Text></View>}
+                      <View style={styles.commentBody}>
+                        <View style={styles.commentNameRow}>
+                          <Text style={styles.commentUsername}>{comment.username||"User"}</Text>
+                          {comment.userId===commentPost?.ownerId&&<Text style={styles.commentCreatorBadge}>Creator</Text>}
+                        </View>
+                        {!!comment.text&&<Text style={styles.commentMessage}>{comment.text}</Text>}
+                        {!!comment.imageUrl&&<Image source={{uri:comment.imageUrl}} style={styles.commentImage}/>}
+                        <View style={styles.commentActions}>
+                          <Text style={styles.commentDate}>{comment.createdAt?new Date(comment.createdAt).toLocaleDateString():""}</Text>
+                          <TouchableOpacity onPress={()=>{setCommentText("@"+(comment.username||"User")+" ");commentInputRef.current?.focus();}}><Text style={styles.commentActionText}>Reply</Text></TouchableOpacity>
+                          {comment.userId===user?.id&&<TouchableOpacity onPress={()=>deleteComment(comment)}><Text style={styles.commentDeleteText}>Delete</Text></TouchableOpacity>}
+                        </View>
+                      </View>
+                    </View>
+                  ))}
+                  {!comments.length&&<View style={styles.commentsEmpty}><Text style={{fontSize:34}}>💬</Text><Text style={styles.commentsMuted}>Abhi koi comment nahi. Pehla comment aap karein!</Text></View>}
+                </ScrollView>
+              )}
+              <View style={styles.commentComposer}>
+                {commentImage&&<View style={styles.commentImagePreviewRow}><Image source={{uri:commentImage.uri}} style={styles.commentImagePreview}/><TouchableOpacity onPress={()=>setCommentImage(null)}><Text style={styles.commentRemoveImage}>×</Text></TouchableOpacity></View>}
+                <View style={styles.commentInputRow}>
+                  {profileImage ? <Image source={{uri:profileImage}} style={styles.commentMyAvatar}/> : <View style={styles.commentMyAvatarFallback}><Text>👤</Text></View>}
+                  <TextInput ref={commentInputRef} style={styles.commentInput} value={commentText} onChangeText={setCommentText} placeholder="Add comment..." placeholderTextColor="#92929c" multiline maxLength={1000} returnKeyType="default"/>
+                  <TouchableOpacity style={styles.commentToolButton} onPress={chooseCommentImage}><Text style={styles.commentToolIcon}>▧</Text></TouchableOpacity>
+                  <TouchableOpacity style={styles.commentToolButton} onPress={()=>setCommentText(old=>old+"@")}><Text style={styles.commentToolIcon}>@</Text></TouchableOpacity>
+                  <TouchableOpacity style={[styles.commentSendButton,(!commentText.trim()&&!commentImage)&&styles.commentSendDisabled]} onPress={()=>submitComment()} disabled={commentSending||(!commentText.trim()&&!commentImage)}>
+                    {commentSending?<ActivityIndicator color="#fff" size="small"/>:<Text style={styles.commentSendText}>↑</Text>}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
     </View>
   );
 
@@ -2442,8 +2499,7 @@ const styles=StyleSheet.create({
   accountName:{color:C.white,fontSize:16,fontWeight:"bold"},
   accountEmail:{color:C.gray,fontSize:11,marginTop:5},
   centerPage:{flex:1,backgroundColor:C.bg,alignItems:"center",justifyContent:"center",padding:25},
-  playerScreen:{flex:1,backgroundColor:"#000",paddingTop:10},
-  playerBack:{padding:15},
-  fullVideo:{width:"100%",height:"75%"},
-  playerCaption:{color:C.white,padding:15,fontSize:14}
+  playerScreen:{flex:1,backgroundColor:"#000",overflow:"hidden"},
+  playerBackOverlay:{position:"absolute",top:12,left:14,width:42,height:42,zIndex:20,justifyContent:"center",alignItems:"center",backgroundColor:"rgba(0,0,0,0.18)",borderRadius:22},
+  playerBackOverlayText:{color:C.white,fontSize:34,fontWeight:"300",lineHeight:38}
 });
