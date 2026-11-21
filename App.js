@@ -4,11 +4,13 @@ import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
   StyleSheet, StatusBar, Alert, Image, Animated, RefreshControl,
   KeyboardAvoidingView, Platform, ActivityIndicator, Modal,
-  Share, Dimensions
+  Share, Dimensions, Linking
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Video, ResizeMode, Audio } from "expo-av";
+import { VideoEditor } from "@dahab-tech/react-native-media-editor/videoEditor";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 const API_KEY = "AIzaSyCoE-u18gD7wBg20dtLBtctQbM6KHzUFtk";
 const DATABASE_URL = "https://gen-video-live-default-rtdb.asia-southeast1.firebasedatabase.app";
@@ -133,8 +135,8 @@ function SpinningDisc({ avatarUrl }) {
 
 // REEL CARD
 function ReelCard({
-  reel,height,liked,saved,following,isActive,showViews=true,likeCount,commentCount=0,saveCount=0,
-  onLike,onDoubleLike,onSave,onFollow,onComment,onCommentLongPress,onQuickReaction,onShare,onSound,isOwner,onDelete
+  reel,height,liked,saved,following,isActive,showViews=true,likeCount,commentCount=0,saveCount=0,shareCount=0,repostCount=0,reposted=false,
+  onLike,onDoubleLike,onSave,onFollow,onComment,onCommentLongPress,onQuickReaction,onShare,onRepost,onSound,onOpenProfile,isOwner,onDelete
 }) {
   const lastTapRef = useRef(0);
   const touchStartRef = useRef(null);
@@ -214,13 +216,14 @@ function ReelCard({
       )}
 
       <View style={styles.reelBottom}>
-        <Text style={styles.creatorName}>@{reel.creator||"Creator"}</Text>
+        {!!reel.repostedByUsername&&<Text style={styles.repostAttribution}>↻ Reposted by @{reel.repostedByUsername}</Text>}
+        <TouchableOpacity onPress={()=>onOpenProfile?.(reel.ownerId)} disabled={!reel.ownerId}><Text style={styles.creatorName}>@{reel.creator||"Creator"}</Text></TouchableOpacity>
         <Text style={styles.caption}>{reel.caption||""}</Text>
       </View>
 
       <View style={styles.actionStack}>
         <View style={styles.creatorFollow}>
-          <View style={styles.creatorAvatarRing}>
+          <TouchableOpacity style={styles.creatorAvatarRing} onPress={()=>onOpenProfile?.(reel.ownerId)} disabled={!reel.ownerId}>
             {reel.avatarUrl ? (
               <Image source={{uri:reel.avatarUrl}} style={styles.creatorAvatarImage}/>
             ) : (
@@ -228,7 +231,7 @@ function ReelCard({
                 <Text style={styles.avatarEmoji}>👤</Text>
               </View>
             )}
-          </View>
+          </TouchableOpacity>
           <TouchableOpacity
             style={[styles.followPlus,following&&styles.followedButton]}
             onPress={onFollow}
@@ -276,7 +279,11 @@ function ReelCard({
 
         <TouchableOpacity style={styles.actionButton} onPress={onShare}>
           <Text style={styles.actionIcon}>↗️</Text>
-          <Text style={styles.actionCount}>Share</Text>
+          <Text style={styles.actionCount}>{Number(shareCount||0).toLocaleString()}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.actionButton} onPress={onRepost}>
+          <Text style={[styles.actionIcon,{color:reposted?C.magenta:C.white}]}>🔁</Text>
+          <Text style={styles.actionCount}>{Number(repostCount||0).toLocaleString()}</Text>
         </TouchableOpacity>
         {isOwner&&(
           <TouchableOpacity style={styles.postMoreButton} onPress={onDelete} accessibilityRole="button" accessibilityLabel="Delete your post">
@@ -311,7 +318,16 @@ export default function App() {
   const [editLocation,setEditLocation] = useState("");
   const [editProfileImage,setEditProfileImage] = useState("");
   const [editCoverImage,setEditCoverImage] = useState("");
+  const [youtubeLink,setYoutubeLink] = useState("");
+  const [editYoutubeLink,setEditYoutubeLink] = useState("");
   const [userProfiles,setUserProfiles] = useState({});
+  const [selectedProfileId,setSelectedProfileId] = useState(null);
+  const [selectedProfileData,setSelectedProfileData] = useState(null);
+  const [selectedProfileFollowerCount,setSelectedProfileFollowerCount] = useState(0);
+  const [messageDraft,setMessageDraft] = useState("");
+  const [chatInputFocused,setChatInputFocused] = useState(false);
+  const messageScrollRef = useRef(null);
+  const [messageSendingText,setMessageSendingText] = useState(false);
 
   const [page,setPage] = useState("Home");
   const [feedTab,setFeedTab] = useState("For You");
@@ -327,6 +343,25 @@ export default function App() {
   const [likeCounts,setLikeCounts] = useState({});
   const [commentCounts,setCommentCounts] = useState({});
   const [saveCounts,setSaveCounts] = useState({});
+  const [shareCounts,setShareCounts] = useState({});
+  const [repostCounts,setRepostCounts] = useState({});
+  const [reposts,setReposts] = useState({});
+  const [myReposts,setMyReposts] = useState({});
+  const [userChats,setUserChats] = useState({});
+  const [messageRequests,setMessageRequests] = useState({});
+  const [inboxFilter,setInboxFilter] = useState("Main");
+  const [inboxSearchOpen,setInboxSearchOpen] = useState(false);
+  const [inboxSearch,setInboxSearch] = useState("");
+  const [shareModalVisible,setShareModalVisible] = useState(false);
+  const [shareTargetPost,setShareTargetPost] = useState(null);
+  const [recipientQuery,setRecipientQuery] = useState("");
+  const [recipientResults,setRecipientResults] = useState([]);
+  const [recipientLoading,setRecipientLoading] = useState(false);
+  const [selectedChat,setSelectedChat] = useState(null);
+  const [conversationMessages,setConversationMessages] = useState([]);
+  const [conversationLoading,setConversationLoading] = useState(false);
+  const [messageText,setMessageText] = useState("");
+  const [messageSending,setMessageSending] = useState(false);
   const [commentsVisible,setCommentsVisible] = useState(false);
   const [commentPost,setCommentPost] = useState(null);
   const [comments,setComments] = useState([]);
@@ -547,6 +582,8 @@ export default function App() {
         setEditLocation(data.location||"");
         setEditProfileImage(data.profileImage||"");
         setEditCoverImage(data.coverImage||"");
+        setYoutubeLink(data.youtubeLink||"");
+        setEditYoutubeLink(data.youtubeLink||"");
         setUserProfiles(old=>({...old,[user.id]:data}));
         await AsyncStorage.setItem(SESSION_STORAGE_KEY,JSON.stringify({
           ...user,username:data.username||username||user.email?.split("@")[0]||"User"
@@ -557,6 +594,8 @@ export default function App() {
         setEditLocation("");
         setEditProfileImage("");
         setEditCoverImage("");
+        setYoutubeLink("");
+        setEditYoutubeLink("");
       }
     } catch(error) {
       console.log("PROFILE LOAD ERROR:",error.message);
@@ -658,6 +697,18 @@ export default function App() {
 
       setLiked(likeData&&typeof likeData==="object"?likeData:{});
       setSaved(saveData&&typeof saveData==="object"?saveData:{});
+      // Migrate this signed-in user's older Likes/Saves into the public per-post
+      // engagement index without making the private userSaves list readable.
+      const migrationPatch={};
+      Object.entries(likeData||{}).forEach(([postId,value])=>{if(value)migrationPatch[`postEngagement/${postId}/likes/${user.id}`]=true;});
+      Object.entries(saveData||{}).forEach(([postId,value])=>{if(value)migrationPatch[`postEngagement/${postId}/saves/${user.id}`]=true;});
+      if(Object.keys(migrationPatch).length) {
+        const migrationResponse=await fetch(`${DATABASE_URL}/.json?auth=${encodeURIComponent(user.token)}`,{
+          method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(migrationPatch)
+        });
+        if(!migrationResponse.ok) throw new Error("Purane Likes/Saves counts migrate nahi hue. Firebase Rules update required.");
+        await loadEngagementCounts();
+      }
     } catch(error) {
       console.log("LIKE/SAVE LOAD ERROR:",error.message);
     }
@@ -667,17 +718,14 @@ export default function App() {
     if(!user?.token) return;
 
     try {
-      const [commentsResponse,savesResponse,likesResponse]=await Promise.all([
+      const [commentsResponse,engagementResponse]=await Promise.all([
         fetch(`${DATABASE_URL}/comments.json?auth=${encodeURIComponent(user.token)}`),
-        fetch(`${DATABASE_URL}/userSaves.json?auth=${encodeURIComponent(user.token)}`),
-        fetch(`${DATABASE_URL}/userLikes.json?auth=${encodeURIComponent(user.token)}`)
+        fetch(`${DATABASE_URL}/postEngagement.json?auth=${encodeURIComponent(user.token)}`)
       ]);
       const commentsData=await commentsResponse.json();
-      const savesData=await savesResponse.json();
-      const likesData=await likesResponse.json();
+      const engagementData=await engagementResponse.json();
       if(!commentsResponse.ok) throw new Error("Comment counts load nahi hue.");
-      if(!savesResponse.ok) throw new Error("Save counts load nahi hue.");
-      if(!likesResponse.ok) throw new Error("Like counts load nahi hue.");
+      if(!engagementResponse.ok) throw new Error("Public engagement counts load nahi hue. Firebase Rules update required.");
 
       const nextCommentCounts={};
       if(commentsData&&typeof commentsData==="object") {
@@ -688,24 +736,12 @@ export default function App() {
         });
       }
 
-      const nextSaveCounts={};
-      if(savesData&&typeof savesData==="object") {
-        Object.values(savesData).forEach(userSaves=>{
-          if(userSaves&&typeof userSaves==="object") {
-            Object.entries(userSaves).forEach(([postId,isSaved])=>{
-              if(isSaved) nextSaveCounts[postId]=(nextSaveCounts[postId]||0)+1;
-            });
-          }
-        });
-      }
-      const nextLikeCounts={};
-      if(likesData&&typeof likesData==="object") {
-        Object.values(likesData).forEach(userLikes=>{
-          if(userLikes&&typeof userLikes==="object") {
-            Object.entries(userLikes).forEach(([postId,isLiked])=>{
-              if(isLiked) nextLikeCounts[postId]=(nextLikeCounts[postId]||0)+1;
-            });
-          }
+      const nextSaveCounts={},nextLikeCounts={};
+      if(engagementData&&typeof engagementData==="object") {
+        Object.entries(engagementData).forEach(([postId,activity])=>{
+          const likes=activity?.likes,saves=activity?.saves;
+          nextLikeCounts[postId]=likes&&typeof likes==="object"?Object.keys(likes).length:0;
+          nextSaveCounts[postId]=saves&&typeof saves==="object"?Object.keys(saves).length:0;
         });
       }
       setCommentCounts(nextCommentCounts);
@@ -714,6 +750,142 @@ export default function App() {
     } catch(error) {
       console.log("ENGAGEMENT COUNTS LOAD ERROR:",error.message);
     }
+  }
+
+  async function loadSocialRecords() {
+    if(!user?.token) return;
+    try {
+      const paths=["reposts.json","shares.json",`userReposts/${user.id}.json`,`userChats/${user.id}.json`,`messageRequests/${user.id}.json`];
+      const responses=await Promise.all(paths.map(path=>fetch(`${DATABASE_URL}/${path}?auth=${encodeURIComponent(user.token)}`)));
+      const data=await Promise.all(responses.map(response=>response.json()));
+      if(responses.some(response=>!response.ok)) throw new Error("Social records load nahi hue. Firebase Rules update required.");
+      const [repostsData,sharesData,myRepostsData,chatsData,requestsData]=data;
+      const nextRepostCounts={},nextShareCounts={};
+      Object.entries(repostsData||{}).forEach(([id,items])=>nextRepostCounts[id]=items&&typeof items==="object"?Object.keys(items).length:0);
+      Object.entries(sharesData||{}).forEach(([id,items])=>nextShareCounts[id]=items&&typeof items==="object"?Object.keys(items).length:0);
+      setReposts(repostsData&&typeof repostsData==="object"?repostsData:{});
+      setMyReposts(myRepostsData&&typeof myRepostsData==="object"?myRepostsData:{});
+      setRepostCounts(nextRepostCounts);setShareCounts(nextShareCounts);
+      setUserChats(chatsData&&typeof chatsData==="object"?chatsData:{});
+      setMessageRequests(requestsData&&typeof requestsData==="object"?requestsData:{});
+    } catch(error){console.log("SOCIAL RECORDS LOAD ERROR:",error.message);}
+  }
+
+  async function searchMessageRecipients(value) {
+    setRecipientQuery(value);
+    const q=String(value||"").trim().replace(/^@/,"").toLowerCase();
+    if(!q||!user?.token){setRecipientResults([]);return;}
+    setRecipientLoading(true);
+    try {
+      const response=await fetch(`${DATABASE_URL}/users.json?auth=${encodeURIComponent(user.token)}`);
+      const data=await response.json();
+      if(!response.ok) throw new Error(data?.error||"Users search nahi ho sake.");
+      setRecipientResults(Object.entries(data||{}).filter(([id,p])=>id!==user.id&&p&&String(p.username||"").replace(/^@/,"").toLowerCase().includes(q)).slice(0,25).map(([id,p])=>({id,username:p.username||"User",profileImage:p.profileImage||""})));
+    } catch(error){setRecipientResults([]);Alert.alert("User search",error.message||"Users search nahi ho sake.");}
+    finally{setRecipientLoading(false);}
+  }
+
+  async function acceptMessageRequest(request) {
+    if(!user?.token||!request?.requesterId)return;
+    try {
+      const senderId=request.requesterId,chatId=[String(user.id),String(senderId)].sort().join("__"),now=Date.now();
+      const mine={chatId,otherUserId:senderId,otherUsername:request.requesterUsername||"User",lastMessageType:request.type||"text",lastMessageText:request.text||"",lastMessageAt:request.createdAt||now,lastMessageSenderId:senderId};
+      const theirs={...mine,otherUserId:user.id,otherUsername:username||"User"};
+      const patch={
+        [`userChats/${user.id}/${chatId}`]:mine,
+        [`userChats/${senderId}/${chatId}`]:theirs,
+        [`messages/${chatId}/accepted_${request.createdAt||now}`]:{...request,seen:false,acceptedAt:now},
+        [`messageRequests/${user.id}/${senderId}`]:null
+      };
+      const response=await fetch(`${DATABASE_URL}/.json?auth=${encodeURIComponent(user.token)}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(patch)});
+      if(!response.ok) {const errorData=await response.json();throw new Error(errorData?.error||"Request accept nahi hui. Firebase Rules check karein.");}
+      setMessageRequests(old=>{const next={...old};delete next[senderId];return next;});
+      setUserChats(old=>({...old,[chatId]:mine}));
+      Alert.alert("Accepted","Ab ye chat Main Inbox mein aa gayi hai.");
+    } catch(error){Alert.alert("Request error",error.message||"Request accept nahi hui.");}
+  }
+
+  async function ignoreMessageRequest(request) {
+    if(!user?.token||!request?.requesterId)return;
+    try {
+      const response=await fetch(`${DATABASE_URL}/messageRequests/${user.id}/${request.requesterId}.json?auth=${encodeURIComponent(user.token)}`,{method:"DELETE"});
+      if(!response.ok)throw new Error("Request remove nahi hui. Firebase Rules check karein.");
+      setMessageRequests(old=>{const next={...old};delete next[request.requesterId];return next;});
+    } catch(error){Alert.alert("Request error",error.message||"Request remove nahi hui.");}
+  }
+
+  async function openInboxConversation(chat) {
+    setSelectedChat(chat);setConversationMessages([]);setConversationLoading(true);
+    try {
+      const response=await fetch(`${DATABASE_URL}/messages/${encodeURIComponent(chat.chatId)}.json?auth=${encodeURIComponent(user.token)}`);
+      const data=await response.json();if(!response.ok)throw new Error(data?.error||"Messages load nahi hue.");
+      setConversationMessages(data&&typeof data==="object"?Object.entries(data).map(([id,item])=>({id,...item})).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0)):[]);
+    } catch(error){Alert.alert("Inbox",error.message||"Messages load nahi hue.");}
+    finally{setConversationLoading(false);}
+  }
+
+  async function sendVideoToRecipient(recipient) {
+    const post=shareTargetPost;if(!post||!recipient?.id||!user?.token||messageSending)return;
+    setMessageSending(true);
+    try {
+      const chatId=[String(user.id),String(recipient.id)].sort().join("__"),now=Date.now();
+      const message={type:"video",senderId:user.id,senderUsername:username||"User",recipientId:recipient.id,recipientUsername:recipient.username||"User",post:{postId:post.id,ownerId:post.ownerId||"",creator:post.creator||"Creator",caption:post.caption||"",videoUrl:post.videoUrl,thumbnailUrl:getVideoThumbnail(post)||""},text:messageText.trim(),createdAt:now,seen:false};
+      const followsMeResponse=await fetch(`${DATABASE_URL}/followers/${user.id}/${recipient.id}.json?auth=${encodeURIComponent(user.token)}`);
+      const followsMe=await followsMeResponse.json();
+      if(!followsMeResponse.ok) throw new Error("Follow status check nahi ho saka. Firebase Rules check karein.");
+      const isFollowingMe=!!followsMe;
+      if(!isFollowingMe) {
+        const request={...message,requesterId:user.id,requesterUsername:username||"User",recipientId:recipient.id,recipientUsername:recipient.username||"User",status:"pending",requestedAt:now};
+        const requestResponse=await fetch(`${DATABASE_URL}/messageRequests/${recipient.id}/${user.id}.json?auth=${encodeURIComponent(user.token)}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(request)});
+        if(!requestResponse.ok) throw new Error("Message request save nahi hui. Firebase Rules update required.");
+        const sharePath=`${DATABASE_URL}/shares/${post.id}/${user.id}.json?auth=${encodeURIComponent(user.token)}`;
+        const shareCheck=await fetch(sharePath),shareExisting=await shareCheck.json();
+        if(!shareCheck.ok) throw new Error("Share record check nahi ho saka.");
+        const shareSave=await fetch(sharePath,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({userId:user.id,destination:"in_app",firstSharedAt:shareExisting?.firstSharedAt||now,lastSharedAt:now,shareAttempts:Number(shareExisting?.shareAttempts||0)+1})});
+        if(!shareSave.ok) throw new Error("Request bheji gayi lekin Share count save nahi hua.");
+        if(!shareExisting)setShareCounts(old=>({...old,[post.id]:(old[post.id]||0)+1}));
+        setShareModalVisible(false);setShareTargetPost(null);setRecipientQuery("");setRecipientResults([]);setMessageText("");
+        Alert.alert("Request sent","Aapki video message request bhej di gayi hai. User accept karega to chat Main mein aa jayegi.");
+        return;
+      }
+      const mine={chatId,otherUserId:recipient.id,otherUsername:recipient.username||"User",lastMessageType:"video",lastMessageText:message.text,lastMessageAt:now,lastMessageSenderId:user.id};
+      const a=await fetch(`${DATABASE_URL}/userChats/${user.id}/${encodeURIComponent(chatId)}.json?auth=${encodeURIComponent(user.token)}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(mine)});
+      if(!a.ok)throw new Error("Inbox conversation create nahi hui.");
+      const b=await fetch(`${DATABASE_URL}/userChats/${recipient.id}/${encodeURIComponent(chatId)}.json?auth=${encodeURIComponent(user.token)}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({...mine,otherUserId:user.id,otherUsername:username||"User"})});
+      if(!b.ok)throw new Error("Recipient Inbox update nahi hua. Rules check karein.");
+      const response=await fetch(`${DATABASE_URL}/messages/${encodeURIComponent(chatId)}.json?auth=${encodeURIComponent(user.token)}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(message)});
+      const result=await response.json();if(!response.ok||!result?.name)throw new Error(result?.error||"Video message save nahi hua.");
+      const sharePath=`${DATABASE_URL}/shares/${post.id}/${user.id}.json?auth=${encodeURIComponent(user.token)}`;
+      const shareCheck=await fetch(sharePath),shareExisting=await shareCheck.json();
+      if(!shareCheck.ok)throw new Error("Share record check nahi ho saka.");
+      const shareSave=await fetch(sharePath,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({userId:user.id,destination:"in_app",firstSharedAt:shareExisting?.firstSharedAt||now,lastSharedAt:now,shareAttempts:Number(shareExisting?.shareAttempts||0)+1})});
+      if(!shareSave.ok)throw new Error("Message bheja gaya, lekin Share count save nahi hua.");
+      if(!shareExisting)setShareCounts(old=>({...old,[post.id]:(old[post.id]||0)+1}));
+      setUserChats(old=>({...old,[chatId]:mine}));setShareModalVisible(false);setShareTargetPost(null);setRecipientQuery("");setRecipientResults([]);setMessageText("");
+      Alert.alert("Sent","Video "+(recipient.username||"user")+" ko bhej di gayi.");
+    } catch(error){Alert.alert("Send failed",error.message||"Video send nahi hui.");}
+    finally{setMessageSending(false);}
+  }
+
+  async function toggleRepost(reel) {
+    if(!user?.token)return Alert.alert("Login required","Pehle login karein.");
+    if(!reel?.id||!reel?.videoUrl)return;
+    if(reel.ownerId===user.id)return Alert.alert("Repost","Apni video ko repost nahi kar sakte.");
+    const exists=!!myReposts[reel.id],record={postId:reel.id,originalOwnerId:reel.ownerId||"",reposterId:user.id,reposterUsername:username||"User",createdAt:Date.now()};
+    try{
+      const patch={
+        [`reposts/${reel.id}/${user.id}`]:exists?null:record,
+        [`userReposts/${user.id}/${reel.id}`]:exists?null:record
+      };
+      const response=await fetch(`${DATABASE_URL}/.json?auth=${encodeURIComponent(user.token)}`,{
+        method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(patch)
+      });
+      if(!response.ok)throw new Error("Repost Firebase mein save nahi hua.");
+      setMyReposts(old=>{const n={...old};if(exists)delete n[reel.id];else n[reel.id]=record;return n;});
+      setReposts(old=>{const n={...old,[reel.id]:{...(old[reel.id]||{})}};if(exists)delete n[reel.id][user.id];else n[reel.id][user.id]=record;return n;});
+      setRepostCounts(old=>({...old,[reel.id]:Math.max(0,(old[reel.id]||0)+(exists?-1:1))}));
+      Alert.alert(exists?"Repost removed":"Reposted",exists?"Repost hata diya gaya.":"Video followers ke feed mein share ho gayi.");
+    }catch(error){Alert.alert("Repost error",error.message||"Repost nahi ho saka. Rules check karein.");}
   }
 
   async function loadFollowerCount() {
@@ -771,6 +943,7 @@ export default function App() {
 
   async function refreshAllFeeds() {
     if(!user?.token) return;
+    const nextFeedIndex=visibleReels.length>1?(activeReelIndex+1)%visibleReels.length:0;
     setRefreshing(true);
     try {
       await Promise.all([
@@ -779,8 +952,12 @@ export default function App() {
         loadFollowerCount(),
         loadLikeSave(),
         loadEngagementCounts(),
+        loadSocialRecords(),
         loadMyProfile()
       ]);
+      const safeNextIndex=Math.min(nextFeedIndex,Math.max(0,visibleReels.length-1));
+      setActiveReelIndex(safeNextIndex);
+      feedScrollRef.current?.scrollTo({y:safeNextIndex*reelHeight,animated:false});
     } finally {
       setRefreshing(false);
     }
@@ -794,6 +971,7 @@ export default function App() {
       loadFollowing();
       loadLikeSave();
       loadEngagementCounts();
+      loadSocialRecords();
     }
   },[user]);
 
@@ -852,12 +1030,13 @@ export default function App() {
     try {
       const url=`${DATABASE_URL}/userLikes/${user.id}/${id}.json?auth=${encodeURIComponent(user.token)}`;
 
-      const response=await fetch(url,{
-        method:nextValue?"PUT":"DELETE",
-        headers:{"Content-Type":"application/json"},
-        ...(nextValue?{body:"true"}:{})
+      const patch={
+        [`userLikes/${user.id}/${id}`]:nextValue?true:null,
+        [`postEngagement/${id}/likes/${user.id}`]:nextValue?true:null
+      };
+      const response=await fetch(`${DATABASE_URL}/.json?auth=${encodeURIComponent(user.token)}`,{
+        method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(patch)
       });
-
       if(!response.ok) throw new Error("Like save nahi hua.");
     } catch(error) {
       setLiked(old=>({...old,[id]:wasLiked}));
@@ -881,12 +1060,13 @@ export default function App() {
     try {
       const url=`${DATABASE_URL}/userSaves/${user.id}/${id}.json?auth=${encodeURIComponent(user.token)}`;
 
-      const response=await fetch(url,{
-        method:nextValue?"PUT":"DELETE",
-        headers:{"Content-Type":"application/json"},
-        ...(nextValue?{body:"true"}:{})
+      const patch={
+        [`userSaves/${user.id}/${id}`]:nextValue?true:null,
+        [`postEngagement/${id}/saves/${user.id}`]:nextValue?true:null
+      };
+      const response=await fetch(`${DATABASE_URL}/.json?auth=${encodeURIComponent(user.token)}`,{
+        method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(patch)
       });
-
       if(!response.ok) throw new Error("Save nahi hua.");
     } catch(error) {
       setSaved(old=>({...old,[id]:wasSaved}));
@@ -1357,6 +1537,7 @@ export default function App() {
         location:editLocation.trim(),
         profileImage:finalProfileImage||"",
         coverImage:finalCoverImage||"",
+        youtubeLink:editYoutubeLink.trim(),
         updatedAt:Date.now()
       };
 
@@ -1379,8 +1560,10 @@ export default function App() {
       setLocation(profileData.location);
       setProfileImage(profileData.profileImage);
       setCoverImage(profileData.coverImage);
+      setYoutubeLink(profileData.youtubeLink);
       setEditProfileImage(profileData.profileImage);
       setEditCoverImage(profileData.coverImage);
+      setEditYoutubeLink(profileData.youtubeLink);
       setUser(old=>({...old,token:data.idToken||old.token}));
       setUserProfiles(old=>({...old,[user.id]:profileData}));
       await AsyncStorage.setItem(SESSION_STORAGE_KEY,JSON.stringify({
@@ -1418,6 +1601,8 @@ export default function App() {
           setCoverImage("");
           setEditProfileImage("");
           setEditCoverImage("");
+          setYoutubeLink("");
+          setEditYoutubeLink("");
           setUserProfiles({});
           setPosts([]);
           setFollowing({});
@@ -1447,13 +1632,22 @@ export default function App() {
   }
 
   async function shareReel(reel) {
-    try {
-      await Share.share({
-        message:`${reel.caption||"Watch this on Gen Video Live"}\n${reel.videoUrl||""}`
-      });
-    } catch(error) {
-      Alert.alert("Share","Share nahi ho saka.");
-    }
+    setShareTargetPost(reel);setRecipientQuery("");setRecipientResults([]);setMessageText("");setShareModalVisible(true);
+  }
+
+  async function shareReelExternally() {
+    if(!shareTargetPost)return;
+    try{
+      const result=await Share.share({message:`${shareTargetPost.caption||"Watch this on Gen Video Live"}\n${shareTargetPost.videoUrl||""}`});
+      if(result.action===Share.sharedAction){
+        const path=`${DATABASE_URL}/shares/${shareTargetPost.id}/${user.id}.json?auth=${encodeURIComponent(user.token)}`,now=Date.now();
+        const check=await fetch(path),existing=await check.json();
+        if(!check.ok)throw new Error("Share record check nahi ho saka.");
+        const response=await fetch(path,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({userId:user.id,destination:"external",firstSharedAt:existing?.firstSharedAt||now,lastSharedAt:now,shareAttempts:Number(existing?.shareAttempts||0)+1})});
+        if(!response.ok)throw new Error("Share record Firebase mein save nahi hua.");
+        if(!existing)setShareCounts(old=>({...old,[shareTargetPost.id]:(old[shareTargetPost.id]||0)+1}));
+      }
+    }catch(error){Alert.alert("Share",error.message||"Share nahi ho saka.");}
   }
 
   async function openComments(reel) {
@@ -1543,8 +1737,15 @@ export default function App() {
     };
   });
 
+  const repostFeedEntries=Object.entries(reposts).flatMap(([postId,users])=>{
+    const original=allReels.find(item=>item.id===postId);
+    if(!original||!users||typeof users!=="object")return [];
+    const latestRepost=Object.values(users).filter(record=>record&&record.reposterId&&following[record.reposterId]).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0))[0];
+    return latestRepost?[{...original,repostedByUsername:latestRepost.reposterUsername||"User",repostedById:latestRepost.reposterId,repostedAt:latestRepost.createdAt||0}]:[];
+  });
+  const followingReelIds=new Set(repostFeedEntries.map(reel=>reel.id));
   const visibleReels=feedTab==="Following"
-    ? allReels.filter(reel=>reel.ownerId&&following[reel.ownerId])
+    ? [...repostFeedEntries,...allReels.filter(reel=>reel.ownerId&&following[reel.ownerId]&&!followingReelIds.has(reel.id))].sort((a,b)=>(b.repostedAt||b.createdAt||0)-(a.repostedAt||a.createdAt||0))
     : allReels;
   const activeReelId=page==="Home"?visibleReels[activeReelIndex]?.id:null;
   useEffect(()=>{
@@ -1555,6 +1756,10 @@ export default function App() {
   const myPosts=posts.filter(post=>post.ownerId===user?.id && isRealVideoPost(post));
   const myPublicPosts=myPosts.filter(post=>post.privacy!=="Private");
   const privatePosts=myPosts.filter(post=>post.privacy==="Private");
+  const myRepostedPosts=Object.keys(myReposts).map(id=>{
+    const original=allReels.find(post=>post.id===id);
+    return original?{...original,repostedByUsername:username||"User",repostedById:user?.id}:null;
+  }).filter(Boolean);
 
   function renderHeader() {
     return (
@@ -1580,9 +1785,9 @@ export default function App() {
 
   function renderLogin() {
     return (
-      <KeyboardAvoidingView style={styles.authScreen} behavior={Platform.OS==="ios"?"padding":undefined}>
+      <KeyboardAvoidingView style={styles.authScreen} behavior={Platform.OS==="ios"?"padding":"height"} keyboardVerticalOffset={0}>
         <StatusBar backgroundColor={C.bg} barStyle="light-content"/>
-        <ScrollView contentContainerStyle={styles.authContent} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={styles.authContent} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" scrollsChildToFocus={true} showsVerticalScrollIndicator={true}>
           <Text style={styles.crown}>👑</Text>
           <Text style={styles.authTitle}>Gen Video Live</Text>
           <Text style={styles.authSubtitle}>Watch • Create • Connect</Text>
@@ -1694,8 +1899,13 @@ export default function App() {
                 onFollow={()=>toggleFollow(reel)}
                 onComment={()=>openComments(reel)}
                 onQuickReaction={(emoji)=>postQuickReaction(reel,emoji)}
+                shareCount={shareCounts[reel.id]||0}
+                repostCount={repostCounts[reel.id]||0}
+                reposted={!!myReposts[reel.id]}
                 onShare={()=>shareReel(reel)}
+                onRepost={()=>toggleRepost(reel)}
                 onSound={()=>openSound(reel)}
+                onOpenProfile={openUserProfile}
                 isOwner={reel.ownerId===user?.id}
                 onDelete={()=>confirmDeletePost(reel)}
               />
@@ -1731,7 +1941,7 @@ export default function App() {
           <Text style={styles.friendsSectionTitle}>Friends</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.friendAvatarsRow}>
             {mutualFriends.map(friend=>(
-              <TouchableOpacity key={friend.id} style={styles.friendAvatarItem} onPress={()=>showPlaceholder(friend.username+" profile")}>
+              <TouchableOpacity key={friend.id} style={styles.friendAvatarItem} onPress={()=>openUserProfile(friend.id)}>
                 <View style={styles.friendAvatarRing}>
                   {friend.profileImage
                     ? <Image source={{uri:friend.profileImage}} style={styles.friendAvatarImage}/>
@@ -1759,7 +1969,11 @@ export default function App() {
                 onFollow={()=>toggleFollow(reel)}
                 onComment={()=>openComments(reel)}
                 onQuickReaction={(emoji)=>postQuickReaction(reel,emoji)}
+                shareCount={shareCounts[reel.id]||0}
+                repostCount={repostCounts[reel.id]||0}
+                reposted={!!myReposts[reel.id]}
                 onShare={()=>shareReel(reel)}
+                onRepost={()=>toggleRepost(reel)}
                 onSound={()=>openSound(reel)}
               />
             </View>
@@ -1777,146 +1991,185 @@ export default function App() {
   }
 
   function renderInbox() {
-    return (
-      <View style={styles.centerPage}>
-        <Text style={{fontSize:48}}>💬</Text>
-        <Text style={styles.pageTitle}>Inbox</Text>
-        <Text style={styles.emptyText}>Your messages and notifications will appear here.</Text>
-        <Text style={styles.smallMuted}>Messaging feature will be connected in a future update.</Text>
-      </View>
+    if(selectedChat)return (
+      <KeyboardAvoidingView style={styles.inboxPage} behavior={Platform.OS==="ios"?"padding":"padding"} keyboardVerticalOffset={0}>
+        <View style={styles.inboxHeader}><TouchableOpacity onPress={()=>{setChatInputFocused(false);setSelectedChat(null);}}><Text style={styles.inboxBack}>‹</Text></TouchableOpacity><TouchableOpacity onPress={()=>openUserProfile(selectedChat.otherUserId)}><Text style={styles.inboxTitle}>@{selectedChat.otherUsername||"User"}</Text></TouchableOpacity><TouchableOpacity onPress={()=>openInboxConversation(selectedChat)}><Text style={styles.recipientSend}>Refresh ↻</Text></TouchableOpacity></View>
+        {conversationLoading?<ActivityIndicator color={C.magenta} style={{marginTop:24}}/>:<ScrollView ref={messageScrollRef} style={styles.messageList} contentContainerStyle={styles.messageListContent} keyboardShouldPersistTaps="handled" keyboardDismissMode="none" onContentSizeChange={()=>messageScrollRef.current?.scrollToEnd({animated:true})}>
+          {conversationMessages.map(message=><View key={message.id} style={[styles.messageBubble,message.senderId===user.id?styles.myMessageBubble:styles.theirMessageBubble]}>
+            {message.type==="video"&&message.post&&<TouchableOpacity style={styles.messageVideoCard} onPress={()=>{const item=allReels.find(p=>p.id===message.post.postId);if(item){setPlayingPost(item);setPage("Home");}else Alert.alert("Video unavailable","Original video abhi load nahi hui.");}}>
+              <Text style={styles.messageVideoIcon}>▶</Text><View style={{flex:1}}><Text style={styles.messageVideoCreator}>@{message.post.creator||"Creator"}</Text><Text numberOfLines={2} style={styles.messageVideoCaption}>{message.post.caption||"Shared a video"}</Text></View>
+            </TouchableOpacity>}
+            {!!message.text&&<Text style={styles.messageText}>{message.text}</Text>}<Text style={styles.messageTime}>{message.createdAt?new Date(message.createdAt).toLocaleString():""}</Text>
+          </View>)}
+          {!conversationMessages.length&&<Text style={styles.smallMuted}>Abhi koi message nahi.</Text>}
+        </ScrollView>}
+        <View style={styles.messageComposer}><TextInput value={messageDraft} onChangeText={setMessageDraft} onFocus={()=>setChatInputFocused(true)} onBlur={()=>setChatInputFocused(false)} placeholder="Message likhein..." placeholderTextColor={C.gray} style={styles.messageComposerInput} multiline blurOnSubmit={false} returnKeyType="default" onContentSizeChange={()=>messageScrollRef.current?.scrollToEnd({animated:true})}/><TouchableOpacity style={[styles.messageSendButton,(!messageDraft.trim()||messageSendingText)&&{opacity:0.55}]} onPress={sendDirectMessage} disabled={messageSendingText||!messageDraft.trim()}><Text style={styles.messageSendText}>{messageSendingText?"...":"Send"}</Text></TouchableOpacity></View>
+      </KeyboardAvoidingView>
     );
+    const chats=Object.entries(userChats).map(([chatId,item])=>({chatId,...item})).sort((a,b)=>(b.lastMessageAt||0)-(a.lastMessageAt||0));
+    const filteredChats=chats.filter(chat=>{
+      const matches=String(chat.otherUsername||"").toLowerCase().includes(inboxSearch.trim().toLowerCase().replace(/^@/,""));
+      const unread=chat.lastMessageSenderId&&chat.lastMessageSenderId!==user.id;
+      return matches&&(inboxFilter!=="Unread"||unread);
+    });
+    const people=mutualFriends.slice(0,12);
+    return <View style={styles.inboxPage}>
+      <View style={styles.inboxHeader}>
+        <TouchableOpacity style={styles.inboxHeaderAction} onPress={()=>{setInboxSearchOpen(v=>!v);setInboxSearch("");}}><Text style={styles.inboxHeaderIcon}>⌕</Text></TouchableOpacity>
+        <View style={styles.inboxHeaderCenter}><Text style={styles.inboxTitle}>Inbox</Text><View style={styles.inboxStatus}><View style={styles.inboxStatusDot}/><Text style={styles.inboxStatusText}>Messages</Text></View></View>
+        <TouchableOpacity style={styles.inboxHeaderAction} onPress={loadSocialRecords}><Text style={styles.inboxHeaderIcon}>•••</Text></TouchableOpacity>
+      </View>
+      {inboxSearchOpen&&<View style={styles.inboxSearchWrap}><TextInput value={inboxSearch} onChangeText={setInboxSearch} placeholder="Search chats..." placeholderTextColor={C.gray} style={styles.inboxSearchInput}/><TouchableOpacity onPress={()=>{setInboxSearchOpen(false);setInboxSearch("");}}><Text style={styles.inboxSearchClose}>✕</Text></TouchableOpacity></View>}
+      <ScrollView contentContainerStyle={styles.inboxList} showsVerticalScrollIndicator={false}>
+        <View style={styles.inboxPeopleSection}>
+          <View style={styles.inboxPeopleHeading}><Text style={styles.inboxSectionTitle}>People</Text><Text style={styles.inboxSectionHint}>Your friends</Text></View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.inboxPeopleRow}>
+            <TouchableOpacity style={styles.inboxPersonItem} onPress={()=>{setPage("Explore");}}>
+              <View style={styles.inboxCreateCircle}><Text style={styles.inboxCreatePlus}>＋</Text></View><Text numberOfLines={1} style={styles.inboxPersonName}>Find people</Text>
+            </TouchableOpacity>
+            {people.map(person=><TouchableOpacity key={person.id} style={styles.inboxPersonItem} onPress={()=>openUserProfile(person.id)}>
+              <View style={styles.inboxStoryRing}><View style={styles.inboxPersonAvatar}>{person.profileImage?<Image source={{uri:person.profileImage}} style={styles.inboxPersonAvatarImage}/>:<Text style={styles.inboxPersonFallback}>👤</Text>}</View></View>
+              <Text numberOfLines={1} style={styles.inboxPersonName}>{person.username||"Friend"}</Text>
+            </TouchableOpacity>)}
+          </ScrollView>
+        </View>
+        <View style={styles.inboxFilters}>
+          {["Main","Requests","Unread"].map(tab=><TouchableOpacity key={tab} onPress={()=>setInboxFilter(tab)} style={[styles.inboxFilterChip,inboxFilter===tab&&styles.inboxFilterActive]}><Text style={[styles.inboxFilterText,inboxFilter===tab&&styles.inboxFilterTextActive]}>{tab}</Text></TouchableOpacity>)}
+          <TouchableOpacity style={styles.inboxFilterIcon} onPress={loadSocialRecords}><Text style={styles.inboxFilterIconText}>☷</Text></TouchableOpacity>
+        </View>
+        {inboxFilter==="Requests"?<>{Object.entries(messageRequests).map(([senderId,request])=><View key={senderId} style={styles.inboxRequestRow}>
+          <View style={styles.inboxAvatar}><Text>👤</Text></View>
+          <View style={{flex:1}}><Text style={styles.inboxChatName}>{request.requesterUsername||"User"}</Text><Text numberOfLines={2} style={styles.inboxPreview}>{request.type==="video"?"🎬 Video message request":request.text||"Wants to message you"}</Text>
+          <View style={styles.inboxRequestActions}><TouchableOpacity style={styles.inboxAcceptButton} onPress={()=>acceptMessageRequest(request)}><Text style={styles.inboxAcceptText}>Accept</Text></TouchableOpacity><TouchableOpacity style={styles.inboxIgnoreButton} onPress={()=>ignoreMessageRequest(request)}><Text style={styles.inboxIgnoreText}>Ignore</Text></TouchableOpacity></View></View>
+        </View>)}{!Object.keys(messageRequests).length&&<View style={styles.inboxEmpty}><Text style={styles.inboxEmptyIcon}>✉</Text><Text style={styles.inboxEmptyTitle}>Message requests</Text><Text style={styles.inboxEmptyText}>Abhi koi message request nahi hai.</Text></View>}</>:<>
+          {filteredChats.map(chat=>{
+            const profile=userProfiles[chat.otherUserId]||people.find(person=>person.id===chat.otherUserId)||{};
+            const unread=chat.lastMessageSenderId&&chat.lastMessageSenderId!==user.id;
+            return <TouchableOpacity key={chat.chatId} style={styles.inboxChatRow} onPress={()=>openInboxConversation(chat)}>
+              <View style={styles.inboxAvatar}>{profile.profileImage?<Image source={{uri:profile.profileImage}} style={styles.inboxAvatarImage}/>:<Text>👤</Text>}</View>
+              <View style={{flex:1}}><Text style={styles.inboxChatName}>{chat.otherUsername||profile.username||"User"}</Text><Text numberOfLines={1} style={styles.inboxPreview}>{chat.lastMessageType==="video"?"🎬 Shared a video":chat.lastMessageText||"Start a conversation"}</Text></View>
+              <View style={styles.inboxChatMeta}>{unread&&<View style={styles.inboxUnreadDot}/>}<Text style={styles.inboxTime}>{chat.lastMessageAt?new Date(chat.lastMessageAt).toLocaleDateString():""}</Text></View>
+            </TouchableOpacity>;
+          })}
+          {!filteredChats.length&&<View style={styles.inboxEmpty}><Text style={styles.inboxEmptyIcon}>✉</Text><Text style={styles.inboxEmptyTitle}>{inboxFilter==="Unread"?"No unread messages":"Your messages"}</Text><Text style={styles.inboxEmptyText}>{inboxFilter==="Unread"?"Aapke unread messages yahan nazar aayenge.":"Video par Share dabakar kisi user ko bhejein; chats yahan nazar aayengi."}</Text></View>}
+        </>}
+      </ScrollView>
+    </View>;
   }
 
   function renderCreate() {
-    const pageTitle={camera:"Create",gallery:"Choose Media",selected:"Preview",editor:"Video Editor",post:"Post Settings",privacy:"Who can watch?",more:"More Options",publish:"Publish"}[createStep]||"Create";
+    if(createStep==="editor") {
+      if(!selectedVideo?.uri) {
+        return <View style={{flex:1,backgroundColor:C.bg,padding:20,justifyContent:"center"}}>
+          <Text style={styles.helpText}>Pehle video select karein.</Text>
+          <Button title="Back to Video Preview" onPress={()=>setCreateStep("selected")}/>
+        </View>;
+      }
+      return (
+        <View style={{flex:1,backgroundColor:C.bg}}>
+          <VideoEditor
+            key={selectedVideo.uri}
+            source={selectedVideo.uri}
+            locale="en"
+            theme={{colors:{accent:C.magenta,background:C.bg}}}
+            onCancel={()=>setCreateStep("selected")}
+            onCoverSelected={(cover)=>{
+              if(cover?.uri) setPostCoverImage(cover.uri);
+            }}
+            onExport={(result)=>{
+              if(!result?.uri) {
+                Alert.alert("Export Error","Edited video file nahi mili. Dobara export karein.");
+                return;
+              }
+              setSelectedVideo(current=>({
+                ...(current||{}),
+                uri:result.uri,
+                fileName:"gen-video-edited-"+Date.now()+".mp4",
+                mimeType:"video/mp4",
+                duration:result.durationMs?result.durationMs/1000:(current?.duration||null)
+              }));
+              setCreateStep("location");
+              Alert.alert("Video ready","Aapki edited video final MP4 mein save ho gayi. Ab location aur post details complete karein.");
+            }}
+            onError={(error)=>{
+              Alert.alert("Video Editor Error",error?.message||"Video edit/export nahi ho saka.");
+            }}
+          />
+        </View>
+      );
+    }
+    const pageTitle={camera:"Create Video",gallery:"Select Video",selected:"Video Preview",editor:"Video Editor",location:"Add Location",post:"Post Video"}[createStep]||"Create Video";
+    const stepNumber={camera:"1/6",gallery:"2/6",selected:"3/6",editor:"4/6",location:"5/6",post:"6/6"}[createStep]||"1/6";
     const goBack=()=>{
-      const prev={gallery:"camera",selected:"gallery",editor:"selected",post:"editor",privacy:"post",more:"post",publish:"post"}[createStep];
-      if(prev) setCreateStep(prev); else setPage("Home");
+      const prev={gallery:"camera",selected:"gallery",editor:"selected",location:"editor",post:"location"}[createStep];
+      if(prev)setCreateStep(prev);else setPage("Home");
     };
-    const action=(label,onPress,secondary=false)=> <Button title={label} onPress={onPress} secondary={secondary} />;
-    const toggleRow=(label,value,setter)=> (
-      <TouchableOpacity style={styles.selectedBox} onPress={()=>setter(!value)}>
-        <Text style={styles.selectedTitle}>{value?"✓":"○"}  {label}</Text>
-      </TouchableOpacity>
-    );
+    const action=(label,onPress,secondary=false)=><Button title={label} onPress={onPress} secondary={secondary}/>;
     return (
       <ScrollView style={styles.pageScroll} contentContainerStyle={styles.pageContent} keyboardShouldPersistTaps="handled">
         <View style={{flexDirection:"row",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
           <TouchableOpacity onPress={goBack}><Text style={{color:C.magenta,fontSize:16,fontWeight:"800"}}>‹ Back</Text></TouchableOpacity>
-          <Text style={styles.pageTitle}>{pageTitle}</Text>
-          <Text style={{color:C.gray,fontSize:12}}>{({camera:"1/8",gallery:"2/8",selected:"3/8",editor:"4/8",post:"5/8",privacy:"6/8",more:"7/8",publish:"8/8"})[createStep]}</Text>
+          <Text style={[styles.pageTitle,{fontSize:20,marginBottom:0}]}>{pageTitle}</Text>
+          <Text style={{color:C.gray,fontSize:12}}>{stepNumber}</Text>
         </View>
 
-        {createStep==="camera" && <>
-          <Text style={styles.pageSubtitle}>Record a video or choose media from your phone</Text>
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>🎥 Create a video</Text>
-            <Button title="📷 Open Camera" onPress={async()=>{await recordVideo();}} />
-            <Button title="🖼️ Choose from Gallery" secondary onPress={()=>setCreateStep("gallery")} />
-            <Button title="♫ Add Sound" secondary onPress={()=>{setSoundReturnPage("Create");setPage("Sound");}} />
-            <Text style={styles.helpText}>Camera se video record karein ya gallery se video select karein.</Text>
-          </View>
-        </>}
-
-        {createStep==="gallery" && <>
-          <Text style={styles.pageSubtitle}>Apne phone se videos aur photos select karein</Text>
-          <View style={styles.buttonRow}>
-            {["All","Videos","Photos","AI Gallery"].map(tab=>(
-              <TouchableOpacity key={tab} onPress={()=>setGalleryTab(tab)} style={[styles.galleryTab,galleryTab===tab&&styles.galleryTabActive]}>
-                <Text style={[styles.galleryTabText,galleryTab===tab&&styles.galleryTabTextActive]}>{tab}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <View style={styles.card}>
-            {galleryTab==="All"&&<>
-              <Text style={styles.sectionTitle}>All Media</Text>
-              <Button title="＋ Open Phone Gallery" onPress={chooseAllMediaForPost}/>
-              <Text style={styles.helpText}>Gallery se multiple videos/photos select kar sakte hain. Upload ke liye pehli selected video use hogi.</Text>
-            </>}
-            {galleryTab==="Videos"&&<>
-              <Text style={styles.sectionTitle}>Videos</Text>
-              <Button title="🎬 Select Video" onPress={chooseVideoFromGallery}/>
-            </>}
-            {galleryTab==="Photos"&&<>
-              <Text style={styles.sectionTitle}>Photos</Text>
-              <Button title="🖼️ Select Photos (up to 10)" onPress={choosePhotosForPost}/>
-            </>}
-            {galleryTab==="AI Gallery"&&<>
-              <Text style={styles.sectionTitle}>AI Gallery</Text>
-              <Text style={styles.helpText}>AI Gallery abhi connected nahi hai. AI se banayi hui image/video ko phone mein save karke All, Videos ya Photos se select karein.</Text>
-            </>}
-            {!!selectedVideo&&<Text style={styles.selectedTitle}>✓ Video: {selectedVideo.fileName||"Selected video"}</Text>}
-            {!!createPhotos.length&&<Text style={styles.selectedTitle}>✓ {createPhotos.length} photo(s) selected</Text>}
-            {createPhotos.length>0&&<ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginTop:12}}>{createPhotos.map((photo,index)=><Image key={`${photo.uri}-${index}`} source={{uri:photo.uri}} style={{width:76,height:76,borderRadius:10,marginRight:8}}/>)}</ScrollView>}
-            {action("Next",()=>{if(!selectedVideo?.uri)return Alert.alert("Video required","Upload ke liye pehle Videos ya All se video select karein.");setCreateStep("selected");},false)}
-          </View>
-        </>}
-
-        {createStep==="selected" && <>
-          <Text style={styles.pageSubtitle}>Check your selected video before editing</Text>
-          <View style={styles.card}>
-            {selectedVideo?.uri?<><Video source={{uri:selectedVideo.uri}} style={{width:"100%",height:360,backgroundColor:"#000",borderRadius:14}} useNativeControls resizeMode={ResizeMode.CONTAIN}/><Text style={styles.smallMuted}>{selectedVideo.fileName||"Selected video"}</Text></>:<Text style={styles.helpText}>Abhi video select nahi hui.</Text>}
-            {action("Choose / Change Video",()=>setCreateStep("gallery"),true)}
-            {action("⚡ AutoCut",()=>Alert.alert("AutoCut","AutoCut processing is not connected in this Expo Snack build. A native video-processing engine is required."),true)}
-            {action("Next: Edit Video",()=>{if(!selectedVideo?.uri)return Alert.alert("Video required","Pehle video select karein.");setCreateStep("editor");})}
-          </View>
-        </>}
-
-        {createStep==="editor" && <>
-          <Text style={styles.pageSubtitle}>Preview and prepare your video</Text>
-          <View style={styles.card}>
-            {selectedVideo?.uri&&<Video source={{uri:selectedVideo.uri}} style={{width:"100%",height:340,backgroundColor:"#000",borderRadius:14}} useNativeControls resizeMode={ResizeMode.CONTAIN}/>}
-            <Text style={styles.sectionTitle}>Editing tools</Text>
-            <View style={styles.buttonRow}><Button title="✂️ Trim" secondary onPress={()=>Alert.alert("Trim","Video trimming ke liye alag video-editing package setup karna hoga.")}/><Button title="✨ Filters" secondary onPress={()=>Alert.alert("Filters","Rendered filters ke liye video editor package setup karna hoga.")}/></View>
-            <View style={styles.buttonRow}><Button title="📝 Text" secondary onPress={()=>Alert.alert("Text overlay","Video par text render karne ke liye video editor package setup karna hoga.")}/><Button title="🖼️ Add Photos" secondary onPress={choosePhotosForPost}/></View>
-            <Button title="♫ Add Sound" secondary onPress={()=>{setSoundReturnPage("Create");setPage("Sound");}}/>
-            <Button title="Your Story" secondary onPress={()=>Alert.alert("Your Story","Story publishing is not connected yet. Your selected video can still be published as a regular post.")}/>
-            <Text style={styles.helpText}>Note: Is build mein video preview aur sound selection kaam karte hain. Trim, filters aur photo/text overlays abhi actual video file mein render nahi hote; unke liye extra editor package setup hoga.</Text>
-            {action("Next: Post Settings",()=>setCreateStep("post"))}
-          </View>
-        </>}
-
-        {createStep==="post" && <>
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Description</Text>
-            <TextInput style={[styles.input,styles.captionInput]} placeholder="Write a caption..." placeholderTextColor={C.gray} multiline value={caption} onChangeText={setCaption}/>
-            <Text style={styles.fieldLabel}>Cover</Text>
-            <Button title="Choose cover from Gallery" secondary onPress={choosePostCoverImage}/>
-            {postCoverImage&&<Image source={{uri:postCoverImage}} style={{width:"100%",height:150,borderRadius:12,marginTop:8}}/>}
-            <Text style={styles.fieldLabel}>Hashtags</Text>
-            <TextInput style={styles.input} placeholder="#trending #viral" placeholderTextColor={C.gray} value={postHashtags} onChangeText={setPostHashtags}/>
-            <Text style={styles.fieldLabel}>Mention</Text>
-            <TextInput style={styles.input} placeholder="@username" placeholderTextColor={C.gray} value={postMention} onChangeText={setPostMention}/>
-            <Text style={styles.fieldLabel}>Location</Text>
-            <TextInput style={styles.input} placeholder="Add location" placeholderTextColor={C.gray} value={postLocation} onChangeText={setPostLocation}/>
-            <Text style={styles.fieldLabel}>Add link</Text>
-            <TextInput style={styles.input} placeholder="https://..." placeholderTextColor={C.gray} value={postLink} onChangeText={setPostLink} autoCapitalize="none"/>
-            <Text style={styles.fieldLabel}>Audience</Text>
-            <TouchableOpacity style={styles.selectedBox} onPress={()=>setCreateStep("privacy")}><Text style={styles.selectedTitle}>{privacy}  › Change audience</Text></TouchableOpacity>
-            <View style={styles.buttonRow}><Button title="More Options" secondary onPress={()=>setCreateStep("more")} style={{flex:1}}/><Button title={`Drafts (${drafts.length})`} secondary onPress={openDrafts} style={{flex:1}}/></View>
-            <Button title="Next: Publish" onPress={()=>setCreateStep("publish")}/>
-          </View>
-        </>}
-
-        {createStep==="privacy" && <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Who can watch this video?</Text>
-          {["Public","Friends","Only You","Private"].map(v=><TouchableOpacity key={v} style={styles.selectedBox} onPress={()=>{setPrivacy(v==="Only You"?"Private":v);setCreateStep("post");}}><Text style={styles.selectedTitle}>{privacy===v||(v==="Only You"&&privacy==="Private")?"🔘":"◯"}  {v}</Text></TouchableOpacity>)}
+        {createStep==="camera"&&<View style={styles.card}>
+          <Text style={styles.sectionTitle}>🎬 Create your video</Text>
+          <Text style={styles.helpText}>Camera se nayi video record karein ya phone gallery se apni video select karein.</Text>
+          <Button title="📷 Record Video" onPress={recordVideo}/>
+          <Button title="🖼 Upload from Gallery" secondary onPress={()=>setCreateStep("gallery")}/>
+          <Button title="♫ Choose Music / Sound" secondary onPress={()=>{setSoundReturnPage("Create");setPage("Sound");}}/>
+          <Button title={`Drafts (${drafts.length})`} secondary onPress={openDrafts}/>
         </View>}
 
-        {createStep==="more" && <View style={styles.card}>
-          <Text style={styles.sectionTitle}>More Options</Text>
-          {toggleRow("Allow comments",allowComments,setAllowComments)}
-          {toggleRow("Allow reuse / remix",allowReuse,setAllowReuse)}
+        {createStep==="gallery"&&<View style={styles.card}>
+          <Text style={styles.sectionTitle}>🖼 Select a video</Text>
+          <Text style={styles.helpText}>Apne phone ki gallery se video choose karein.</Text>
+          <Button title="Choose Video from Gallery" onPress={chooseVideoFromGallery}/>
+          {!!selectedVideo&&<Text style={styles.selectedTitle}>✓ {selectedVideo.fileName||"Video selected"}</Text>}
+          <Button title="Continue" onPress={()=>{if(!selectedVideo?.uri)return Alert.alert("Video required","Pehle gallery se video select karein.");setCreateStep("selected");}}/>
+        </View>}
+
+        {createStep==="selected"&&<View style={styles.card}>
+          <Text style={styles.sectionTitle}>▶ Video Preview</Text>
+          {selectedVideo?.uri?<Video source={{uri:selectedVideo.uri}} style={{width:"100%",height:360,backgroundColor:"#000",borderRadius:14}} useNativeControls resizeMode={ResizeMode.CONTAIN}/>:<Text style={styles.helpText}>Pehle video select karein.</Text>}
+          <Button title="Change Video" secondary onPress={()=>setCreateStep("gallery")}/>
+          <Button title="Continue to Editor" onPress={()=>{if(!selectedVideo?.uri)return Alert.alert("Video required","Pehle video select karein.");setCreateStep("editor");}}/>
+        </View>}
+
+        {createStep==="editor"&&<View style={styles.card}>
+          <Text style={styles.sectionTitle}>Video Editor</Text>
+          <Text style={styles.helpText}>Editor yahan open hoga.</Text>
+        </View>}
+
+        {createStep==="location"&&<View style={styles.card}>
+          <Text style={styles.sectionTitle}>📍 Add Location</Text>
+          <Text style={styles.helpText}>Apni video ki location likhein. Aap isay khaali bhi chhor sakte hain.</Text>
+          <TextInput style={styles.input} placeholder="Enter location" placeholderTextColor={C.gray} value={postLocation} onChangeText={setPostLocation}/>
+          <Button title="Continue to Post" onPress={()=>setCreateStep("post")}/>
+        </View>}
+
+        {createStep==="post"&&<View style={styles.card}>
+          <Text style={styles.sectionTitle}>📝 Post Video</Text>
+          {selectedVideo?.uri&&<Video source={{uri:selectedVideo.uri}} style={{width:"100%",height:240,backgroundColor:"#000",borderRadius:14}} useNativeControls resizeMode={ResizeMode.CONTAIN}/>}
+          <Text style={styles.fieldLabel}>Caption</Text>
+          <TextInput style={[styles.input,styles.captionInput]} placeholder="Write a caption..." placeholderTextColor={C.gray} multiline value={caption} onChangeText={setCaption}/>
+          <Text style={styles.fieldLabel}>Hashtags</Text>
+          <TextInput style={styles.input} placeholder="#video #fun" placeholderTextColor={C.gray} value={postHashtags} onChangeText={setPostHashtags}/>
+          <Text style={styles.fieldLabel}>Mention</Text>
+          <TextInput style={styles.input} placeholder="@username" placeholderTextColor={C.gray} value={postMention} onChangeText={setPostMention}/>
+          <Text style={styles.fieldLabel}>Location</Text>
+          <TextInput style={styles.input} placeholder="Enter location" placeholderTextColor={C.gray} value={postLocation} onChangeText={setPostLocation}/>
+          <Text style={styles.fieldLabel}>Who can watch?</Text>
+          {["Public","Friends","Private"].map(v=><TouchableOpacity key={v} style={styles.selectedBox} onPress={()=>setPrivacy(v)}><Text style={styles.selectedTitle}>{privacy===v?"🔘":"◯"}  {v}</Text></TouchableOpacity>)}
+          <Text style={styles.fieldLabel}>Allow comments</Text>
+          <TouchableOpacity style={styles.selectedBox} onPress={()=>setAllowComments(v=>!v)}><Text style={styles.selectedTitle}>{allowComments?"✓":"○"}  {allowComments?"Comments On":"Comments Off"}</Text></TouchableOpacity>
+          <Text style={styles.fieldLabel}>Allow reuse / remix</Text>
+          <TouchableOpacity style={styles.selectedBox} onPress={()=>setAllowReuse(v=>!v)}><Text style={styles.selectedTitle}>{allowReuse?"✓":"○"}  {allowReuse?"Reuse On":"Reuse Off"}</Text></TouchableOpacity>
           <Text style={styles.fieldLabel}>Video language</Text>
           <View style={styles.buttonRow}>{["English","Urdu","Other"].map(v=><Button key={v} title={v} secondary={videoLanguage!==v} onPress={()=>setVideoLanguage(v)} style={{flex:1}}/>)}</View>
-          {toggleRow("AI-generated content",aiGenerated,setAiGenerated)}
-          <Button title="Save Options" onPress={()=>setCreateStep("post")}/>
-        </View>}
-
-        {createStep==="publish" && <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Ready to share?</Text>
-          {selectedVideo?.uri&&<Video source={{uri:selectedVideo.uri}} style={{width:"100%",height:300,backgroundColor:"#000",borderRadius:14}} useNativeControls resizeMode={ResizeMode.CONTAIN}/>}
-          <Text style={styles.helpText}>Audience: {privacy}  •  Sound: {selectedSound||"Original Sound"}</Text>
+          <Text style={styles.fieldLabel}>Add link</Text>
+          <TextInput style={styles.input} placeholder="https://..." placeholderTextColor={C.gray} value={postLink} onChangeText={setPostLink} autoCapitalize="none"/>
           <Button title={uploading?"Uploading...":"🚀 Publish Video"} onPress={uploadVideoPost} disabled={uploading}/>
           <Button title="Save as Draft" secondary onPress={saveCurrentDraft}/>
           {uploading&&<View style={styles.uploadProgressBox}><View style={styles.uploadProgressHeader}><Text style={styles.uploadProgressTitle}>{uploadStage}</Text><Text style={styles.uploadPercent}>{uploadProgress}%</Text></View><View style={styles.progressTrack}><View style={[styles.progressFill,{width:`${uploadProgress}%`}]}/></View><ActivityIndicator color={C.magenta} style={{marginTop:12}}/><Text style={styles.uploadHint}>Upload ke dauran app band na karein.</Text></View>}
@@ -1925,24 +2178,101 @@ export default function App() {
     );
   }
 
-    function renderProfile() {
-    const profileVideos=profileTab==="Videos"
-      ?myPublicPosts
-      :profileTab==="Private"
-        ?privatePosts
-        :allReels.filter(post=>!!liked[post.id] && isRealVideoPost(post));
+    async function openUserProfile(profileId) {
+    if(!profileId||profileId===user?.id){setSelectedProfileId(null);setSelectedProfileData(null);setProfileTab("Videos");setPage("Profile");return;}
+    setSelectedProfileId(profileId);setSelectedProfileData(userProfiles[profileId]||null);setSelectedProfileFollowerCount(0);setProfileTab("Videos");setPage("Profile");
+    try{const [pr,fr,fg]=await Promise.all([fetch(`${DATABASE_URL}/users/${encodeURIComponent(profileId)}.json?auth=${encodeURIComponent(user.token)}`),fetch(`${DATABASE_URL}/followers/${encodeURIComponent(profileId)}.json?auth=${encodeURIComponent(user.token)}`),fetch(`${DATABASE_URL}/following/${encodeURIComponent(profileId)}.json?auth=${encodeURIComponent(user.token)}`)]);const p=await pr.json(),f=await fr.json(),g=await fg.json();if(!pr.ok)throw new Error(p?.error||"Profile load nahi hui.");const clean={...(p&&typeof p==="object"?p:{}),followingCount:g&&typeof g==="object"?Object.keys(g).length:0};setSelectedProfileData(clean);setUserProfiles(old=>({...old,[profileId]:clean}));setSelectedProfileFollowerCount(f&&typeof f==="object"?Object.keys(f).length:0);}catch(error){Alert.alert("Profile",error.message||"Profile load nahi hui.");}
+  }
+
+  async function openDirectMessage(profileId,profile) {
+    if(!profileId||profileId===user?.id)return;const other=profile||userProfiles[profileId]||{};const chatId=[String(user.id),String(profileId)].sort().join("__");const chat={chatId,otherUserId:profileId,otherUsername:other.username||"User",lastMessageType:"text",lastMessageText:"",lastMessageAt:Date.now(),lastMessageSenderId:""};
+    try{const a=await fetch(`${DATABASE_URL}/userChats/${user.id}/${encodeURIComponent(chatId)}.json?auth=${encodeURIComponent(user.token)}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(chat)});if(!a.ok)throw new Error("Chat open nahi hui. Firebase Rules check karein.");const b=await fetch(`${DATABASE_URL}/userChats/${profileId}/${encodeURIComponent(chatId)}.json?auth=${encodeURIComponent(user.token)}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({...chat,otherUserId:user.id,otherUsername:username||"User"})});if(!b.ok)throw new Error("Doosre user ki Inbox update nahi hui.");setUserChats(old=>({...old,[chatId]:chat}));setSelectedChat(chat);setConversationMessages([]);setMessageDraft("");setPage("Inbox");await openInboxConversation(chat);}catch(error){Alert.alert("Message",error.message||"Chat open nahi hui.");}
+  }
+
+  async function sendDirectMessage() {
+    const text=messageDraft.trim();if(!text||!selectedChat||messageSendingText)return;setMessageSendingText(true);
+    try{const now=Date.now(),message={type:"text",senderId:user.id,senderUsername:username||"User",recipientId:selectedChat.otherUserId,recipientUsername:selectedChat.otherUsername||"User",text,createdAt:now,seen:false};const r=await fetch(`${DATABASE_URL}/messages/${encodeURIComponent(selectedChat.chatId)}.json?auth=${encodeURIComponent(user.token)}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(message)});const result=await r.json();if(!r.ok||!result?.name)throw new Error(result?.error||"Message send nahi hua.");const updated={...selectedChat,lastMessageType:"text",lastMessageText:text,lastMessageAt:now,lastMessageSenderId:user.id};await Promise.all([fetch(`${DATABASE_URL}/userChats/${user.id}/${encodeURIComponent(selectedChat.chatId)}.json?auth=${encodeURIComponent(user.token)}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({lastMessageType:"text",lastMessageText:text,lastMessageAt:now,lastMessageSenderId:user.id})}),fetch(`${DATABASE_URL}/userChats/${selectedChat.otherUserId}/${encodeURIComponent(selectedChat.chatId)}.json?auth=${encodeURIComponent(user.token)}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({lastMessageType:"text",lastMessageText:text,lastMessageAt:now,lastMessageSenderId:user.id})})]);setConversationMessages(old=>[...old,{id:result.name,...message}]);setSelectedChat(updated);setUserChats(old=>({...old,[updated.chatId]:updated}));setMessageDraft("");}catch(error){Alert.alert("Message",error.message||"Message send nahi hua.");}finally{setMessageSendingText(false);}
+  }
+
+  function renderProfile() {
+    const viewingOther=!!selectedProfileId&&selectedProfileId!==user?.id;
+    const shownProfile=viewingOther?(selectedProfileData||userProfiles[selectedProfileId]||{}):{username,bio,location,profileImage,coverImage};
+    const shownUsername=shownProfile.username||"User";
+    const shownPosts=viewingOther?posts.filter(post=>post.ownerId===selectedProfileId&&post.privacy!=="Private"&&isRealVideoPost(post)):myPosts;
+    const profileVideos=viewingOther?shownPosts:(profileTab==="Videos"?myPublicPosts:profileTab==="Private"?privatePosts:profileTab==="Reposted"?myRepostedPosts:allReels.filter(post=>!!liked[post.id]&&isRealVideoPost(post)));
+
+    if(viewingOther) {
+      const otherYoutube=String(shownProfile.youtubeLink||"").trim();
+      const openOtherYoutube=()=>{
+        if(!otherYoutube)return Alert.alert("YouTube","Is user ne abhi YouTube channel link add nahi kiya.");
+        const url=otherYoutube.startsWith("http")?otherYoutube:`https://${otherYoutube}`;
+        Linking.openURL(url).catch(()=>Alert.alert("YouTube","YouTube channel open nahi hua."));
+      };
+      const otherFollowing=!!following[selectedProfileId];
+      const otherLikes=shownPosts.reduce((total,post)=>total+(likeCounts[post.id]||0),0);
+      return (
+        <ScrollView style={styles.pageScroll} contentContainerStyle={{paddingBottom:24}}>
+          <View style={{height:52,flexDirection:"row",alignItems:"center",justifyContent:"space-between",paddingHorizontal:16}}>
+            <TouchableOpacity onPress={()=>{setSelectedProfileId(null);setSelectedProfileData(null);setPage("Home");}}><Text style={styles.profileTopIcon}>‹</Text></TouchableOpacity>
+            <Text style={styles.profileTopUsername}>@{shownUsername}</Text>
+            <TouchableOpacity onPress={()=>Share.share({message:`Check out @${shownUsername} on Gen Video Live!`})}><Text style={{fontSize:24,color:C.white}}>↗</Text></TouchableOpacity>
+          </View>
+          {shownProfile.coverImage?<Image source={{uri:shownProfile.coverImage}} style={{width:"100%",height:118,resizeMode:"cover"}}/>:null}
+          <View style={{paddingHorizontal:18,paddingTop:18}}>
+            <View style={{flexDirection:"row",alignItems:"center",justifyContent:"space-between"}}>
+              <View style={{flex:1,paddingRight:12}}>
+                <Text style={{color:C.white,fontSize:23,fontWeight:"900"}}>{shownUsername}</Text>
+                <Text style={{color:C.gray,fontSize:13,marginTop:4}}>@{String(shownUsername).replace(/^@/,"")}</Text>
+              </View>
+              <View style={{width:92,height:92,borderRadius:46,backgroundColor:C.card2,borderWidth:1,borderColor:C.magenta,overflow:"hidden",alignItems:"center",justifyContent:"center"}}>
+                {shownProfile.profileImage?<Image source={{uri:shownProfile.profileImage}} style={{width:"100%",height:"100%"}}/>:<Text style={{fontSize:34}}>👤</Text>}
+              </View>
+            </View>
+            <View style={{flexDirection:"row",justifyContent:"space-between",marginTop:22,marginBottom:18}}>
+              <View style={{flex:1}}><Text style={{color:C.white,fontSize:20,fontWeight:"900"}}>{Number(shownProfile.followingCount||0)}</Text><Text style={{color:C.gray,fontSize:12}}>Following</Text></View>
+              <View style={{flex:1}}><Text style={{color:C.white,fontSize:20,fontWeight:"900"}}>{selectedProfileFollowerCount}</Text><Text style={{color:C.gray,fontSize:12}}>Followers</Text></View>
+              <View style={{flex:1}}><Text style={{color:C.white,fontSize:20,fontWeight:"900"}}>{otherLikes}</Text><Text style={{color:C.gray,fontSize:12}}>Likes</Text></View>
+            </View>
+            <View style={{flexDirection:"row",gap:8,marginBottom:17}}>
+              <TouchableOpacity style={[styles.profileActionButton,styles.profileActionButtonRed,{paddingVertical:12}]} onPress={()=>toggleFollow({ownerId:selectedProfileId,creator:shownUsername})}><Text style={styles.profileActionText}>{otherFollowing?"Following":"Follow"}</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.profileActionButton,{backgroundColor:"#efeff2",paddingVertical:12}]} onPress={()=>openDirectMessage(selectedProfileId,shownProfile)}><Text style={{color:"#111",fontSize:12,fontWeight:"900"}}>Message</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.profileActionButton,{backgroundColor:"#efeff2",paddingVertical:12}]} onPress={openOtherYoutube}><Text style={{color:"#111",fontSize:12,fontWeight:"900"}}>▶ YouTube</Text></TouchableOpacity>
+            </View>
+            {!!shownProfile.bio&&<Text style={{color:C.white,fontSize:14,lineHeight:20,marginBottom:10}}>{shownProfile.bio}</Text>}
+            {!!shownProfile.location&&<Text style={{color:C.gray,fontSize:12,marginBottom:12}}>📍 {shownProfile.location}</Text>}
+          </View>
+          <View style={{flexDirection:"row",borderBottomWidth:1,borderBottomColor:"#302d43",marginTop:4}}>
+            <View style={{flex:1,alignItems:"center",paddingVertical:12,borderBottomWidth:3,borderBottomColor:C.pink}}><Text style={{color:C.white,fontSize:13,fontWeight:"800"}}>▦ Videos</Text></View>
+          </View>
+          {profileVideos.length>0?(
+            <View style={styles.videoGrid}>
+              {profileVideos.map(item=>(
+                <TouchableOpacity key={item.id} style={styles.videoGridItem} onPress={()=>{if(item.videoUrl){recordPostView(item);setPlayingPost(item);}else Alert.alert("Video unavailable","Yeh video abhi play nahi ho sakti.");}}>
+                  <View style={styles.videoGridPlaceholder}>
+                    {getVideoThumbnail(item)?<Image source={{uri:getVideoThumbnail(item)}} style={styles.videoGridThumbnail}/>:<View style={styles.videoGridNoThumbnail}/>}
+                    <View style={styles.videoGridOverlay}><View style={styles.videoGridViewBadge}><Text style={styles.videoGridViewText}>▷ {Object.keys(item.viewsByUser||{}).length}</Text></View></View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ):(
+            <View style={styles.emptyProfileVideos}><Text style={styles.emptyProfileTitle}>No public videos yet</Text><Text style={styles.emptyText}>Is user ki public videos yahan nazar aayengi.</Text></View>
+          )}
+        </ScrollView>
+      );
+    }
 
     return (
       <ScrollView style={styles.pageScroll} contentContainerStyle={styles.profilePageContent}>
         <View style={styles.profileTopBar}>
-          <TouchableOpacity onPress={()=>setPage("Home")}><Text style={styles.profileTopIcon}>‹</Text></TouchableOpacity>
-          <Text style={styles.profileTopUsername}>@{username}</Text>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Open Settings" style={styles.gearButton} onPress={()=>setPage("Settings")}><Text style={{fontSize:27,color:C.white}}>☰</Text></TouchableOpacity>
+          <TouchableOpacity onPress={()=>{setSelectedProfileId(null);setSelectedProfileData(null);setPage("Home");}}><Text style={styles.profileTopIcon}>‹</Text></TouchableOpacity>
+          <Text style={styles.profileTopUsername}>@{shownUsername}</Text>
+          {!viewingOther&&<TouchableOpacity accessibilityRole="button" accessibilityLabel="Open Settings" style={styles.gearButton} onPress={()=>setPage("Settings")}><Text style={{fontSize:27,color:C.white}}>☰</Text></TouchableOpacity>}
         </View>
 
         <View style={styles.profileCoverWrap}>
-          {coverImage ? (
-            <Image source={{uri:coverImage}} style={styles.profileCoverImage}/>
+          {shownProfile.coverImage ? (
+            <Image source={{uri:shownProfile.coverImage}} style={styles.profileCoverImage}/>
           ) : (
             <View style={styles.profileCoverPlaceholder}/>
           )}
@@ -1950,60 +2280,58 @@ export default function App() {
 
         <View style={styles.profileMain}>
           <View style={styles.profileAvatarBig}>
-            {profileImage ? (
-              <Image source={{uri:profileImage}} style={styles.profileAvatarImage}/>
+            {shownProfile.profileImage ? (
+              <Image source={{uri:shownProfile.profileImage}} style={styles.profileAvatarImage}/>
             ) : (
               <Text style={{fontSize:42}}>👤</Text>
             )}
           </View>
-          <Text style={styles.profileName}>@{username}</Text>
-          {location ? <Text style={styles.profileLocation}>📍 {location}</Text> : null}
-          <Text style={styles.profileBio}>{bio}</Text>
+          <Text style={styles.profileName}>@{shownUsername}</Text>
+          {shownProfile.location ? <Text style={styles.profileLocation}>📍 {shownProfile.location}</Text> : null}
+          <Text style={styles.profileBio}>{shownProfile.bio||"Welcome to my Gen Video Live profile! 👑"}</Text>
 
           <View style={styles.statsRow}>
-            <View style={styles.stat}><Text style={styles.statNumber}>{myPosts.length}</Text><Text style={styles.statLabel}>Posts</Text></View>
+            <View style={styles.stat}><Text style={styles.statNumber}>{shownPosts.length}</Text><Text style={styles.statLabel}>Posts</Text></View>
             <View style={styles.statDivider}/>
-            <View style={styles.stat}><Text style={styles.statNumber}>{followerCount}</Text><Text style={styles.statLabel}>Followers</Text></View>
+            <View style={styles.stat}><Text style={styles.statNumber}>{viewingOther?selectedProfileFollowerCount:followerCount}</Text><Text style={styles.statLabel}>Followers</Text></View>
             <View style={styles.statDivider}/>
-            <View style={styles.stat}><Text style={styles.statNumber}>{Object.keys(following).length}</Text><Text style={styles.statLabel}>Following</Text></View>
+            <View style={styles.stat}><Text style={styles.statNumber}>{viewingOther?Number(shownProfile.followingCount||0):Object.keys(following).length}</Text><Text style={styles.statLabel}>Following</Text></View>
             <View style={styles.statDivider}/>
-            <View style={styles.stat}><Text style={styles.statNumber}>{myPosts.reduce((total,post)=>total+(likeCounts[post.id]||0),0)}</Text><Text style={styles.statLabel}>Likes</Text></View>
+            <View style={styles.stat}><Text style={styles.statNumber}>{shownPosts.reduce((total,post)=>total+(likeCounts[post.id]||0),0)}</Text><Text style={styles.statLabel}>Likes</Text></View>
           </View>
 
           <View style={styles.profileButtons}>
-            <TouchableOpacity
-              style={styles.profileActionButton}
-              onPress={()=>{
-                setEditUsername(username);
-                setEditBio(bio);
-                setEditLocation(location);
-                setEditProfileImage(profileImage);
-                setEditCoverImage(coverImage);
-                setPage("EditProfile");
-              }}
-            >
-              <Text style={styles.profileActionText}>Edit Profile</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.profileActionButton} onPress={()=>Share.share({message:`Check out @${username} on Gen Video Live!`})}>
-              <Text style={styles.profileActionText}>Share Profile</Text>
-            </TouchableOpacity>
+            {viewingOther ? (
+              <>
+                <TouchableOpacity style={[styles.profileActionButton,styles.profileActionButtonRed]} onPress={()=>openDirectMessage(selectedProfileId,shownProfile)}><Text style={styles.profileActionText}>Message</Text></TouchableOpacity>
+                <TouchableOpacity style={[styles.profileActionButton,styles.profileActionButtonRed]} onPress={()=>toggleFollow({ownerId:selectedProfileId,creator:shownUsername})}><Text style={styles.profileActionText}>{following[selectedProfileId]?"Following":"Follow"}</Text></TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <TouchableOpacity style={[styles.profileActionButton,styles.profileActionButtonRed]} onPress={()=>{setEditUsername(username);setEditBio(bio);setEditLocation(location);setEditProfileImage(profileImage);setEditCoverImage(coverImage);setEditYoutubeLink(youtubeLink);setPage("EditProfile");}}><Text style={styles.profileActionText}>Edit Profile</Text></TouchableOpacity>
+                <TouchableOpacity style={[styles.profileActionButton,styles.profileActionButtonRed]} onPress={()=>youtubeLink?Linking.openURL(youtubeLink.startsWith("http")?youtubeLink:`https://${youtubeLink}`).catch(()=>Alert.alert("YouTube","YouTube link open nahi hua.")):Alert.alert("YouTube","Edit Profile mein pehle apna YouTube channel link save karein.")}>
+                  <Text style={styles.profileActionText}>▶ YouTube</Text>
+                </TouchableOpacity>
+              </>
+            )}
+            <TouchableOpacity style={[styles.profileActionButton,styles.profileActionButtonRed]} onPress={()=>Share.share({message:`Check out @${shownUsername} on Gen Video Live!`})}><Text style={styles.profileActionText}>Share Profile</Text></TouchableOpacity>
           </View>
         </View>
 
-        <View style={styles.profileTabBar}>
-          {["Videos","Liked","Private"].map(tab=>(
+        {!viewingOther&&<View style={styles.profileTabBar}>
+          {["Videos","Reposted","Liked","Private"].map(tab=>(
             <TouchableOpacity
               key={tab}
               style={styles.profileTab}
               onPress={()=>setProfileTab(tab)}
             >
               <Text style={[styles.profileTabText,profileTab===tab&&styles.profileTabActive]}>
-                {tab==="Videos"?"▦ Videos":tab==="Liked"?"♡ Liked":"🔒 Private"}
+                {tab==="Videos"?"▦ Videos":tab==="Reposted"?"🔁 Reposted":tab==="Liked"?"♡ Liked":"🔒 Private"}
               </Text>
               {profileTab===tab&&<View style={styles.profileTabUnderline}/>}
             </TouchableOpacity>
           ))}
-        </View>
+        </View>}
 
         {profileVideos.length>0?(
           <View style={styles.videoGrid}>
@@ -2023,7 +2351,7 @@ export default function App() {
                     <View style={styles.videoGridNoThumbnail}/>
                   )}
                   <View style={styles.videoGridOverlay}>
-                    {item.ownerId===user?.id&&profileTab!=="Liked"&&(
+                    {item.ownerId===user?.id&&profileTab!=="Liked"&&profileTab!=="Reposted"&&(
                       <TouchableOpacity
                         style={styles.profileDeleteButton}
                         onPress={()=>confirmDeletePost(item)}
@@ -2044,13 +2372,13 @@ export default function App() {
         ):(
           <View style={styles.emptyProfileVideos}>
             <Text style={{fontSize:42}}>
-              {profileTab==="Private"?"🔒":profileTab==="Liked"?"❤️":"🎬"}
+              {profileTab==="Private"?"🔒":profileTab==="Liked"?"❤️":profileTab==="Reposted"?"🔁":"🎬"}
             </Text>
             <Text style={styles.emptyProfileTitle}>
-              {profileTab==="Videos"?"No videos yet":profileTab==="Liked"?"No liked videos":"No private videos"}
+              {profileTab==="Videos"?"No videos yet":profileTab==="Liked"?"No liked videos":profileTab==="Reposted"?"No reposts yet":"No private videos"}
             </Text>
             <Text style={styles.smallMuted}>
-              {profileTab==="Liked"?"Videos you like will appear here.":"Your uploaded videos will appear here."}
+              {profileTab==="Liked"?"Videos you like will appear here.":profileTab==="Reposted"?"Videos you repost will appear here.":"Your uploaded videos will appear here."}
             </Text>
             {profileTab==="Videos"&&<Button title="＋ Create Video" onPress={()=>setPage("Create")}/>}
           </View>
@@ -2078,7 +2406,11 @@ export default function App() {
           onFollow={()=>toggleFollow(reel)}
           onComment={()=>openComments(reel)}
           onQuickReaction={(emoji)=>postQuickReaction(reel,emoji)}
+          shareCount={shareCounts[reel.id]||0}
+          repostCount={repostCounts[reel.id]||0}
+          reposted={!!myReposts[reel.id]}
           onShare={()=>shareReel(reel)}
+          onRepost={()=>toggleRepost(reel)}
           onSound={()=>openSound(reel)}
           isOwner={reel.ownerId===user?.id}
           onDelete={()=>confirmDeletePost(reel)}
@@ -2133,6 +2465,9 @@ export default function App() {
 
           <Text style={styles.fieldLabel}>Location</Text>
           <TextInput style={styles.input} value={editLocation} onChangeText={setEditLocation} placeholder="Your location" placeholderTextColor={C.gray}/>
+
+          <Text style={styles.fieldLabel}>YouTube Channel Link</Text>
+          <TextInput style={styles.input} value={editYoutubeLink} onChangeText={setEditYoutubeLink} placeholder="https://www.youtube.com/@YourChannel" placeholderTextColor={C.gray} autoCapitalize="none" autoCorrect={false} keyboardType="url"/>
 
           <Button title={loading?"Saving...":"Save Profile"} onPress={saveProfile} disabled={loading}/>
           {loading&&<ActivityIndicator color={C.magenta} style={{marginTop:12}}/>}
@@ -2228,6 +2563,30 @@ export default function App() {
     <View style={styles.app}>
       <StatusBar backgroundColor="#000" barStyle="light-content" hidden={true}/>
       {renderVideoPlayer()}
+      <Modal visible={shareModalVisible} transparent animationType="slide" statusBarTranslucent navigationBarTranslucent={true} onRequestClose={()=>setShareModalVisible(false)}>
+        <KeyboardAvoidingView style={styles.shareModalRoot} behavior={Platform.OS==="ios"?"padding":"height"} keyboardVerticalOffset={0}>
+          <TouchableOpacity style={styles.shareBackdrop} activeOpacity={1} onPress={()=>setShareModalVisible(false)}/>
+          <View style={styles.shareSheet}>
+            <ScrollView style={styles.shareSheetScroll} contentContainerStyle={styles.shareSheetScrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={true}>
+              <View style={styles.shareSheetHeader}><Text style={styles.shareSheetTitle}>Share video</Text><TouchableOpacity onPress={()=>setShareModalVisible(false)}><Text style={styles.shareClose}>×</Text></TouchableOpacity></View>
+              <Button title="↗ Share to WhatsApp / other apps" onPress={shareReelExternally}/>
+              <Text style={styles.fieldLabel}>Optional message</Text>
+              <TextInput style={styles.input} value={messageText} onChangeText={setMessageText} placeholder="Write a message..." placeholderTextColor={C.gray}/>
+              <Text style={styles.fieldLabel}>Send to a Gen Video Live user</Text>
+              <TextInput style={styles.input} value={recipientQuery} onChangeText={searchMessageRecipients} placeholder="Search username..." placeholderTextColor={C.gray}/>
+              {recipientLoading?<ActivityIndicator color={C.magenta}/>:(
+                <View>
+                  {recipientResults.map(recipient=><TouchableOpacity key={recipient.id} style={styles.recipientRow} onPress={()=>sendVideoToRecipient(recipient)} disabled={messageSending}>
+                    <View style={styles.inboxAvatar}>{recipient.profileImage?<Image source={{uri:recipient.profileImage}} style={styles.inboxAvatarImage}/>:<Text>👤</Text>}</View><Text style={styles.recipientName}>@{recipient.username}</Text>{messageSending?<ActivityIndicator color={C.magenta}/>:<Text style={styles.recipientSend}>Send ›</Text>}
+                  </TouchableOpacity>)}
+                  {!!recipientQuery.trim()&&!recipientResults.length&&<Text style={styles.smallMuted}>Koi user nahi mila. Username check karein.</Text>}
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
       <Modal visible={commentsVisible} transparent animationType="slide" statusBarTranslucent navigationBarTranslucent={true} onRequestClose={()=>setCommentsVisible(false)}>
         <View style={styles.commentsModalRoot}>
           <TouchableOpacity style={styles.commentsBackdrop} activeOpacity={1} onPress={()=>setCommentsVisible(false)}/>
@@ -2280,6 +2639,7 @@ export default function App() {
   );
 
   return (
+    <GestureHandlerRootView style={{flex:1}}>
     <View style={styles.app}>
       <StatusBar backgroundColor={C.bg} barStyle="light-content"/>
 
@@ -2291,6 +2651,26 @@ export default function App() {
       {page==="EditProfile"&&renderEditProfile()}
       {page==="Sound"&&renderSound()}
       {page==="Settings"&&renderSettings()}
+
+      <Modal visible={shareModalVisible} transparent animationType="slide" statusBarTranslucent onRequestClose={()=>setShareModalVisible(false)}>
+        <View style={styles.shareModalRoot}>
+          <TouchableOpacity style={styles.shareBackdrop} activeOpacity={1} onPress={()=>setShareModalVisible(false)}/>
+          <View style={styles.shareSheet}>
+            <View style={styles.shareSheetHeader}><Text style={styles.shareSheetTitle}>Share video</Text><TouchableOpacity onPress={()=>setShareModalVisible(false)}><Text style={styles.shareClose}>×</Text></TouchableOpacity></View>
+            <Button title="↗ Share to WhatsApp / other apps" onPress={shareReelExternally}/>
+            <Text style={styles.fieldLabel}>Optional message</Text>
+            <TextInput style={styles.input} value={messageText} onChangeText={setMessageText} placeholder="Write a message..." placeholderTextColor={C.gray}/>
+            <Text style={styles.fieldLabel}>Send to a Gen Video Live user</Text>
+            <TextInput style={styles.input} value={recipientQuery} onChangeText={searchMessageRecipients} placeholder="Search username..." placeholderTextColor={C.gray}/>
+            {recipientLoading?<ActivityIndicator color={C.magenta}/>:<ScrollView style={{maxHeight:190}} keyboardShouldPersistTaps="handled">
+              {recipientResults.map(recipient=><TouchableOpacity key={recipient.id} style={styles.recipientRow} onPress={()=>sendVideoToRecipient(recipient)} disabled={messageSending}>
+                <View style={styles.inboxAvatar}>{recipient.profileImage?<Image source={{uri:recipient.profileImage}} style={styles.inboxAvatarImage}/>:<Text>👤</Text>}</View><Text style={styles.recipientName}>@{recipient.username}</Text>{messageSending?<ActivityIndicator color={C.magenta}/>:<Text style={styles.recipientSend}>Send ›</Text>}
+              </TouchableOpacity>)}
+              {!!recipientQuery.trim()&&!recipientResults.length&&<Text style={styles.smallMuted}>Koi user nahi mila. Username check karein.</Text>}
+            </ScrollView>}
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={commentsVisible} transparent animationType="slide" statusBarTranslucent navigationBarTranslucent={true} onRequestClose={()=>setCommentsVisible(false)}>
         <View style={styles.commentsModalRoot}>
@@ -2341,17 +2721,19 @@ export default function App() {
         </View>
       </Modal>
 
-      {page!=="EditProfile"&&page!=="Sound"&&page!=="Settings"&&(
+      {page!=="EditProfile"&&page!=="Sound"&&page!=="Settings"&&!(page==="Inbox"&&selectedChat&&chatInputFocused)&&(
         <View style={styles.bottomNav}>
           <NavItem icon="home" label="Home" active={page==="Home"} onPress={()=>setPage("Home")}/>
           <NavItem icon="friends" label="Friends" active={page==="Explore"} onPress={()=>setPage("Explore")}/>
           <NavItem icon="create" label="Create+" active={page==="Create"} onPress={()=>setPage("Create")}/>
-          <NavItem icon="inbox" label="Inbox" active={page==="Inbox"} onPress={()=>setPage("Inbox")}/>
+          <NavItem icon="inbox" label="Inbox" active={page==="Inbox"} onPress={()=>{setPage("Inbox");loadSocialRecords();}}/>
           <NavItem
             icon="profile"
             label="Profile"
             active={page==="Profile"}
             onPress={()=>{
+              setSelectedProfileId(null);
+              setSelectedProfileData(null);
               setPage("Profile");
               loadMyProfile();
               loadPosts();
@@ -2361,6 +2743,7 @@ export default function App() {
         </View>
       )}
     </View>
+    </GestureHandlerRootView>
   );
 }
 
@@ -2373,7 +2756,7 @@ const styles=StyleSheet.create({
   launchSubtitle:{color:C.magenta,fontSize:11,fontWeight:"800",letterSpacing:2,marginTop:9},
   screen:{flex:1,backgroundColor:C.bg},
   authScreen:{flex:1,backgroundColor:C.bg},
-  authContent:{flexGrow:1,justifyContent:"center",padding:22},
+  authContent:{flexGrow:1,justifyContent:"center",padding:22,paddingBottom:42},
   crown:{fontSize:54,textAlign:"center",marginBottom:8},
   authTitle:{color:C.white,fontSize:30,fontWeight:"900",textAlign:"center"},
   authSubtitle:{color:C.magenta,textAlign:"center",marginTop:7,marginBottom:28},
@@ -2551,9 +2934,10 @@ const styles=StyleSheet.create({
   statNumber:{color:C.white,fontSize:18,fontWeight:"900"},
   statLabel:{color:C.gray,fontSize:10,marginTop:4},
   statDivider:{height:27,width:1,backgroundColor:"#39364c"},
-  profileButtons:{flexDirection:"row",width:"100%",gap:8,marginTop:14},
-  profileActionButton:{flex:1,backgroundColor:C.card2,borderRadius:9,paddingVertical:11,alignItems:"center"},
-  profileActionText:{color:C.white,fontSize:12,fontWeight:"800"},
+  profileButtons:{flexDirection:"row",width:"100%",gap:6,marginTop:14},
+  profileActionButton:{flex:1,backgroundColor:C.card2,borderRadius:8,paddingVertical:8,alignItems:"center",justifyContent:"center"},
+  profileActionButtonRed:{backgroundColor:"#d92f4b"},
+  profileActionText:{color:C.white,fontSize:10,fontWeight:"800"},
   profileTabBar:{flexDirection:"row",borderBottomWidth:1,borderBottomColor:"#302d43",marginTop:20},
   profileTab:{flex:1,alignItems:"center",paddingVertical:12},
   profileTabText:{color:C.gray,fontSize:12,fontWeight:"700"},
@@ -2615,5 +2999,90 @@ const styles=StyleSheet.create({
   playerInsightsButton:{backgroundColor:"#292932",borderRadius:22,paddingHorizontal:15,paddingVertical:10},
   playerInsightsText:{color:C.white,fontSize:13,fontWeight:"700"},
   playerBackOverlay:{position:"absolute",top:12,left:14,width:42,height:42,zIndex:20,justifyContent:"center",alignItems:"center",backgroundColor:"rgba(0,0,0,0.18)",borderRadius:22},
-  playerBackOverlayText:{color:C.white,fontSize:34,fontWeight:"300",lineHeight:38}
+  playerBackOverlayText:{color:C.white,fontSize:34,fontWeight:"300",lineHeight:38},
+  repostAttribution:{color:C.magenta,fontSize:11,fontWeight:"800",marginBottom:5},
+  inboxPage:{flex:1,backgroundColor:C.bg},
+  inboxHeader:{height:66,paddingHorizontal:18,flexDirection:"row",alignItems:"center",justifyContent:"space-between"},
+  inboxHeaderAction:{width:42,height:42,alignItems:"center",justifyContent:"center"},
+  inboxHeaderIcon:{color:C.white,fontSize:29,fontWeight:"800"},
+  inboxHeaderCenter:{flexDirection:"row",alignItems:"center",gap:9},
+  inboxStatus:{flexDirection:"row",alignItems:"center",gap:5,backgroundColor:C.card,borderRadius:12,paddingHorizontal:8,paddingVertical:5},
+  inboxStatusDot:{width:8,height:8,borderRadius:4,backgroundColor:"#28d17c"},
+  inboxStatusText:{color:C.gray,fontSize:10,fontWeight:"700"},
+  inboxBack:{color:C.magenta,fontSize:34,marginRight:14},
+  inboxTitle:{color:C.white,fontSize:21,fontWeight:"900"},
+  inboxList:{paddingBottom:28},
+  inboxSearchWrap:{marginHorizontal:16,marginBottom:10,flexDirection:"row",alignItems:"center",backgroundColor:C.card,borderRadius:13,paddingHorizontal:12},
+  inboxSearchInput:{flex:1,color:C.white,paddingVertical:11,fontSize:14},
+  inboxSearchClose:{color:C.gray,fontSize:18,padding:8},
+  inboxPeopleSection:{paddingTop:10,paddingBottom:16},
+  inboxPeopleHeading:{paddingHorizontal:18,flexDirection:"row",justifyContent:"space-between",alignItems:"center",marginBottom:12},
+  inboxSectionTitle:{color:C.white,fontSize:15,fontWeight:"900"},
+  inboxSectionHint:{color:C.gray,fontSize:11},
+  inboxPeopleRow:{paddingHorizontal:14,gap:13},
+  inboxPersonItem:{width:76,alignItems:"center"},
+  inboxCreateCircle:{width:62,height:62,borderRadius:31,backgroundColor:C.card2,borderWidth:1.5,borderColor:C.magenta,alignItems:"center",justifyContent:"center"},
+  inboxCreatePlus:{color:C.magenta,fontSize:34,lineHeight:38},
+  inboxStoryRing:{width:68,height:68,borderRadius:34,borderWidth:2.5,borderColor:C.magenta,alignItems:"center",justifyContent:"center"},
+  inboxPersonAvatar:{width:58,height:58,borderRadius:29,backgroundColor:C.card2,alignItems:"center",justifyContent:"center",overflow:"hidden"},
+  inboxPersonAvatarImage:{width:58,height:58,borderRadius:29},
+  inboxPersonFallback:{fontSize:23},
+  inboxPersonName:{color:C.white,fontSize:11,fontWeight:"700",marginTop:7,maxWidth:74,textAlign:"center"},
+  inboxFilters:{flexDirection:"row",alignItems:"center",paddingHorizontal:14,paddingVertical:12,gap:8,borderBottomWidth:1,borderBottomColor:"#302b40"},
+  inboxFilterChip:{backgroundColor:C.card,borderRadius:13,paddingHorizontal:16,paddingVertical:10},
+  inboxFilterActive:{backgroundColor:"#263c4b"},
+  inboxFilterText:{color:C.white,fontSize:13,fontWeight:"700"},
+  inboxFilterTextActive:{color:"#67d7f0"},
+  inboxFilterIcon:{marginLeft:"auto",width:38,height:38,alignItems:"center",justifyContent:"center"},
+  inboxFilterIconText:{color:C.white,fontSize:25},
+  inboxRequestRow:{flexDirection:"row",alignItems:"flex-start",paddingHorizontal:17,paddingVertical:14,borderBottomWidth:1,borderBottomColor:"#242032",gap:12},
+  inboxRequestActions:{flexDirection:"row",gap:9,marginTop:10},
+  inboxAcceptButton:{backgroundColor:C.magenta,borderRadius:9,paddingHorizontal:15,paddingVertical:8},
+  inboxAcceptText:{color:"#fff",fontSize:12,fontWeight:"900"},
+  inboxIgnoreButton:{backgroundColor:C.card2,borderRadius:9,paddingHorizontal:15,paddingVertical:8},
+  inboxIgnoreText:{color:C.white,fontSize:12,fontWeight:"800"},
+  inboxChatRow:{flexDirection:"row",alignItems:"center",paddingHorizontal:17,paddingVertical:14,borderBottomWidth:1,borderBottomColor:"#242032",gap:12},
+  inboxAvatar:{width:58,height:58,borderRadius:29,backgroundColor:C.card2,alignItems:"center",justifyContent:"center",overflow:"hidden"},
+  inboxAvatarImage:{width:58,height:58,borderRadius:29},
+  inboxChatName:{color:C.white,fontSize:15,fontWeight:"800"},
+  inboxPreview:{color:C.gray,fontSize:12,marginTop:5},
+  inboxChatMeta:{alignItems:"flex-end",gap:7},
+  inboxUnreadDot:{width:9,height:9,borderRadius:5,backgroundColor:C.magenta},
+  inboxTime:{color:C.gray,fontSize:10},
+  inboxEmpty:{alignItems:"center",paddingHorizontal:28,paddingVertical:55},
+  inboxEmptyIcon:{color:C.magenta,fontSize:42,marginBottom:10},
+  inboxEmptyTitle:{color:C.white,fontSize:16,fontWeight:"900"},
+  inboxEmptyText:{color:C.gray,fontSize:12,textAlign:"center",marginTop:7,lineHeight:18},
+  inboxChatRow:{flexDirection:"row",alignItems:"center",paddingVertical:13,borderBottomWidth:1,borderBottomColor:"#302b40",gap:12},
+  inboxAvatar:{width:46,height:46,borderRadius:23,backgroundColor:C.card2,alignItems:"center",justifyContent:"center",overflow:"hidden"},
+  inboxAvatarImage:{width:46,height:46,borderRadius:23},
+  inboxChatName:{color:C.white,fontSize:14,fontWeight:"800"},
+  inboxPreview:{color:C.gray,fontSize:12,marginTop:5},
+  inboxTime:{color:C.gray,fontSize:10},
+  messageList:{flex:1},
+  messageListContent:{padding:14,gap:12,flexGrow:1,justifyContent:"flex-end"},
+  messageBubble:{maxWidth:"88%",padding:11,borderRadius:15},
+  myMessageBubble:{alignSelf:"flex-end",backgroundColor:"#472044"},
+  theirMessageBubble:{alignSelf:"flex-start",backgroundColor:C.card},
+  messageVideoCard:{flexDirection:"row",alignItems:"center",gap:10,backgroundColor:"#161622",borderRadius:11,padding:10,minWidth:210},
+  messageVideoIcon:{color:C.magenta,fontSize:25},
+  messageVideoCreator:{color:C.white,fontWeight:"900",fontSize:12},
+  messageVideoCaption:{color:C.gray,fontSize:11,marginTop:4},
+  messageText:{color:C.white,fontSize:14,marginTop:7},
+  messageTime:{color:"#aaa",fontSize:9,textAlign:"right",marginTop:7},
+  messageComposer:{flexDirection:"row",alignItems:"center",paddingHorizontal:12,paddingVertical:9,borderTopWidth:1,borderTopColor:"#302b40",gap:8},
+  messageComposerInput:{flex:1,minHeight:42,maxHeight:100,backgroundColor:C.card,borderRadius:20,paddingHorizontal:14,paddingVertical:9,color:C.white,fontSize:14},
+  messageSendButton:{backgroundColor:"#d92f4b",borderRadius:18,paddingHorizontal:15,paddingVertical:11},
+  messageSendText:{color:C.white,fontSize:12,fontWeight:"900"},
+  shareModalRoot:{flex:1,justifyContent:"flex-end"},
+  shareBackdrop:{...StyleSheet.absoluteFillObject,backgroundColor:"rgba(0,0,0,0.65)"},
+  shareSheet:{backgroundColor:C.bg,borderTopLeftRadius:22,borderTopRightRadius:22,padding:18,paddingBottom:28,height:"88%",maxHeight:"88%"},
+  shareSheetScroll:{flex:1},
+  shareSheetScrollContent:{flexGrow:1,paddingBottom:32},
+  shareSheetHeader:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",marginBottom:10},
+  shareSheetTitle:{color:C.white,fontSize:19,fontWeight:"900"},
+  shareClose:{color:C.white,fontSize:30},
+  recipientRow:{flexDirection:"row",alignItems:"center",paddingVertical:10,borderBottomWidth:1,borderBottomColor:"#302b40",gap:10},
+  recipientName:{color:C.white,fontSize:14,fontWeight:"700",flex:1},
+  recipientSend:{color:C.magenta,fontSize:13,fontWeight:"900"}
 });
