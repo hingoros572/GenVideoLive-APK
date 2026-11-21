@@ -133,8 +133,8 @@ function SpinningDisc({ avatarUrl }) {
 
 // REEL CARD
 function ReelCard({
-  reel,height,liked,saved,following,isActive,showViews=true,likeCount,commentCount=0,saveCount=0,
-  onLike,onDoubleLike,onSave,onFollow,onComment,onCommentLongPress,onQuickReaction,onShare,onSound,isOwner,onDelete
+  reel,height,liked,saved,following,isActive,showViews=true,likeCount,commentCount=0,saveCount=0,shareCount=0,repostCount=0,reposted=false,
+  onLike,onDoubleLike,onSave,onFollow,onComment,onCommentLongPress,onQuickReaction,onShare,onRepost,onSound,isOwner,onDelete
 }) {
   const lastTapRef = useRef(0);
   const touchStartRef = useRef(null);
@@ -214,6 +214,7 @@ function ReelCard({
       )}
 
       <View style={styles.reelBottom}>
+        {!!reel.repostedByUsername&&<Text style={styles.repostAttribution}>↻ Reposted by @{reel.repostedByUsername}</Text>}
         <Text style={styles.creatorName}>@{reel.creator||"Creator"}</Text>
         <Text style={styles.caption}>{reel.caption||""}</Text>
       </View>
@@ -276,7 +277,11 @@ function ReelCard({
 
         <TouchableOpacity style={styles.actionButton} onPress={onShare}>
           <Text style={styles.actionIcon}>↗️</Text>
-          <Text style={styles.actionCount}>Share</Text>
+          <Text style={styles.actionCount}>{Number(shareCount||0).toLocaleString()}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.actionButton} onPress={onRepost}>
+          <Text style={[styles.actionIcon,{color:reposted?C.magenta:C.white}]}>🔁</Text>
+          <Text style={styles.actionCount}>{Number(repostCount||0).toLocaleString()}</Text>
         </TouchableOpacity>
         {isOwner&&(
           <TouchableOpacity style={styles.postMoreButton} onPress={onDelete} accessibilityRole="button" accessibilityLabel="Delete your post">
@@ -327,6 +332,21 @@ export default function App() {
   const [likeCounts,setLikeCounts] = useState({});
   const [commentCounts,setCommentCounts] = useState({});
   const [saveCounts,setSaveCounts] = useState({});
+  const [shareCounts,setShareCounts] = useState({});
+  const [repostCounts,setRepostCounts] = useState({});
+  const [reposts,setReposts] = useState({});
+  const [myReposts,setMyReposts] = useState({});
+  const [userChats,setUserChats] = useState({});
+  const [shareModalVisible,setShareModalVisible] = useState(false);
+  const [shareTargetPost,setShareTargetPost] = useState(null);
+  const [recipientQuery,setRecipientQuery] = useState("");
+  const [recipientResults,setRecipientResults] = useState([]);
+  const [recipientLoading,setRecipientLoading] = useState(false);
+  const [selectedChat,setSelectedChat] = useState(null);
+  const [conversationMessages,setConversationMessages] = useState([]);
+  const [conversationLoading,setConversationLoading] = useState(false);
+  const [messageText,setMessageText] = useState("");
+  const [messageSending,setMessageSending] = useState(false);
   const [commentsVisible,setCommentsVisible] = useState(false);
   const [commentPost,setCommentPost] = useState(null);
   const [comments,setComments] = useState([]);
@@ -716,6 +736,83 @@ export default function App() {
     }
   }
 
+  async function loadSocialRecords() {
+    if(!user?.token) return;
+    try {
+      const paths=["reposts.json","shares.json",`userReposts/${user.id}.json`,`userChats/${user.id}.json`];
+      const responses=await Promise.all(paths.map(path=>fetch(`${DATABASE_URL}/${path}?auth=${encodeURIComponent(user.token)}`)));
+      const data=await Promise.all(responses.map(response=>response.json()));
+      if(responses.some(response=>!response.ok)) throw new Error("Social records load nahi hue. Firebase Rules update required.");
+      const [repostsData,sharesData,myRepostsData,chatsData]=data;
+      const nextRepostCounts={},nextShareCounts={};
+      Object.entries(repostsData||{}).forEach(([id,items])=>nextRepostCounts[id]=items&&typeof items==="object"?Object.keys(items).length:0);
+      Object.entries(sharesData||{}).forEach(([id,items])=>nextShareCounts[id]=items&&typeof items==="object"?Object.keys(items).length:0);
+      setReposts(repostsData&&typeof repostsData==="object"?repostsData:{});
+      setMyReposts(myRepostsData&&typeof myRepostsData==="object"?myRepostsData:{});
+      setRepostCounts(nextRepostCounts);setShareCounts(nextShareCounts);
+      setUserChats(chatsData&&typeof chatsData==="object"?chatsData:{});
+    } catch(error){console.log("SOCIAL RECORDS LOAD ERROR:",error.message);}
+  }
+
+  async function searchMessageRecipients(value) {
+    setRecipientQuery(value);
+    const q=String(value||"").trim().replace(/^@/,"").toLowerCase();
+    if(!q||!user?.token){setRecipientResults([]);return;}
+    setRecipientLoading(true);
+    try {
+      const response=await fetch(`${DATABASE_URL}/users.json?auth=${encodeURIComponent(user.token)}`);
+      const data=await response.json();
+      if(!response.ok) throw new Error(data?.error||"Users search nahi ho sake.");
+      setRecipientResults(Object.entries(data||{}).filter(([id,p])=>id!==user.id&&p&&String(p.username||"").replace(/^@/,"").toLowerCase().includes(q)).slice(0,25).map(([id,p])=>({id,username:p.username||"User",profileImage:p.profileImage||""})));
+    } catch(error){setRecipientResults([]);Alert.alert("User search",error.message||"Users search nahi ho sake.");}
+    finally{setRecipientLoading(false);}
+  }
+
+  async function openInboxConversation(chat) {
+    setSelectedChat(chat);setConversationMessages([]);setConversationLoading(true);
+    try {
+      const response=await fetch(`${DATABASE_URL}/messages/${encodeURIComponent(chat.chatId)}.json?auth=${encodeURIComponent(user.token)}`);
+      const data=await response.json();if(!response.ok)throw new Error(data?.error||"Messages load nahi hue.");
+      setConversationMessages(data&&typeof data==="object"?Object.entries(data).map(([id,item])=>({id,...item})).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0)):[]);
+    } catch(error){Alert.alert("Inbox",error.message||"Messages load nahi hue.");}
+    finally{setConversationLoading(false);}
+  }
+
+  async function sendVideoToRecipient(recipient) {
+    const post=shareTargetPost;if(!post||!recipient?.id||!user?.token||messageSending)return;
+    setMessageSending(true);
+    try {
+      const chatId=[String(user.id),String(recipient.id)].sort().join("__"),now=Date.now();
+      const message={type:"video",senderId:user.id,senderUsername:username||"User",recipientId:recipient.id,recipientUsername:recipient.username||"User",post:{postId:post.id,ownerId:post.ownerId||"",creator:post.creator||"Creator",caption:post.caption||"",videoUrl:post.videoUrl,thumbnailUrl:getVideoThumbnail(post)||""},text:messageText.trim(),createdAt:now,seen:false};
+      const response=await fetch(`${DATABASE_URL}/messages/${encodeURIComponent(chatId)}.json?auth=${encodeURIComponent(user.token)}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(message)});
+      const result=await response.json();if(!response.ok||!result?.name)throw new Error(result?.error||"Video message save nahi hua.");
+      const mine={chatId,otherUserId:recipient.id,otherUsername:recipient.username||"User",lastMessageType:"video",lastMessageText:message.text,lastMessageAt:now,lastMessageSenderId:user.id};
+      const a=await fetch(`${DATABASE_URL}/userChats/${user.id}/${encodeURIComponent(chatId)}.json?auth=${encodeURIComponent(user.token)}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(mine)});
+      if(!a.ok)throw new Error("Message save hua, lekin Inbox pointer update nahi hua.");
+      const b=await fetch(`${DATABASE_URL}/userChats/${recipient.id}/${encodeURIComponent(chatId)}.json?auth=${encodeURIComponent(user.token)}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({...mine,otherUserId:user.id,otherUsername:username||"User"})});
+      if(!b.ok)throw new Error("Message save hua, lekin recipient Inbox update nahi hua. Rules check karein.");
+      setUserChats(old=>({...old,[chatId]:mine}));setShareModalVisible(false);setShareTargetPost(null);setRecipientQuery("");setRecipientResults([]);setMessageText("");
+      Alert.alert("Sent","Video "+(recipient.username||"user")+" ko bhej di gayi.");
+    } catch(error){Alert.alert("Send failed",error.message||"Video send nahi hui.");}
+    finally{setMessageSending(false);}
+  }
+
+  async function toggleRepost(reel) {
+    if(!user?.token)return Alert.alert("Login required","Pehle login karein.");
+    if(!reel?.id||!reel?.videoUrl)return;
+    if(reel.ownerId===user.id)return Alert.alert("Repost","Apni video ko repost nahi kar sakte.");
+    const exists=!!myReposts[reel.id],record={postId:reel.id,originalOwnerId:reel.ownerId||"",reposterId:user.id,reposterUsername:username||"User",createdAt:Date.now()};
+    try{
+      const p=`${DATABASE_URL}/reposts/${reel.id}/${user.id}.json?auth=${encodeURIComponent(user.token)}`,u=`${DATABASE_URL}/userReposts/${user.id}/${reel.id}.json?auth=${encodeURIComponent(user.token)}`;
+      const opts=exists?{method:"DELETE"}:{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(record)};
+      const a=await fetch(p,opts),b=await fetch(u,opts);if(!a.ok||!b.ok)throw new Error("Repost Firebase mein save nahi hua.");
+      setMyReposts(old=>{const n={...old};if(exists)delete n[reel.id];else n[reel.id]=record;return n;});
+      setReposts(old=>{const n={...old,[reel.id]:{...(old[reel.id]||{})}};if(exists)delete n[reel.id][user.id];else n[reel.id][user.id]=record;return n;});
+      setRepostCounts(old=>({...old,[reel.id]:Math.max(0,(old[reel.id]||0)+(exists?-1:1))}));
+      Alert.alert(exists?"Repost removed":"Reposted",exists?"Repost hata diya gaya.":"Video followers ke feed mein share ho gayi.");
+    }catch(error){Alert.alert("Repost error",error.message||"Repost nahi ho saka. Rules check karein.");}
+  }
+
   async function loadFollowerCount() {
     if(!user?.token) return;
 
@@ -779,6 +876,7 @@ export default function App() {
         loadFollowerCount(),
         loadLikeSave(),
         loadEngagementCounts(),
+        loadSocialRecords(),
         loadMyProfile()
       ]);
     } finally {
@@ -794,6 +892,7 @@ export default function App() {
       loadFollowing();
       loadLikeSave();
       loadEngagementCounts();
+      loadSocialRecords();
     }
   },[user]);
 
@@ -1447,13 +1546,20 @@ export default function App() {
   }
 
   async function shareReel(reel) {
-    try {
-      await Share.share({
-        message:`${reel.caption||"Watch this on Gen Video Live"}\n${reel.videoUrl||""}`
-      });
-    } catch(error) {
-      Alert.alert("Share","Share nahi ho saka.");
-    }
+    setShareTargetPost(reel);setRecipientQuery("");setRecipientResults([]);setMessageText("");setShareModalVisible(true);
+  }
+
+  async function shareReelExternally() {
+    if(!shareTargetPost)return;
+    try{
+      const result=await Share.share({message:`${shareTargetPost.caption||"Watch this on Gen Video Live"}\n${shareTargetPost.videoUrl||""}`});
+      if(result.action===Share.sharedAction){
+        const path=`${DATABASE_URL}/shares/${shareTargetPost.id}/${user.id}.json?auth=${encodeURIComponent(user.token)}`,now=Date.now();
+        const response=await fetch(path,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({userId:user.id,destination:"external",sharedAt:now})});
+        if(!response.ok)throw new Error("Share record Firebase mein save nahi hua.");
+        setShareCounts(old=>({...old,[shareTargetPost.id]:(old[shareTargetPost.id]||0)+1}));
+      }
+    }catch(error){Alert.alert("Share",error.message||"Share nahi ho saka.");}
   }
 
   async function openComments(reel) {
@@ -1543,8 +1649,13 @@ export default function App() {
     };
   });
 
+  const repostFeedEntries=Object.entries(reposts).flatMap(([postId,users])=>{
+    const original=allReels.find(item=>item.id===postId);
+    if(!original||!users||typeof users!=="object")return [];
+    return Object.values(users).filter(record=>record&&record.reposterId&&following[record.reposterId]).map(record=>({...original,repostedByUsername:record.reposterUsername||"User",repostedById:record.reposterId}));
+  });
   const visibleReels=feedTab==="Following"
-    ? allReels.filter(reel=>reel.ownerId&&following[reel.ownerId])
+    ? [...allReels.filter(reel=>reel.ownerId&&following[reel.ownerId]),...repostFeedEntries].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0))
     : allReels;
   const activeReelId=page==="Home"?visibleReels[activeReelIndex]?.id:null;
   useEffect(()=>{
@@ -1555,6 +1666,7 @@ export default function App() {
   const myPosts=posts.filter(post=>post.ownerId===user?.id && isRealVideoPost(post));
   const myPublicPosts=myPosts.filter(post=>post.privacy!=="Private");
   const privatePosts=myPosts.filter(post=>post.privacy==="Private");
+  const myRepostedPosts=Object.keys(myReposts).map(id=>allReels.find(post=>post.id===id)).filter(Boolean);
 
   function renderHeader() {
     return (
@@ -1694,7 +1806,11 @@ export default function App() {
                 onFollow={()=>toggleFollow(reel)}
                 onComment={()=>openComments(reel)}
                 onQuickReaction={(emoji)=>postQuickReaction(reel,emoji)}
+                shareCount={shareCounts[reel.id]||0}
+                repostCount={repostCounts[reel.id]||0}
+                reposted={!!myReposts[reel.id]}
                 onShare={()=>shareReel(reel)}
+                onRepost={()=>toggleRepost(reel)}
                 onSound={()=>openSound(reel)}
                 isOwner={reel.ownerId===user?.id}
                 onDelete={()=>confirmDeletePost(reel)}
@@ -1759,7 +1875,11 @@ export default function App() {
                 onFollow={()=>toggleFollow(reel)}
                 onComment={()=>openComments(reel)}
                 onQuickReaction={(emoji)=>postQuickReaction(reel,emoji)}
+                shareCount={shareCounts[reel.id]||0}
+                repostCount={repostCounts[reel.id]||0}
+                reposted={!!myReposts[reel.id]}
                 onShare={()=>shareReel(reel)}
+                onRepost={()=>toggleRepost(reel)}
                 onSound={()=>openSound(reel)}
               />
             </View>
@@ -1777,14 +1897,27 @@ export default function App() {
   }
 
   function renderInbox() {
-    return (
-      <View style={styles.centerPage}>
-        <Text style={{fontSize:48}}>💬</Text>
-        <Text style={styles.pageTitle}>Inbox</Text>
-        <Text style={styles.emptyText}>Your messages and notifications will appear here.</Text>
-        <Text style={styles.smallMuted}>Messaging feature will be connected in a future update.</Text>
+    if(selectedChat)return (
+      <View style={styles.inboxPage}>
+        <View style={styles.inboxHeader}><TouchableOpacity onPress={()=>setSelectedChat(null)}><Text style={styles.inboxBack}>‹</Text></TouchableOpacity><Text style={styles.inboxTitle}>@{selectedChat.otherUsername||"User"}</Text></View>
+        {conversationLoading?<ActivityIndicator color={C.magenta} style={{marginTop:24}}/>:<ScrollView style={styles.messageList} contentContainerStyle={styles.messageListContent}>
+          {conversationMessages.map(message=><View key={message.id} style={[styles.messageBubble,message.senderId===user.id?styles.myMessageBubble:styles.theirMessageBubble]}>
+            {message.type==="video"&&message.post&&<TouchableOpacity style={styles.messageVideoCard} onPress={()=>{const item=allReels.find(p=>p.id===message.post.postId);if(item){setPlayingPost(item);setPage("Home");}else Alert.alert("Video unavailable","Original video abhi load nahi hui.");}}>
+              <Text style={styles.messageVideoIcon}>▶</Text><View style={{flex:1}}><Text style={styles.messageVideoCreator}>@{message.post.creator||"Creator"}</Text><Text numberOfLines={2} style={styles.messageVideoCaption}>{message.post.caption||"Shared a video"}</Text></View>
+            </TouchableOpacity>}
+            {!!message.text&&<Text style={styles.messageText}>{message.text}</Text>}<Text style={styles.messageTime}>{message.createdAt?new Date(message.createdAt).toLocaleString():""}</Text>
+          </View>)}
+          {!conversationMessages.length&&<Text style={styles.smallMuted}>Abhi koi message nahi.</Text>}
+        </ScrollView>}
       </View>
     );
+    const chats=Object.entries(userChats).map(([chatId,item])=>({chatId,...item})).sort((a,b)=>(b.lastMessageAt||0)-(a.lastMessageAt||0));
+    return <View style={styles.inboxPage}><View style={styles.inboxHeader}><Text style={styles.inboxTitle}>Inbox</Text></View><ScrollView contentContainerStyle={styles.inboxList}>
+      {chats.map(chat=><TouchableOpacity key={chat.chatId} style={styles.inboxChatRow} onPress={()=>openInboxConversation(chat)}>
+        <View style={styles.inboxAvatar}><Text>👤</Text></View><View style={{flex:1}}><Text style={styles.inboxChatName}>@{chat.otherUsername||"User"}</Text><Text style={styles.inboxPreview}>{chat.lastMessageType==="video"?"🎬 Video":chat.lastMessageText||"Message"}</Text></View><Text style={styles.inboxTime}>{chat.lastMessageAt?new Date(chat.lastMessageAt).toLocaleDateString():""}</Text>
+      </TouchableOpacity>)}
+      {!chats.length&&<View style={styles.centerPage}><Text style={{fontSize:48}}>💬</Text><Text style={styles.emptyText}>Abhi messages nahi hain.</Text><Text style={styles.smallMuted}>Video par Share dabakar user ko video bhejein.</Text></View>}
+    </ScrollView></View>;
   }
 
   function renderCreate() {
@@ -1930,7 +2063,9 @@ export default function App() {
       ?myPublicPosts
       :profileTab==="Private"
         ?privatePosts
-        :allReels.filter(post=>!!liked[post.id] && isRealVideoPost(post));
+        :profileTab==="Reposted"
+          ?myRepostedPosts
+          :allReels.filter(post=>!!liked[post.id] && isRealVideoPost(post));
 
     return (
       <ScrollView style={styles.pageScroll} contentContainerStyle={styles.profilePageContent}>
@@ -1991,14 +2126,14 @@ export default function App() {
         </View>
 
         <View style={styles.profileTabBar}>
-          {["Videos","Liked","Private"].map(tab=>(
+          {["Videos","Reposted","Liked","Private"].map(tab=>(
             <TouchableOpacity
               key={tab}
               style={styles.profileTab}
               onPress={()=>setProfileTab(tab)}
             >
               <Text style={[styles.profileTabText,profileTab===tab&&styles.profileTabActive]}>
-                {tab==="Videos"?"▦ Videos":tab==="Liked"?"♡ Liked":"🔒 Private"}
+                {tab==="Videos"?"▦ Videos":tab==="Reposted"?"🔁 Reposted":tab==="Liked"?"♡ Liked":"🔒 Private"}
               </Text>
               {profileTab===tab&&<View style={styles.profileTabUnderline}/>}
             </TouchableOpacity>
@@ -2023,7 +2158,7 @@ export default function App() {
                     <View style={styles.videoGridNoThumbnail}/>
                   )}
                   <View style={styles.videoGridOverlay}>
-                    {item.ownerId===user?.id&&profileTab!=="Liked"&&(
+                    {item.ownerId===user?.id&&profileTab!=="Liked"&&profileTab!=="Reposted"&&(
                       <TouchableOpacity
                         style={styles.profileDeleteButton}
                         onPress={()=>confirmDeletePost(item)}
@@ -2044,13 +2179,13 @@ export default function App() {
         ):(
           <View style={styles.emptyProfileVideos}>
             <Text style={{fontSize:42}}>
-              {profileTab==="Private"?"🔒":profileTab==="Liked"?"❤️":"🎬"}
+              {profileTab==="Private"?"🔒":profileTab==="Liked"?"❤️":profileTab==="Reposted"?"🔁":"🎬"}
             </Text>
             <Text style={styles.emptyProfileTitle}>
-              {profileTab==="Videos"?"No videos yet":profileTab==="Liked"?"No liked videos":"No private videos"}
+              {profileTab==="Videos"?"No videos yet":profileTab==="Liked"?"No liked videos":profileTab==="Reposted"?"No reposts yet":"No private videos"}
             </Text>
             <Text style={styles.smallMuted}>
-              {profileTab==="Liked"?"Videos you like will appear here.":"Your uploaded videos will appear here."}
+              {profileTab==="Liked"?"Videos you like will appear here.":profileTab==="Reposted"?"Videos you repost will appear here.":"Your uploaded videos will appear here."}
             </Text>
             {profileTab==="Videos"&&<Button title="＋ Create Video" onPress={()=>setPage("Create")}/>}
           </View>
@@ -2228,6 +2363,24 @@ export default function App() {
     <View style={styles.app}>
       <StatusBar backgroundColor="#000" barStyle="light-content" hidden={true}/>
       {renderVideoPlayer()}
+      <Modal visible={shareModalVisible} transparent animationType="slide" statusBarTranslucent onRequestClose={()=>setShareModalVisible(false)}>
+        <View style={styles.shareModalRoot}>
+          <TouchableOpacity style={styles.shareBackdrop} activeOpacity={1} onPress={()=>setShareModalVisible(false)}/>
+          <View style={styles.shareSheet}>
+            <View style={styles.shareSheetHeader}><Text style={styles.shareSheetTitle}>Share video</Text><TouchableOpacity onPress={()=>setShareModalVisible(false)}><Text style={styles.shareClose}>×</Text></TouchableOpacity></View>
+            <Button title="↗ Share to WhatsApp / other apps" onPress={shareReelExternally}/>
+            <Text style={styles.fieldLabel}>Send to a Gen Video Live user</Text>
+            <TextInput style={styles.input} value={recipientQuery} onChangeText={searchMessageRecipients} placeholder="Search username..." placeholderTextColor={C.gray}/>
+            {recipientLoading?<ActivityIndicator color={C.magenta}/>:<ScrollView style={{maxHeight:190}} keyboardShouldPersistTaps="handled">
+              {recipientResults.map(recipient=><TouchableOpacity key={recipient.id} style={styles.recipientRow} onPress={()=>sendVideoToRecipient(recipient)} disabled={messageSending}>
+                <View style={styles.inboxAvatar}>{recipient.profileImage?<Image source={{uri:recipient.profileImage}} style={styles.inboxAvatarImage}/>:<Text>👤</Text>}</View><Text style={styles.recipientName}>@{recipient.username}</Text>{messageSending?<ActivityIndicator color={C.magenta}/>:<Text style={styles.recipientSend}>Send ›</Text>}
+              </TouchableOpacity>)}
+              {!!recipientQuery.trim()&&!recipientResults.length&&<Text style={styles.smallMuted}>Koi user nahi mila. Username check karein.</Text>}
+            </ScrollView>}
+          </View>
+        </View>
+      </Modal>
+
       <Modal visible={commentsVisible} transparent animationType="slide" statusBarTranslucent navigationBarTranslucent={true} onRequestClose={()=>setCommentsVisible(false)}>
         <View style={styles.commentsModalRoot}>
           <TouchableOpacity style={styles.commentsBackdrop} activeOpacity={1} onPress={()=>setCommentsVisible(false)}/>
@@ -2615,5 +2768,37 @@ const styles=StyleSheet.create({
   playerInsightsButton:{backgroundColor:"#292932",borderRadius:22,paddingHorizontal:15,paddingVertical:10},
   playerInsightsText:{color:C.white,fontSize:13,fontWeight:"700"},
   playerBackOverlay:{position:"absolute",top:12,left:14,width:42,height:42,zIndex:20,justifyContent:"center",alignItems:"center",backgroundColor:"rgba(0,0,0,0.18)",borderRadius:22},
-  playerBackOverlayText:{color:C.white,fontSize:34,fontWeight:"300",lineHeight:38}
+  playerBackOverlayText:{color:C.white,fontSize:34,fontWeight:"300",lineHeight:38},
+  repostAttribution:{color:C.magenta,fontSize:11,fontWeight:"800",marginBottom:5},
+  inboxPage:{flex:1,backgroundColor:C.bg},
+  inboxHeader:{height:58,paddingHorizontal:16,flexDirection:"row",alignItems:"center",borderBottomWidth:1,borderBottomColor:"#302b40"},
+  inboxBack:{color:C.magenta,fontSize:34,marginRight:14},
+  inboxTitle:{color:C.white,fontSize:19,fontWeight:"900"},
+  inboxList:{padding:14},
+  inboxChatRow:{flexDirection:"row",alignItems:"center",paddingVertical:13,borderBottomWidth:1,borderBottomColor:"#302b40",gap:12},
+  inboxAvatar:{width:46,height:46,borderRadius:23,backgroundColor:C.card2,alignItems:"center",justifyContent:"center",overflow:"hidden"},
+  inboxAvatarImage:{width:46,height:46,borderRadius:23},
+  inboxChatName:{color:C.white,fontSize:14,fontWeight:"800"},
+  inboxPreview:{color:C.gray,fontSize:12,marginTop:5},
+  inboxTime:{color:C.gray,fontSize:10},
+  messageList:{flex:1},
+  messageListContent:{padding:14,gap:12},
+  messageBubble:{maxWidth:"88%",padding:11,borderRadius:15},
+  myMessageBubble:{alignSelf:"flex-end",backgroundColor:"#472044"},
+  theirMessageBubble:{alignSelf:"flex-start",backgroundColor:C.card},
+  messageVideoCard:{flexDirection:"row",alignItems:"center",gap:10,backgroundColor:"#161622",borderRadius:11,padding:10,minWidth:210},
+  messageVideoIcon:{color:C.magenta,fontSize:25},
+  messageVideoCreator:{color:C.white,fontWeight:"900",fontSize:12},
+  messageVideoCaption:{color:C.gray,fontSize:11,marginTop:4},
+  messageText:{color:C.white,fontSize:14,marginTop:7},
+  messageTime:{color:"#aaa",fontSize:9,textAlign:"right",marginTop:7},
+  shareModalRoot:{flex:1,justifyContent:"flex-end"},
+  shareBackdrop:{...StyleSheet.absoluteFillObject,backgroundColor:"rgba(0,0,0,0.65)"},
+  shareSheet:{backgroundColor:C.bg,borderTopLeftRadius:22,borderTopRightRadius:22,padding:18,paddingBottom:28,maxHeight:"82%"},
+  shareSheetHeader:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",marginBottom:10},
+  shareSheetTitle:{color:C.white,fontSize:19,fontWeight:"900"},
+  shareClose:{color:C.white,fontSize:30},
+  recipientRow:{flexDirection:"row",alignItems:"center",paddingVertical:10,borderBottomWidth:1,borderBottomColor:"#302b40",gap:10},
+  recipientName:{color:C.white,fontSize:14,fontWeight:"700",flex:1},
+  recipientSend:{color:C.magenta,fontSize:13,fontWeight:"900"}
 });
