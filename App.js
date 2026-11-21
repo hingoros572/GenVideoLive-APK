@@ -2478,22 +2478,26 @@ export default function App() {
     <View style={styles.app}>
       <StatusBar backgroundColor="#000" barStyle="light-content" hidden={true}/>
       {renderVideoPlayer()}
-      <Modal visible={shareModalVisible} transparent animationType="slide" statusBarTranslucent onRequestClose={()=>setShareModalVisible(false)}>
+      <Modal visible={shareModalVisible} transparent animationType="slide" statusBarTranslucent navigationBarTranslucent={true} onRequestClose={()=>setShareModalVisible(false)}>
         <View style={styles.shareModalRoot}>
           <TouchableOpacity style={styles.shareBackdrop} activeOpacity={1} onPress={()=>setShareModalVisible(false)}/>
           <View style={styles.shareSheet}>
-            <View style={styles.shareSheetHeader}><Text style={styles.shareSheetTitle}>Share video</Text><TouchableOpacity onPress={()=>setShareModalVisible(false)}><Text style={styles.shareClose}>×</Text></TouchableOpacity></View>
-            <Button title="↗ Share to WhatsApp / other apps" onPress={shareReelExternally}/>
-            <Text style={styles.fieldLabel}>Optional message</Text>
-            <TextInput style={styles.input} value={messageText} onChangeText={setMessageText} placeholder="Write a message..." placeholderTextColor={C.gray}/>
-            <Text style={styles.fieldLabel}>Send to a Gen Video Live user</Text>
-            <TextInput style={styles.input} value={recipientQuery} onChangeText={searchMessageRecipients} placeholder="Search username..." placeholderTextColor={C.gray}/>
-            {recipientLoading?<ActivityIndicator color={C.magenta}/>:<ScrollView style={{maxHeight:190}} keyboardShouldPersistTaps="handled">
-              {recipientResults.map(recipient=><TouchableOpacity key={recipient.id} style={styles.recipientRow} onPress={()=>sendVideoToRecipient(recipient)} disabled={messageSending}>
-                <View style={styles.inboxAvatar}>{recipient.profileImage?<Image source={{uri:recipient.profileImage}} style={styles.inboxAvatarImage}/>:<Text>👤</Text>}</View><Text style={styles.recipientName}>@{recipient.username}</Text>{messageSending?<ActivityIndicator color={C.magenta}/>:<Text style={styles.recipientSend}>Send ›</Text>}
-              </TouchableOpacity>)}
-              {!!recipientQuery.trim()&&!recipientResults.length&&<Text style={styles.smallMuted}>Koi user nahi mila. Username check karein.</Text>}
-            </ScrollView>}
+            <ScrollView style={styles.shareSheetScroll} contentContainerStyle={styles.shareSheetScrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={true}>
+              <View style={styles.shareSheetHeader}><Text style={styles.shareSheetTitle}>Share video</Text><TouchableOpacity onPress={()=>setShareModalVisible(false)}><Text style={styles.shareClose}>×</Text></TouchableOpacity></View>
+              <Button title="↗ Share to WhatsApp / other apps" onPress={shareReelExternally}/>
+              <Text style={styles.fieldLabel}>Optional message</Text>
+              <TextInput style={styles.input} value={messageText} onChangeText={setMessageText} placeholder="Write a message..." placeholderTextColor={C.gray}/>
+              <Text style={styles.fieldLabel}>Send to a Gen Video Live user</Text>
+              <TextInput style={styles.input} value={recipientQuery} onChangeText={searchMessageRecipients} placeholder="Search username..." placeholderTextColor={C.gray}/>
+              {recipientLoading?<ActivityIndicator color={C.magenta}/>:(
+                <View>
+                  {recipientResults.map(recipient=><TouchableOpacity key={recipient.id} style={styles.recipientRow} onPress={()=>sendVideoToRecipient(recipient)} disabled={messageSending}>
+                    <View style={styles.inboxAvatar}>{recipient.profileImage?<Image source={{uri:recipient.profileImage}} style={styles.inboxAvatarImage}/>:<Text>👤</Text>}</View><Text style={styles.recipientName}>@{recipient.username}</Text>{messageSending?<ActivityIndicator color={C.magenta}/>:<Text style={styles.recipientSend}>Send ›</Text>}
+                  </TouchableOpacity>)}
+                  {!!recipientQuery.trim()&&!recipientResults.length&&<Text style={styles.smallMuted}>Koi user nahi mila. Username check karein.</Text>}
+                </View>
+              )}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -2978,7 +2982,9 @@ const styles=StyleSheet.create({
   messageTime:{color:"#aaa",fontSize:9,textAlign:"right",marginTop:7},
   shareModalRoot:{flex:1,justifyContent:"flex-end"},
   shareBackdrop:{...StyleSheet.absoluteFillObject,backgroundColor:"rgba(0,0,0,0.65)"},
-  shareSheet:{backgroundColor:C.bg,borderTopLeftRadius:22,borderTopRightRadius:22,padding:18,paddingBottom:28,maxHeight:"82%"},
+  shareSheet:{backgroundColor:C.bg,borderTopLeftRadius:22,borderTopRightRadius:22,padding:18,paddingBottom:12,maxHeight:"88%"},
+  shareSheetScroll:{flexGrow:0},
+  shareSheetScrollContent:{paddingBottom:24},
   shareSheetHeader:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",marginBottom:10},
   shareSheetTitle:{color:C.white,fontSize:19,fontWeight:"900"},
   shareClose:{color:C.white,fontSize:30},
