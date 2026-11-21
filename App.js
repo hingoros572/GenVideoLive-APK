@@ -769,13 +769,13 @@ export default function App() {
     try {
       const chatId=[String(user.id),String(recipient.id)].sort().join("__"),now=Date.now();
       const message={type:"video",senderId:user.id,senderUsername:username||"User",recipientId:recipient.id,recipientUsername:recipient.username||"User",post:{postId:post.id,ownerId:post.ownerId||"",creator:post.creator||"Creator",caption:post.caption||"",videoUrl:post.videoUrl,thumbnailUrl:getVideoThumbnail(post)||""},text:messageText.trim(),createdAt:now,seen:false};
-      const response=await fetch(`${DATABASE_URL}/messages/${encodeURIComponent(chatId)}.json?auth=${encodeURIComponent(user.token)}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(message)});
-      const result=await response.json();if(!response.ok||!result?.name)throw new Error(result?.error||"Video message save nahi hua.");
       const mine={chatId,otherUserId:recipient.id,otherUsername:recipient.username||"User",lastMessageType:"video",lastMessageText:message.text,lastMessageAt:now,lastMessageSenderId:user.id};
       const a=await fetch(`${DATABASE_URL}/userChats/${user.id}/${encodeURIComponent(chatId)}.json?auth=${encodeURIComponent(user.token)}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(mine)});
-      if(!a.ok)throw new Error("Message save hua, lekin Inbox pointer update nahi hua.");
+      if(!a.ok)throw new Error("Inbox conversation create nahi hui.");
       const b=await fetch(`${DATABASE_URL}/userChats/${recipient.id}/${encodeURIComponent(chatId)}.json?auth=${encodeURIComponent(user.token)}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({...mine,otherUserId:user.id,otherUsername:username||"User"})});
-      if(!b.ok)throw new Error("Message save hua, lekin recipient Inbox update nahi hua. Rules check karein.");
+      if(!b.ok)throw new Error("Recipient Inbox update nahi hua. Rules check karein.");
+      const response=await fetch(`${DATABASE_URL}/messages/${encodeURIComponent(chatId)}.json?auth=${encodeURIComponent(user.token)}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(message)});
+      const result=await response.json();if(!response.ok||!result?.name)throw new Error(result?.error||"Video message save nahi hua.");
       setUserChats(old=>({...old,[chatId]:mine}));setShareModalVisible(false);setShareTargetPost(null);setRecipientQuery("");setRecipientResults([]);setMessageText("");
       Alert.alert("Sent","Video "+(recipient.username||"user")+" ko bhej di gayi.");
     } catch(error){Alert.alert("Send failed",error.message||"Video send nahi hui.");}
@@ -2198,7 +2198,11 @@ export default function App() {
           onFollow={()=>toggleFollow(reel)}
           onComment={()=>openComments(reel)}
           onQuickReaction={(emoji)=>postQuickReaction(reel,emoji)}
+          shareCount={shareCounts[reel.id]||0}
+          repostCount={repostCounts[reel.id]||0}
+          reposted={!!myReposts[reel.id]}
           onShare={()=>shareReel(reel)}
+          onRepost={()=>toggleRepost(reel)}
           onSound={()=>openSound(reel)}
           isOwner={reel.ownerId===user?.id}
           onDelete={()=>confirmDeletePost(reel)}
@@ -2354,6 +2358,8 @@ export default function App() {
           <View style={styles.shareSheet}>
             <View style={styles.shareSheetHeader}><Text style={styles.shareSheetTitle}>Share video</Text><TouchableOpacity onPress={()=>setShareModalVisible(false)}><Text style={styles.shareClose}>×</Text></TouchableOpacity></View>
             <Button title="↗ Share to WhatsApp / other apps" onPress={shareReelExternally}/>
+            <Text style={styles.fieldLabel}>Optional message</Text>
+            <TextInput style={styles.input} value={messageText} onChangeText={setMessageText} placeholder="Write a message..." placeholderTextColor={C.gray}/>
             <Text style={styles.fieldLabel}>Send to a Gen Video Live user</Text>
             <TextInput style={styles.input} value={recipientQuery} onChangeText={searchMessageRecipients} placeholder="Search username..." placeholderTextColor={C.gray}/>
             {recipientLoading?<ActivityIndicator color={C.magenta}/>:<ScrollView style={{maxHeight:190}} keyboardShouldPersistTaps="handled">
