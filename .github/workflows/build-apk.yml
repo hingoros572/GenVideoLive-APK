@@ -6,6 +6,9 @@ on:
     branches:
       - main
       - feature/share-repost-inbox
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build:
