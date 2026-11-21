@@ -2121,15 +2121,6 @@ export default function App() {
             <View style={styles.statDivider}/>
             <View style={styles.stat}><Text style={styles.statNumber}>{myPosts.reduce((total,post)=>total+(likeCounts[post.id]||0),0)}</Text><Text style={styles.statLabel}>Likes</Text></View>
           </View>
-          <View style={[styles.statsRow,{marginTop:12}]}>
-            <View style={styles.stat}><Text style={styles.statNumber}>{myPosts.reduce((t,p)=>t+(commentCounts[p.id]||0),0)}</Text><Text style={styles.statLabel}>Comments</Text></View>
-            <View style={styles.statDivider}/>
-            <View style={styles.stat}><Text style={styles.statNumber}>{myPosts.reduce((t,p)=>t+(shareCounts[p.id]||0),0)}</Text><Text style={styles.statLabel}>Shares</Text></View>
-            <View style={styles.statDivider}/>
-            <View style={styles.stat}><Text style={styles.statNumber}>{myPosts.reduce((t,p)=>t+(saveCounts[p.id]||0),0)}</Text><Text style={styles.statLabel}>Saves</Text></View>
-            <View style={styles.statDivider}/>
-            <View style={styles.stat}><Text style={styles.statNumber}>{myPosts.reduce((t,p)=>t+(repostCounts[p.id]||0),0)}</Text><Text style={styles.statLabel}>Reposts</Text></View>
-          </View>
 
           <View style={styles.profileButtons}>
             <TouchableOpacity
