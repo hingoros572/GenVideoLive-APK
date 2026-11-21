@@ -806,9 +806,14 @@ export default function App() {
     if(reel.ownerId===user.id)return Alert.alert("Repost","Apni video ko repost nahi kar sakte.");
     const exists=!!myReposts[reel.id],record={postId:reel.id,originalOwnerId:reel.ownerId||"",reposterId:user.id,reposterUsername:username||"User",createdAt:Date.now()};
     try{
-      const p=`${DATABASE_URL}/reposts/${reel.id}/${user.id}.json?auth=${encodeURIComponent(user.token)}`,u=`${DATABASE_URL}/userReposts/${user.id}/${reel.id}.json?auth=${encodeURIComponent(user.token)}`;
-      const opts=exists?{method:"DELETE"}:{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(record)};
-      const a=await fetch(p,opts),b=await fetch(u,opts);if(!a.ok||!b.ok)throw new Error("Repost Firebase mein save nahi hua.");
+      const patch={
+        [`reposts/${reel.id}/${user.id}`]:exists?null:record,
+        [`userReposts/${user.id}/${reel.id}`]:exists?null:record
+      };
+      const response=await fetch(`${DATABASE_URL}/.json?auth=${encodeURIComponent(user.token)}`,{
+        method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(patch)
+      });
+      if(!response.ok)throw new Error("Repost Firebase mein save nahi hua.");
       setMyReposts(old=>{const n={...old};if(exists)delete n[reel.id];else n[reel.id]=record;return n;});
       setReposts(old=>{const n={...old,[reel.id]:{...(old[reel.id]||{})}};if(exists)delete n[reel.id][user.id];else n[reel.id][user.id]=record;return n;});
       setRepostCounts(old=>({...old,[reel.id]:Math.max(0,(old[reel.id]||0)+(exists?-1:1))}));
