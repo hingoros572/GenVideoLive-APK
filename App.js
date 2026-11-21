@@ -1662,8 +1662,9 @@ export default function App() {
     const latestRepost=Object.values(users).filter(record=>record&&record.reposterId&&following[record.reposterId]).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0))[0];
     return latestRepost?[{...original,repostedByUsername:latestRepost.reposterUsername||"User",repostedById:latestRepost.reposterId,repostedAt:latestRepost.createdAt||0}]:[];
   });
+  const followingReelIds=new Set(repostFeedEntries.map(reel=>reel.id));
   const visibleReels=feedTab==="Following"
-    ? [...allReels.filter(reel=>reel.ownerId&&following[reel.ownerId]),...repostFeedEntries].sort((a,b)=>(b.repostedAt||b.createdAt||0)-(a.repostedAt||a.createdAt||0))
+    ? [...repostFeedEntries,...allReels.filter(reel=>reel.ownerId&&following[reel.ownerId]&&!followingReelIds.has(reel.id))].sort((a,b)=>(b.repostedAt||b.createdAt||0)-(a.repostedAt||a.createdAt||0))
     : allReels;
   const activeReelId=page==="Home"?visibleReels[activeReelIndex]?.id:null;
   useEffect(()=>{
