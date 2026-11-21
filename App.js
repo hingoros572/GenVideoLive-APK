@@ -2008,7 +2008,7 @@ export default function App() {
             <TouchableOpacity style={styles.inboxPersonItem} onPress={()=>{setPage("Explore");}}>
               <View style={styles.inboxCreateCircle}><Text style={styles.inboxCreatePlus}>＋</Text></View><Text numberOfLines={1} style={styles.inboxPersonName}>Find people</Text>
             </TouchableOpacity>
-            {people.map(person=><TouchableOpacity key={person.id} style={styles.inboxPersonItem} onPress={()=>{setInboxSearchOpen(true);setInboxSearch(person.username||"");}}>
+            {people.map(person=><TouchableOpacity key={person.id} style={styles.inboxPersonItem} onPress={()=>openUserProfile(person.id)}>
               <View style={styles.inboxStoryRing}><View style={styles.inboxPersonAvatar}>{person.profileImage?<Image source={{uri:person.profileImage}} style={styles.inboxPersonAvatarImage}/>:<Text style={styles.inboxPersonFallback}>👤</Text>}</View></View>
               <Text numberOfLines={1} style={styles.inboxPersonName}>{person.username||"Friend"}</Text>
             </TouchableOpacity>)}
@@ -2232,14 +2232,14 @@ export default function App() {
             <View style={styles.statDivider}/>
             <View style={styles.stat}><Text style={styles.statNumber}>{viewingOther?selectedProfileFollowerCount:followerCount}</Text><Text style={styles.statLabel}>Followers</Text></View>
             <View style={styles.statDivider}/>
-            <View style={styles.stat}><Text style={styles.statNumber}>{Object.keys(following).length}</Text><Text style={styles.statLabel}>Following</Text></View>
+            <View style={styles.stat}><Text style={styles.statNumber}>{viewingOther?Number(shownProfile.followingCount||0):Object.keys(following).length}</Text><Text style={styles.statLabel}>Following</Text></View>
             <View style={styles.statDivider}/>
             <View style={styles.stat}><Text style={styles.statNumber}>{shownPosts.reduce((total,post)=>total+(likeCounts[post.id]||0),0)}</Text><Text style={styles.statLabel}>Likes</Text></View>
           </View>
 
           <View style={styles.profileButtons}>
             <TouchableOpacity style={[styles.profileActionButton,styles.profileActionButtonRed]} onPress={()=>{if(viewingOther)return Alert.alert("Edit Profile","Aap sirf apni profile edit kar sakte hain.");setEditUsername(username);setEditBio(bio);setEditLocation(location);setEditProfileImage(profileImage);setEditCoverImage(coverImage);setPage("EditProfile");}}><Text style={styles.profileActionText}>Edit Profile</Text></TouchableOpacity>
-            <TouchableOpacity style={[styles.profileActionButton,styles.profileActionButtonRed]} onPress={()=>viewingOther?openDirectMessage(selectedProfileId,shownProfile):setPage("Inbox")}><Text style={styles.profileActionText}>Message</Text></TouchableOpacity>
+            <TouchableOpacity style={[styles.profileActionButton,styles.profileActionButtonRed]} onPress={()=>{if(viewingOther)openDirectMessage(selectedProfileId,shownProfile);else{setSelectedChat(null);setPage("Inbox");}}}><Text style={styles.profileActionText}>Message</Text></TouchableOpacity>
             <TouchableOpacity style={[styles.profileActionButton,styles.profileActionButtonRed]} onPress={()=>Share.share({message:`Check out @${shownUsername} on Gen Video Live!`})}><Text style={styles.profileActionText}>Share Profile</Text></TouchableOpacity>
           </View>
         </View>
