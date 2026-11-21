@@ -2238,8 +2238,11 @@ export default function App() {
           </View>
 
           <View style={styles.profileButtons}>
-            <TouchableOpacity style={[styles.profileActionButton,styles.profileActionButtonRed]} onPress={()=>{if(viewingOther)return Alert.alert("Edit Profile","Aap sirf apni profile edit kar sakte hain.");setEditUsername(username);setEditBio(bio);setEditLocation(location);setEditProfileImage(profileImage);setEditCoverImage(coverImage);setPage("EditProfile");}}><Text style={styles.profileActionText}>Edit Profile</Text></TouchableOpacity>
-            <TouchableOpacity style={[styles.profileActionButton,styles.profileActionButtonRed]} onPress={()=>{if(viewingOther)openDirectMessage(selectedProfileId,shownProfile);else{setSelectedChat(null);setPage("Inbox");}}}><Text style={styles.profileActionText}>Message</Text></TouchableOpacity>
+            {viewingOther ? (
+              <TouchableOpacity style={[styles.profileActionButton,styles.profileActionButtonRed]} onPress={()=>openDirectMessage(selectedProfileId,shownProfile)}><Text style={styles.profileActionText}>Message</Text></TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={[styles.profileActionButton,styles.profileActionButtonRed]} onPress={()=>{setEditUsername(username);setEditBio(bio);setEditLocation(location);setEditProfileImage(profileImage);setEditCoverImage(coverImage);setPage("EditProfile");}}><Text style={styles.profileActionText}>Edit Profile</Text></TouchableOpacity>
+            )}
             <TouchableOpacity style={[styles.profileActionButton,styles.profileActionButtonRed]} onPress={()=>Share.share({message:`Check out @${shownUsername} on Gen Video Live!`})}><Text style={styles.profileActionText}>Share Profile</Text></TouchableOpacity>
           </View>
         </View>
