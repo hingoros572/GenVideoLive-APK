@@ -687,17 +687,14 @@ export default function App() {
     if(!user?.token) return;
 
     try {
-      const [commentsResponse,savesResponse,likesResponse]=await Promise.all([
+      const [commentsResponse,engagementResponse]=await Promise.all([
         fetch(`${DATABASE_URL}/comments.json?auth=${encodeURIComponent(user.token)}`),
-        fetch(`${DATABASE_URL}/userSaves.json?auth=${encodeURIComponent(user.token)}`),
-        fetch(`${DATABASE_URL}/userLikes.json?auth=${encodeURIComponent(user.token)}`)
+        fetch(`${DATABASE_URL}/postEngagement.json?auth=${encodeURIComponent(user.token)}`)
       ]);
       const commentsData=await commentsResponse.json();
-      const savesData=await savesResponse.json();
-      const likesData=await likesResponse.json();
+      const engagementData=await engagementResponse.json();
       if(!commentsResponse.ok) throw new Error("Comment counts load nahi hue.");
-      if(!savesResponse.ok) throw new Error("Save counts load nahi hue.");
-      if(!likesResponse.ok) throw new Error("Like counts load nahi hue.");
+      if(!engagementResponse.ok) throw new Error("Public engagement counts load nahi hue. Firebase Rules update required.");
 
       const nextCommentCounts={};
       if(commentsData&&typeof commentsData==="object") {
@@ -708,24 +705,12 @@ export default function App() {
         });
       }
 
-      const nextSaveCounts={};
-      if(savesData&&typeof savesData==="object") {
-        Object.values(savesData).forEach(userSaves=>{
-          if(userSaves&&typeof userSaves==="object") {
-            Object.entries(userSaves).forEach(([postId,isSaved])=>{
-              if(isSaved) nextSaveCounts[postId]=(nextSaveCounts[postId]||0)+1;
-            });
-          }
-        });
-      }
-      const nextLikeCounts={};
-      if(likesData&&typeof likesData==="object") {
-        Object.values(likesData).forEach(userLikes=>{
-          if(userLikes&&typeof userLikes==="object") {
-            Object.entries(userLikes).forEach(([postId,isLiked])=>{
-              if(isLiked) nextLikeCounts[postId]=(nextLikeCounts[postId]||0)+1;
-            });
-          }
+      const nextSaveCounts={},nextLikeCounts={};
+      if(engagementData&&typeof engagementData==="object") {
+        Object.entries(engagementData).forEach(([postId,activity])=>{
+          const likes=activity?.likes,saves=activity?.saves;
+          nextLikeCounts[postId]=likes&&typeof likes==="object"?Object.keys(likes).length:0;
+          nextSaveCounts[postId]=saves&&typeof saves==="object"?Object.keys(saves).length:0;
         });
       }
       setCommentCounts(nextCommentCounts);
@@ -951,13 +936,12 @@ export default function App() {
     try {
       const url=`${DATABASE_URL}/userLikes/${user.id}/${id}.json?auth=${encodeURIComponent(user.token)}`;
 
-      const response=await fetch(url,{
-        method:nextValue?"PUT":"DELETE",
-        headers:{"Content-Type":"application/json"},
-        ...(nextValue?{body:"true"}:{})
-      });
-
-      if(!response.ok) throw new Error("Like save nahi hua.");
+      const options=nextValue?{method:"PUT",headers:{"Content-Type":"application/json"},body:"true"}:{method:"DELETE"};
+      const [response,publicResponse]=await Promise.all([
+        fetch(url,options),
+        fetch(`${DATABASE_URL}/postEngagement/${id}/likes/${user.id}.json?auth=${encodeURIComponent(user.token)}`,options)
+      ]);
+      if(!response.ok||!publicResponse.ok) throw new Error("Like save nahi hua.");
     } catch(error) {
       setLiked(old=>({...old,[id]:wasLiked}));
       setLikeCounts(old=>({...old,[id]:Math.max(0,(old[id]||0)+(wasLiked?1:-1))}));
@@ -980,13 +964,12 @@ export default function App() {
     try {
       const url=`${DATABASE_URL}/userSaves/${user.id}/${id}.json?auth=${encodeURIComponent(user.token)}`;
 
-      const response=await fetch(url,{
-        method:nextValue?"PUT":"DELETE",
-        headers:{"Content-Type":"application/json"},
-        ...(nextValue?{body:"true"}:{})
-      });
-
-      if(!response.ok) throw new Error("Save nahi hua.");
+      const options=nextValue?{method:"PUT",headers:{"Content-Type":"application/json"},body:"true"}:{method:"DELETE"};
+      const [response,publicResponse]=await Promise.all([
+        fetch(url,options),
+        fetch(`${DATABASE_URL}/postEngagement/${id}/saves/${user.id}.json?auth=${encodeURIComponent(user.token)}`,options)
+      ]);
+      if(!response.ok||!publicResponse.ok) throw new Error("Save nahi hua.");
     } catch(error) {
       setSaved(old=>({...old,[id]:wasSaved}));
       setSaveCounts(old=>({...old,[id]:Math.max(0,(old[id]||0)+(wasSaved?1:-1))}));
@@ -1555,9 +1538,11 @@ export default function App() {
       const result=await Share.share({message:`${shareTargetPost.caption||"Watch this on Gen Video Live"}\n${shareTargetPost.videoUrl||""}`});
       if(result.action===Share.sharedAction){
         const path=`${DATABASE_URL}/shares/${shareTargetPost.id}/${user.id}.json?auth=${encodeURIComponent(user.token)}`,now=Date.now();
-        const response=await fetch(path,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({userId:user.id,destination:"external",sharedAt:now})});
+        const check=await fetch(path),existing=await check.json();
+        if(!check.ok)throw new Error("Share record check nahi ho saka.");
+        const response=await fetch(path,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({userId:user.id,destination:"external",firstSharedAt:existing?.firstSharedAt||now,lastSharedAt:now,shareAttempts:Number(existing?.shareAttempts||0)+1})});
         if(!response.ok)throw new Error("Share record Firebase mein save nahi hua.");
-        setShareCounts(old=>({...old,[shareTargetPost.id]:(old[shareTargetPost.id]||0)+1}));
+        if(!existing)setShareCounts(old=>({...old,[shareTargetPost.id]:(old[shareTargetPost.id]||0)+1}));
       }
     }catch(error){Alert.alert("Share",error.message||"Share nahi ho saka.");}
   }
@@ -1652,10 +1637,10 @@ export default function App() {
   const repostFeedEntries=Object.entries(reposts).flatMap(([postId,users])=>{
     const original=allReels.find(item=>item.id===postId);
     if(!original||!users||typeof users!=="object")return [];
-    return Object.values(users).filter(record=>record&&record.reposterId&&following[record.reposterId]).map(record=>({...original,repostedByUsername:record.reposterUsername||"User",repostedById:record.reposterId}));
+    return Object.values(users).filter(record=>record&&record.reposterId&&following[record.reposterId]).map(record=>({...original,repostedByUsername:record.reposterUsername||"User",repostedById:record.reposterId,repostedAt:record.createdAt||0}));
   });
   const visibleReels=feedTab==="Following"
-    ? [...allReels.filter(reel=>reel.ownerId&&following[reel.ownerId]),...repostFeedEntries].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0))
+    ? [...allReels.filter(reel=>reel.ownerId&&following[reel.ownerId]),...repostFeedEntries].sort((a,b)=>(b.repostedAt||b.createdAt||0)-(a.repostedAt||a.createdAt||0))
     : allReels;
   const activeReelId=page==="Home"?visibleReels[activeReelIndex]?.id:null;
   useEffect(()=>{
