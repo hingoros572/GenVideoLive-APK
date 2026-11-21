@@ -2721,7 +2721,7 @@ export default function App() {
         </View>
       </Modal>
 
-      {page!=="EditProfile"&&page!=="Sound"&&page!=="Settings"&&!(page==="Inbox"&&selectedChat&&chatInputFocused)&&(
+      {page!=="EditProfile"&&page!=="Sound"&&page!=="Settings"&&!(page==="Inbox"&&selectedChat&&chatInputFocused)&&!(page==="Create"&&createStep==="editor")&&(
         <View style={styles.bottomNav}>
           <NavItem icon="home" label="Home" active={page==="Home"} onPress={()=>setPage("Home")}/>
           <NavItem icon="friends" label="Friends" active={page==="Explore"} onPress={()=>setPage("Explore")}/>
