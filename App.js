@@ -1969,7 +1969,7 @@ export default function App() {
       <View style={styles.playerScreen}>
         <ReelCard
           reel={reel}
-          height={SCREEN_HEIGHT}
+          height={SCREEN_HEIGHT-58}
           isActive={true}
           liked={!!liked[reel.id]}
           saved={!!saved[reel.id]}
@@ -1988,6 +1988,14 @@ export default function App() {
         <TouchableOpacity onPress={()=>setPlayingPost(null)} style={styles.playerBackOverlay}>
           <Text style={styles.playerBackOverlayText}>‹</Text>
         </TouchableOpacity>
+        <View style={styles.playerViewsBar}>
+          <Text style={styles.playerViewsText}>▷ {Object.keys(reel.viewsByUser||{}).length.toLocaleString()} views</Text>
+          {reel.ownerId===user?.id&&(
+            <TouchableOpacity style={styles.playerInsightsButton} onPress={()=>Alert.alert("Video insights", "Total views: "+Object.keys(reel.viewsByUser||{}).length)}>
+              <Text style={styles.playerInsightsText}>▣ More insights</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     );
   }
@@ -2500,6 +2508,10 @@ const styles=StyleSheet.create({
   accountEmail:{color:C.gray,fontSize:11,marginTop:5},
   centerPage:{flex:1,backgroundColor:C.bg,alignItems:"center",justifyContent:"center",padding:25},
   playerScreen:{flex:1,backgroundColor:"#000",overflow:"hidden"},
+  playerViewsBar:{height:58,backgroundColor:"#050505",paddingHorizontal:18,flexDirection:"row",alignItems:"center",justifyContent:"space-between"},
+  playerViewsText:{color:"#bfc0c8",fontSize:14,fontWeight:"700"},
+  playerInsightsButton:{backgroundColor:"#292932",borderRadius:22,paddingHorizontal:15,paddingVertical:10},
+  playerInsightsText:{color:C.white,fontSize:13,fontWeight:"700"},
   playerBackOverlay:{position:"absolute",top:12,left:14,width:42,height:42,zIndex:20,justifyContent:"center",alignItems:"center",backgroundColor:"rgba(0,0,0,0.18)",borderRadius:22},
   playerBackOverlayText:{color:C.white,fontSize:34,fontWeight:"300",lineHeight:38}
 });
