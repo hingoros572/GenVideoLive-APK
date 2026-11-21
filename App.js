@@ -2056,135 +2056,88 @@ export default function App() {
   }
 
   function renderCreate() {
-    const pageTitle={camera:"Create",gallery:"Choose Media",selected:"Preview",editor:"Video Editor",post:"Post Settings",privacy:"Who can watch?",more:"More Options",publish:"Publish"}[createStep]||"Create";
+    const pageTitle={camera:"Create Video",gallery:"Select Video",selected:"Video Preview",editor:"Video Editor",location:"Add Location",post:"Post Video"}[createStep]||"Create Video";
+    const stepNumber={camera:"1/6",gallery:"2/6",selected:"3/6",editor:"4/6",location:"5/6",post:"6/6"}[createStep]||"1/6";
     const goBack=()=>{
-      const prev={gallery:"camera",selected:"gallery",editor:"selected",post:"editor",privacy:"post",more:"post",publish:"post"}[createStep];
-      if(prev) setCreateStep(prev); else setPage("Home");
+      const prev={gallery:"camera",selected:"gallery",editor:"selected",location:"editor",post:"location"}[createStep];
+      if(prev)setCreateStep(prev);else setPage("Home");
     };
-    const action=(label,onPress,secondary=false)=> <Button title={label} onPress={onPress} secondary={secondary} />;
-    const toggleRow=(label,value,setter)=> (
-      <TouchableOpacity style={styles.selectedBox} onPress={()=>setter(!value)}>
-        <Text style={styles.selectedTitle}>{value?"✓":"○"}  {label}</Text>
-      </TouchableOpacity>
-    );
+    const action=(label,onPress,secondary=false)=><Button title={label} onPress={onPress} secondary={secondary}/>;
     return (
       <ScrollView style={styles.pageScroll} contentContainerStyle={styles.pageContent} keyboardShouldPersistTaps="handled">
         <View style={{flexDirection:"row",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
           <TouchableOpacity onPress={goBack}><Text style={{color:C.magenta,fontSize:16,fontWeight:"800"}}>‹ Back</Text></TouchableOpacity>
-          <Text style={styles.pageTitle}>{pageTitle}</Text>
-          <Text style={{color:C.gray,fontSize:12}}>{({camera:"1/8",gallery:"2/8",selected:"3/8",editor:"4/8",post:"5/8",privacy:"6/8",more:"7/8",publish:"8/8"})[createStep]}</Text>
+          <Text style={[styles.pageTitle,{fontSize:20,marginBottom:0}]}>{pageTitle}</Text>
+          <Text style={{color:C.gray,fontSize:12}}>{stepNumber}</Text>
         </View>
 
-        {createStep==="camera" && <>
-          <Text style={styles.pageSubtitle}>Record a video or choose media from your phone</Text>
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>🎥 Create a video</Text>
-            <Button title="📷 Open Camera" onPress={async()=>{await recordVideo();}} />
-            <Button title="🖼️ Choose from Gallery" secondary onPress={()=>setCreateStep("gallery")} />
-            <Button title="♫ Add Sound" secondary onPress={()=>{setSoundReturnPage("Create");setPage("Sound");}} />
-            <Text style={styles.helpText}>Camera se video record karein ya gallery se video select karein.</Text>
-          </View>
-        </>}
-
-        {createStep==="gallery" && <>
-          <Text style={styles.pageSubtitle}>Apne phone se videos aur photos select karein</Text>
-          <View style={styles.buttonRow}>
-            {["All","Videos","Photos","AI Gallery"].map(tab=>(
-              <TouchableOpacity key={tab} onPress={()=>setGalleryTab(tab)} style={[styles.galleryTab,galleryTab===tab&&styles.galleryTabActive]}>
-                <Text style={[styles.galleryTabText,galleryTab===tab&&styles.galleryTabTextActive]}>{tab}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <View style={styles.card}>
-            {galleryTab==="All"&&<>
-              <Text style={styles.sectionTitle}>All Media</Text>
-              <Button title="＋ Open Phone Gallery" onPress={chooseAllMediaForPost}/>
-              <Text style={styles.helpText}>Gallery se multiple videos/photos select kar sakte hain. Upload ke liye pehli selected video use hogi.</Text>
-            </>}
-            {galleryTab==="Videos"&&<>
-              <Text style={styles.sectionTitle}>Videos</Text>
-              <Button title="🎬 Select Video" onPress={chooseVideoFromGallery}/>
-            </>}
-            {galleryTab==="Photos"&&<>
-              <Text style={styles.sectionTitle}>Photos</Text>
-              <Button title="🖼️ Select Photos (up to 10)" onPress={choosePhotosForPost}/>
-            </>}
-            {galleryTab==="AI Gallery"&&<>
-              <Text style={styles.sectionTitle}>AI Gallery</Text>
-              <Text style={styles.helpText}>AI Gallery abhi connected nahi hai. AI se banayi hui image/video ko phone mein save karke All, Videos ya Photos se select karein.</Text>
-            </>}
-            {!!selectedVideo&&<Text style={styles.selectedTitle}>✓ Video: {selectedVideo.fileName||"Selected video"}</Text>}
-            {!!createPhotos.length&&<Text style={styles.selectedTitle}>✓ {createPhotos.length} photo(s) selected</Text>}
-            {createPhotos.length>0&&<ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginTop:12}}>{createPhotos.map((photo,index)=><Image key={`${photo.uri}-${index}`} source={{uri:photo.uri}} style={{width:76,height:76,borderRadius:10,marginRight:8}}/>)}</ScrollView>}
-            {action("Next",()=>{if(!selectedVideo?.uri)return Alert.alert("Video required","Upload ke liye pehle Videos ya All se video select karein.");setCreateStep("selected");},false)}
-          </View>
-        </>}
-
-        {createStep==="selected" && <>
-          <Text style={styles.pageSubtitle}>Check your selected video before editing</Text>
-          <View style={styles.card}>
-            {selectedVideo?.uri?<><Video source={{uri:selectedVideo.uri}} style={{width:"100%",height:360,backgroundColor:"#000",borderRadius:14}} useNativeControls resizeMode={ResizeMode.CONTAIN}/><Text style={styles.smallMuted}>{selectedVideo.fileName||"Selected video"}</Text></>:<Text style={styles.helpText}>Abhi video select nahi hui.</Text>}
-            {action("Choose / Change Video",()=>setCreateStep("gallery"),true)}
-            {action("⚡ AutoCut",()=>Alert.alert("AutoCut","AutoCut processing is not connected in this Expo Snack build. A native video-processing engine is required."),true)}
-            {action("Next: Edit Video",()=>{if(!selectedVideo?.uri)return Alert.alert("Video required","Pehle video select karein.");setCreateStep("editor");})}
-          </View>
-        </>}
-
-        {createStep==="editor" && <>
-          <Text style={styles.pageSubtitle}>Preview and prepare your video</Text>
-          <View style={styles.card}>
-            {selectedVideo?.uri&&<Video source={{uri:selectedVideo.uri}} style={{width:"100%",height:340,backgroundColor:"#000",borderRadius:14}} useNativeControls resizeMode={ResizeMode.CONTAIN}/>}
-            <Text style={styles.sectionTitle}>Editing tools</Text>
-            <View style={styles.buttonRow}><Button title="✂️ Trim" secondary onPress={()=>Alert.alert("Trim","Video trimming ke liye alag video-editing package setup karna hoga.")}/><Button title="✨ Filters" secondary onPress={()=>Alert.alert("Filters","Rendered filters ke liye video editor package setup karna hoga.")}/></View>
-            <View style={styles.buttonRow}><Button title="📝 Text" secondary onPress={()=>Alert.alert("Text overlay","Video par text render karne ke liye video editor package setup karna hoga.")}/><Button title="🖼️ Add Photos" secondary onPress={choosePhotosForPost}/></View>
-            <Button title="♫ Add Sound" secondary onPress={()=>{setSoundReturnPage("Create");setPage("Sound");}}/>
-            <Button title="Your Story" secondary onPress={()=>Alert.alert("Your Story","Story publishing is not connected yet. Your selected video can still be published as a regular post.")}/>
-            <Text style={styles.helpText}>Note: Is build mein video preview aur sound selection kaam karte hain. Trim, filters aur photo/text overlays abhi actual video file mein render nahi hote; unke liye extra editor package setup hoga.</Text>
-            {action("Next: Post Settings",()=>setCreateStep("post"))}
-          </View>
-        </>}
-
-        {createStep==="post" && <>
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Description</Text>
-            <TextInput style={[styles.input,styles.captionInput]} placeholder="Write a caption..." placeholderTextColor={C.gray} multiline value={caption} onChangeText={setCaption}/>
-            <Text style={styles.fieldLabel}>Cover</Text>
-            <Button title="Choose cover from Gallery" secondary onPress={choosePostCoverImage}/>
-            {postCoverImage&&<Image source={{uri:postCoverImage}} style={{width:"100%",height:150,borderRadius:12,marginTop:8}}/>}
-            <Text style={styles.fieldLabel}>Hashtags</Text>
-            <TextInput style={styles.input} placeholder="#trending #viral" placeholderTextColor={C.gray} value={postHashtags} onChangeText={setPostHashtags}/>
-            <Text style={styles.fieldLabel}>Mention</Text>
-            <TextInput style={styles.input} placeholder="@username" placeholderTextColor={C.gray} value={postMention} onChangeText={setPostMention}/>
-            <Text style={styles.fieldLabel}>Location</Text>
-            <TextInput style={styles.input} placeholder="Add location" placeholderTextColor={C.gray} value={postLocation} onChangeText={setPostLocation}/>
-            <Text style={styles.fieldLabel}>Add link</Text>
-            <TextInput style={styles.input} placeholder="https://..." placeholderTextColor={C.gray} value={postLink} onChangeText={setPostLink} autoCapitalize="none"/>
-            <Text style={styles.fieldLabel}>Audience</Text>
-            <TouchableOpacity style={styles.selectedBox} onPress={()=>setCreateStep("privacy")}><Text style={styles.selectedTitle}>{privacy}  › Change audience</Text></TouchableOpacity>
-            <View style={styles.buttonRow}><Button title="More Options" secondary onPress={()=>setCreateStep("more")} style={{flex:1}}/><Button title={`Drafts (${drafts.length})`} secondary onPress={openDrafts} style={{flex:1}}/></View>
-            <Button title="Next: Publish" onPress={()=>setCreateStep("publish")}/>
-          </View>
-        </>}
-
-        {createStep==="privacy" && <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Who can watch this video?</Text>
-          {["Public","Friends","Only You","Private"].map(v=><TouchableOpacity key={v} style={styles.selectedBox} onPress={()=>{setPrivacy(v==="Only You"?"Private":v);setCreateStep("post");}}><Text style={styles.selectedTitle}>{privacy===v||(v==="Only You"&&privacy==="Private")?"🔘":"◯"}  {v}</Text></TouchableOpacity>)}
+        {createStep==="camera"&&<View style={styles.card}>
+          <Text style={styles.sectionTitle}>🎬 Create your video</Text>
+          <Text style={styles.helpText}>Camera se nayi video record karein ya phone gallery se apni video select karein.</Text>
+          <Button title="📷 Record Video" onPress={recordVideo}/>
+          <Button title="🖼 Upload from Gallery" secondary onPress={()=>setCreateStep("gallery")}/>
+          <Button title="♫ Choose Music / Sound" secondary onPress={()=>{setSoundReturnPage("Create");setPage("Sound");}}/>
+          <Button title={`Drafts (${drafts.length})`} secondary onPress={openDrafts}/>
         </View>}
 
-        {createStep==="more" && <View style={styles.card}>
-          <Text style={styles.sectionTitle}>More Options</Text>
-          {toggleRow("Allow comments",allowComments,setAllowComments)}
-          {toggleRow("Allow reuse / remix",allowReuse,setAllowReuse)}
+        {createStep==="gallery"&&<View style={styles.card}>
+          <Text style={styles.sectionTitle}>🖼 Select a video</Text>
+          <Text style={styles.helpText}>Apne phone ki gallery se video choose karein.</Text>
+          <Button title="Choose Video from Gallery" onPress={chooseVideoFromGallery}/>
+          {!!selectedVideo&&<Text style={styles.selectedTitle}>✓ {selectedVideo.fileName||"Video selected"}</Text>}
+          <Button title="Continue" onPress={()=>{if(!selectedVideo?.uri)return Alert.alert("Video required","Pehle gallery se video select karein.");setCreateStep("selected");}}/>
+        </View>}
+
+        {createStep==="selected"&&<View style={styles.card}>
+          <Text style={styles.sectionTitle}>▶ Video Preview</Text>
+          {selectedVideo?.uri?<Video source={{uri:selectedVideo.uri}} style={{width:"100%",height:360,backgroundColor:"#000",borderRadius:14}} useNativeControls resizeMode={ResizeMode.CONTAIN}/>:<Text style={styles.helpText}>Pehle video select karein.</Text>}
+          <Button title="Change Video" secondary onPress={()=>setCreateStep("gallery")}/>
+          <Button title="Continue to Editor" onPress={()=>{if(!selectedVideo?.uri)return Alert.alert("Video required","Pehle video select karein.");setCreateStep("editor");}}/>
+        </View>}
+
+        {createStep==="editor"&&<View style={styles.card}>
+          <Text style={styles.sectionTitle}>✂️ Prepare your video</Text>
+          {selectedVideo?.uri&&<Video source={{uri:selectedVideo.uri}} style={{width:"100%",height:320,backgroundColor:"#000",borderRadius:14}} useNativeControls resizeMode={ResizeMode.CONTAIN}/>}
+          <Text style={styles.fieldLabel}>Video Cover</Text>
+          <Button title="Choose Cover from Gallery" secondary onPress={choosePostCoverImage}/>
+          {postCoverImage&&<Image source={{uri:postCoverImage}} style={{width:"100%",height:150,borderRadius:12,marginTop:8}}/>}
+          <Text style={styles.fieldLabel}>Music / Sound</Text>
+          <TouchableOpacity style={styles.soundSelect} onPress={()=>{setSoundReturnPage("Create");setPage("Sound");}}>
+            <Text style={styles.soundSelectText}>♫  {selectedSound||"Choose music or use original sound"}</Text>
+            <Text style={{color:C.magenta,fontWeight:"900"}}>Choose ›</Text>
+          </TouchableOpacity>
+          <Text style={styles.helpText}>Aapki selected video original audio ke saath upload hogi. Extra music select karne par uska naam post ke saath save hoga. Is build mein trim, visual filters aur text ko video file mein permanently render karne ka editor engine abhi connected nahi hai.</Text>
+          <Button title="Continue to Location" onPress={()=>setCreateStep("location")}/>
+        </View>}
+
+        {createStep==="location"&&<View style={styles.card}>
+          <Text style={styles.sectionTitle}>📍 Add Location</Text>
+          <Text style={styles.helpText}>Apni video ki location likhein. Aap isay khaali bhi chhor sakte hain.</Text>
+          <TextInput style={styles.input} placeholder="Enter location" placeholderTextColor={C.gray} value={postLocation} onChangeText={setPostLocation}/>
+          <Button title="Continue to Post" onPress={()=>setCreateStep("post")}/>
+        </View>}
+
+        {createStep==="post"&&<View style={styles.card}>
+          <Text style={styles.sectionTitle}>📝 Post Video</Text>
+          {selectedVideo?.uri&&<Video source={{uri:selectedVideo.uri}} style={{width:"100%",height:240,backgroundColor:"#000",borderRadius:14}} useNativeControls resizeMode={ResizeMode.CONTAIN}/>}
+          <Text style={styles.fieldLabel}>Caption</Text>
+          <TextInput style={[styles.input,styles.captionInput]} placeholder="Write a caption..." placeholderTextColor={C.gray} multiline value={caption} onChangeText={setCaption}/>
+          <Text style={styles.fieldLabel}>Hashtags</Text>
+          <TextInput style={styles.input} placeholder="#video #fun" placeholderTextColor={C.gray} value={postHashtags} onChangeText={setPostHashtags}/>
+          <Text style={styles.fieldLabel}>Mention</Text>
+          <TextInput style={styles.input} placeholder="@username" placeholderTextColor={C.gray} value={postMention} onChangeText={setPostMention}/>
+          <Text style={styles.fieldLabel}>Location</Text>
+          <TextInput style={styles.input} placeholder="Enter location" placeholderTextColor={C.gray} value={postLocation} onChangeText={setPostLocation}/>
+          <Text style={styles.fieldLabel}>Who can watch?</Text>
+          {["Public","Friends","Private"].map(v=><TouchableOpacity key={v} style={styles.selectedBox} onPress={()=>setPrivacy(v)}><Text style={styles.selectedTitle}>{privacy===v?"🔘":"◯"}  {v}</Text></TouchableOpacity>)}
+          <Text style={styles.fieldLabel}>Allow comments</Text>
+          <TouchableOpacity style={styles.selectedBox} onPress={()=>setAllowComments(v=>!v)}><Text style={styles.selectedTitle}>{allowComments?"✓":"○"}  {allowComments?"Comments On":"Comments Off"}</Text></TouchableOpacity>
+          <Text style={styles.fieldLabel}>Allow reuse / remix</Text>
+          <TouchableOpacity style={styles.selectedBox} onPress={()=>setAllowReuse(v=>!v)}><Text style={styles.selectedTitle}>{allowReuse?"✓":"○"}  {allowReuse?"Reuse On":"Reuse Off"}</Text></TouchableOpacity>
           <Text style={styles.fieldLabel}>Video language</Text>
           <View style={styles.buttonRow}>{["English","Urdu","Other"].map(v=><Button key={v} title={v} secondary={videoLanguage!==v} onPress={()=>setVideoLanguage(v)} style={{flex:1}}/>)}</View>
-          {toggleRow("AI-generated content",aiGenerated,setAiGenerated)}
-          <Button title="Save Options" onPress={()=>setCreateStep("post")}/>
-        </View>}
-
-        {createStep==="publish" && <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Ready to share?</Text>
-          {selectedVideo?.uri&&<Video source={{uri:selectedVideo.uri}} style={{width:"100%",height:300,backgroundColor:"#000",borderRadius:14}} useNativeControls resizeMode={ResizeMode.CONTAIN}/>}
-          <Text style={styles.helpText}>Audience: {privacy}  •  Sound: {selectedSound||"Original Sound"}</Text>
+          <Text style={styles.fieldLabel}>Add link</Text>
+          <TextInput style={styles.input} placeholder="https://..." placeholderTextColor={C.gray} value={postLink} onChangeText={setPostLink} autoCapitalize="none"/>
           <Button title={uploading?"Uploading...":"🚀 Publish Video"} onPress={uploadVideoPost} disabled={uploading}/>
           <Button title="Save as Draft" secondary onPress={saveCurrentDraft}/>
           {uploading&&<View style={styles.uploadProgressBox}><View style={styles.uploadProgressHeader}><Text style={styles.uploadProgressTitle}>{uploadStage}</Text><Text style={styles.uploadPercent}>{uploadProgress}%</Text></View><View style={styles.progressTrack}><View style={[styles.progressFill,{width:`${uploadProgress}%`}]}/></View><ActivityIndicator color={C.magenta} style={{marginTop:12}}/><Text style={styles.uploadHint}>Upload ke dauran app band na karein.</Text></View>}
