@@ -337,6 +337,9 @@ export default function App() {
   const [reposts,setReposts] = useState({});
   const [myReposts,setMyReposts] = useState({});
   const [userChats,setUserChats] = useState({});
+  const [inboxFilter,setInboxFilter] = useState("Main");
+  const [inboxSearchOpen,setInboxSearchOpen] = useState(false);
+  const [inboxSearch,setInboxSearch] = useState("");
   const [shareModalVisible,setShareModalVisible] = useState(false);
   const [shareTargetPost,setShareTargetPost] = useState(null);
   const [recipientQuery,setRecipientQuery] = useState("");
@@ -1929,12 +1932,50 @@ export default function App() {
       </View>
     );
     const chats=Object.entries(userChats).map(([chatId,item])=>({chatId,...item})).sort((a,b)=>(b.lastMessageAt||0)-(a.lastMessageAt||0));
-    return <View style={styles.inboxPage}><View style={styles.inboxHeader}><Text style={styles.inboxTitle}>Inbox</Text><TouchableOpacity onPress={loadSocialRecords}><Text style={styles.recipientSend}>Refresh ↻</Text></TouchableOpacity></View><ScrollView contentContainerStyle={styles.inboxList}>
-      {chats.map(chat=><TouchableOpacity key={chat.chatId} style={styles.inboxChatRow} onPress={()=>openInboxConversation(chat)}>
-        <View style={styles.inboxAvatar}><Text>👤</Text></View><View style={{flex:1}}><Text style={styles.inboxChatName}>@{chat.otherUsername||"User"}</Text><Text style={styles.inboxPreview}>{chat.lastMessageType==="video"?"🎬 Video":chat.lastMessageText||"Message"}</Text></View><Text style={styles.inboxTime}>{chat.lastMessageAt?new Date(chat.lastMessageAt).toLocaleDateString():""}</Text>
-      </TouchableOpacity>)}
-      {!chats.length&&<View style={styles.centerPage}><Text style={{fontSize:48}}>💬</Text><Text style={styles.emptyText}>Abhi messages nahi hain.</Text><Text style={styles.smallMuted}>Video par Share dabakar user ko video bhejein.</Text></View>}
-    </ScrollView></View>;
+    const filteredChats=chats.filter(chat=>{
+      const matches=String(chat.otherUsername||"").toLowerCase().includes(inboxSearch.trim().toLowerCase().replace(/^@/,""));
+      const unread=chat.lastMessageSenderId&&chat.lastMessageSenderId!==user.id;
+      return matches&&(inboxFilter!=="Unread"||unread);
+    });
+    const people=mutualFriends.slice(0,12);
+    return <View style={styles.inboxPage}>
+      <View style={styles.inboxHeader}>
+        <TouchableOpacity style={styles.inboxHeaderAction} onPress={()=>{setInboxSearchOpen(v=>!v);setInboxSearch("");}}><Text style={styles.inboxHeaderIcon}>⌕</Text></TouchableOpacity>
+        <View style={styles.inboxHeaderCenter}><Text style={styles.inboxTitle}>Inbox</Text><View style={styles.inboxStatus}><View style={styles.inboxStatusDot}/><Text style={styles.inboxStatusText}>Messages</Text></View></View>
+        <TouchableOpacity style={styles.inboxHeaderAction} onPress={loadSocialRecords}><Text style={styles.inboxHeaderIcon}>•••</Text></TouchableOpacity>
+      </View>
+      {inboxSearchOpen&&<View style={styles.inboxSearchWrap}><TextInput value={inboxSearch} onChangeText={setInboxSearch} placeholder="Search chats..." placeholderTextColor={C.gray} style={styles.inboxSearchInput}/><TouchableOpacity onPress={()=>{setInboxSearchOpen(false);setInboxSearch("");}}><Text style={styles.inboxSearchClose}>✕</Text></TouchableOpacity></View>}
+      <ScrollView contentContainerStyle={styles.inboxList} showsVerticalScrollIndicator={false}>
+        <View style={styles.inboxPeopleSection}>
+          <View style={styles.inboxPeopleHeading}><Text style={styles.inboxSectionTitle}>People</Text><Text style={styles.inboxSectionHint}>Your friends</Text></View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.inboxPeopleRow}>
+            <TouchableOpacity style={styles.inboxPersonItem} onPress={()=>{setPage("Explore");}}>
+              <View style={styles.inboxCreateCircle}><Text style={styles.inboxCreatePlus}>＋</Text></View><Text numberOfLines={1} style={styles.inboxPersonName}>Find people</Text>
+            </TouchableOpacity>
+            {people.map(person=><TouchableOpacity key={person.id} style={styles.inboxPersonItem} onPress={()=>{setInboxSearchOpen(true);setInboxSearch(person.username||"");}}>
+              <View style={styles.inboxStoryRing}><View style={styles.inboxPersonAvatar}>{person.profileImage?<Image source={{uri:person.profileImage}} style={styles.inboxPersonAvatarImage}/>:<Text style={styles.inboxPersonFallback}>👤</Text>}</View></View>
+              <Text numberOfLines={1} style={styles.inboxPersonName}>{person.username||"Friend"}</Text>
+            </TouchableOpacity>)}
+          </ScrollView>
+        </View>
+        <View style={styles.inboxFilters}>
+          {["Main","Requests","Unread"].map(tab=><TouchableOpacity key={tab} onPress={()=>setInboxFilter(tab)} style={[styles.inboxFilterChip,inboxFilter===tab&&styles.inboxFilterActive]}><Text style={[styles.inboxFilterText,inboxFilter===tab&&styles.inboxFilterTextActive]}>{tab}</Text></TouchableOpacity>)}
+          <TouchableOpacity style={styles.inboxFilterIcon} onPress={loadSocialRecords}><Text style={styles.inboxFilterIconText}>☷</Text></TouchableOpacity>
+        </View>
+        {inboxFilter==="Requests"?<View style={styles.inboxEmpty}><Text style={styles.inboxEmptyIcon}>✉</Text><Text style={styles.inboxEmptyTitle}>Message requests</Text><Text style={styles.inboxEmptyText}>Abhi koi message request nahi hai.</Text></View>:<>
+          {filteredChats.map(chat=>{
+            const profile=userProfiles[chat.otherUserId]||people.find(person=>person.id===chat.otherUserId)||{};
+            const unread=chat.lastMessageSenderId&&chat.lastMessageSenderId!==user.id;
+            return <TouchableOpacity key={chat.chatId} style={styles.inboxChatRow} onPress={()=>openInboxConversation(chat)}>
+              <View style={styles.inboxAvatar}>{profile.profileImage?<Image source={{uri:profile.profileImage}} style={styles.inboxAvatarImage}/>:<Text>👤</Text>}</View>
+              <View style={{flex:1}}><Text style={styles.inboxChatName}>{chat.otherUsername||profile.username||"User"}</Text><Text numberOfLines={1} style={styles.inboxPreview}>{chat.lastMessageType==="video"?"🎬 Shared a video":chat.lastMessageText||"Start a conversation"}</Text></View>
+              <View style={styles.inboxChatMeta}>{unread&&<View style={styles.inboxUnreadDot}/>}<Text style={styles.inboxTime}>{chat.lastMessageAt?new Date(chat.lastMessageAt).toLocaleDateString():""}</Text></View>
+            </TouchableOpacity>;
+          })}
+          {!filteredChats.length&&<View style={styles.inboxEmpty}><Text style={styles.inboxEmptyIcon}>✉</Text><Text style={styles.inboxEmptyTitle}>{inboxFilter==="Unread"?"No unread messages":"Your messages"}</Text><Text style={styles.inboxEmptyText}>{inboxFilter==="Unread"?"Aapke unread messages yahan nazar aayenge.":"Video par Share dabakar kisi user ko bhejein; chats yahan nazar aayengi."}</Text></View>}
+        </>}
+      </ScrollView>
+    </View>;
   }
 
   function renderCreate() {
@@ -2814,10 +2855,51 @@ const styles=StyleSheet.create({
   playerBackOverlayText:{color:C.white,fontSize:34,fontWeight:"300",lineHeight:38},
   repostAttribution:{color:C.magenta,fontSize:11,fontWeight:"800",marginBottom:5},
   inboxPage:{flex:1,backgroundColor:C.bg},
-  inboxHeader:{height:58,paddingHorizontal:16,flexDirection:"row",alignItems:"center",borderBottomWidth:1,borderBottomColor:"#302b40"},
+  inboxHeader:{height:66,paddingHorizontal:18,flexDirection:"row",alignItems:"center",justifyContent:"space-between"},
+  inboxHeaderAction:{width:42,height:42,alignItems:"center",justifyContent:"center"},
+  inboxHeaderIcon:{color:C.white,fontSize:29,fontWeight:"800"},
+  inboxHeaderCenter:{flexDirection:"row",alignItems:"center",gap:9},
+  inboxStatus:{flexDirection:"row",alignItems:"center",gap:5,backgroundColor:C.card,borderRadius:12,paddingHorizontal:8,paddingVertical:5},
+  inboxStatusDot:{width:8,height:8,borderRadius:4,backgroundColor:"#28d17c"},
+  inboxStatusText:{color:C.gray,fontSize:10,fontWeight:"700"},
   inboxBack:{color:C.magenta,fontSize:34,marginRight:14},
-  inboxTitle:{color:C.white,fontSize:19,fontWeight:"900"},
-  inboxList:{padding:14},
+  inboxTitle:{color:C.white,fontSize:21,fontWeight:"900"},
+  inboxList:{paddingBottom:28},
+  inboxSearchWrap:{marginHorizontal:16,marginBottom:10,flexDirection:"row",alignItems:"center",backgroundColor:C.card,borderRadius:13,paddingHorizontal:12},
+  inboxSearchInput:{flex:1,color:C.white,paddingVertical:11,fontSize:14},
+  inboxSearchClose:{color:C.gray,fontSize:18,padding:8},
+  inboxPeopleSection:{paddingTop:10,paddingBottom:16},
+  inboxPeopleHeading:{paddingHorizontal:18,flexDirection:"row",justifyContent:"space-between",alignItems:"center",marginBottom:12},
+  inboxSectionTitle:{color:C.white,fontSize:15,fontWeight:"900"},
+  inboxSectionHint:{color:C.gray,fontSize:11},
+  inboxPeopleRow:{paddingHorizontal:14,gap:13},
+  inboxPersonItem:{width:76,alignItems:"center"},
+  inboxCreateCircle:{width:62,height:62,borderRadius:31,backgroundColor:C.card2,borderWidth:1.5,borderColor:C.magenta,alignItems:"center",justifyContent:"center"},
+  inboxCreatePlus:{color:C.magenta,fontSize:34,lineHeight:38},
+  inboxStoryRing:{width:68,height:68,borderRadius:34,borderWidth:2.5,borderColor:C.magenta,alignItems:"center",justifyContent:"center"},
+  inboxPersonAvatar:{width:58,height:58,borderRadius:29,backgroundColor:C.card2,alignItems:"center",justifyContent:"center",overflow:"hidden"},
+  inboxPersonAvatarImage:{width:58,height:58,borderRadius:29},
+  inboxPersonFallback:{fontSize:23},
+  inboxPersonName:{color:C.white,fontSize:11,fontWeight:"700",marginTop:7,maxWidth:74,textAlign:"center"},
+  inboxFilters:{flexDirection:"row",alignItems:"center",paddingHorizontal:14,paddingVertical:12,gap:8,borderBottomWidth:1,borderBottomColor:"#302b40"},
+  inboxFilterChip:{backgroundColor:C.card,borderRadius:13,paddingHorizontal:16,paddingVertical:10},
+  inboxFilterActive:{backgroundColor:"#263c4b"},
+  inboxFilterText:{color:C.white,fontSize:13,fontWeight:"700"},
+  inboxFilterTextActive:{color:"#67d7f0"},
+  inboxFilterIcon:{marginLeft:"auto",width:38,height:38,alignItems:"center",justifyContent:"center"},
+  inboxFilterIconText:{color:C.white,fontSize:25},
+  inboxChatRow:{flexDirection:"row",alignItems:"center",paddingHorizontal:17,paddingVertical:14,borderBottomWidth:1,borderBottomColor:"#242032",gap:12},
+  inboxAvatar:{width:58,height:58,borderRadius:29,backgroundColor:C.card2,alignItems:"center",justifyContent:"center",overflow:"hidden"},
+  inboxAvatarImage:{width:58,height:58,borderRadius:29},
+  inboxChatName:{color:C.white,fontSize:15,fontWeight:"800"},
+  inboxPreview:{color:C.gray,fontSize:12,marginTop:5},
+  inboxChatMeta:{alignItems:"flex-end",gap:7},
+  inboxUnreadDot:{width:9,height:9,borderRadius:5,backgroundColor:C.magenta},
+  inboxTime:{color:C.gray,fontSize:10},
+  inboxEmpty:{alignItems:"center",paddingHorizontal:28,paddingVertical:55},
+  inboxEmptyIcon:{color:C.magenta,fontSize:42,marginBottom:10},
+  inboxEmptyTitle:{color:C.white,fontSize:16,fontWeight:"900"},
+  inboxEmptyText:{color:C.gray,fontSize:12,textAlign:"center",marginTop:7,lineHeight:18},
   inboxChatRow:{flexDirection:"row",alignItems:"center",paddingVertical:13,borderBottomWidth:1,borderBottomColor:"#302b40",gap:12},
   inboxAvatar:{width:46,height:46,borderRadius:23,backgroundColor:C.card2,alignItems:"center",justifyContent:"center",overflow:"hidden"},
   inboxAvatarImage:{width:46,height:46,borderRadius:23},
