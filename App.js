@@ -133,7 +133,7 @@ function SpinningDisc({ avatarUrl }) {
 
 // REEL CARD
 function ReelCard({
-  reel,height,liked,saved,following,isActive,showViews=true,
+  reel,height,liked,saved,following,isActive,showViews=true,commentCount=0,saveCount=0,
   onLike,onDoubleLike,onSave,onFollow,onComment,onCommentLongPress,onQuickReaction,onShare,onSound,isOwner,onDelete
 }) {
   const lastTapRef = useRef(0);
@@ -251,7 +251,7 @@ function ReelCard({
           delayLongPress={450}
         >
           <Text style={styles.actionIcon}>💬</Text>
-          <Text style={styles.actionCount}>Comment</Text>
+          <Text style={styles.actionCount}>{Number(commentCount||0).toLocaleString()}</Text>
         </TouchableOpacity>
         {showReactionPicker&&(
           <>
@@ -268,7 +268,7 @@ function ReelCard({
 
         <TouchableOpacity style={styles.actionButton} onPress={onSave}>
           <Text style={styles.actionIcon}>{saved?"🔖":"📑"}</Text>
-          <Text style={styles.actionCount}>Save</Text>
+          <Text style={styles.actionCount}>{Number(saveCount||0).toLocaleString()}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.actionButton} onPress={onShare}>
@@ -321,6 +321,8 @@ export default function App() {
   const [followerCount,setFollowerCount] = useState(0);
   const [liked,setLiked] = useState({});
   const [saved,setSaved] = useState({});
+  const [commentCounts,setCommentCounts] = useState({});
+  const [saveCounts,setSaveCounts] = useState({});
   const [commentsVisible,setCommentsVisible] = useState(false);
   const [commentPost,setCommentPost] = useState(null);
   const [comments,setComments] = useState([]);
@@ -639,6 +641,45 @@ export default function App() {
     }
   }
 
+  async function loadEngagementCounts() {
+    if(!user?.token) return;
+
+    try {
+      const [commentsResponse,savesResponse]=await Promise.all([
+        fetch(`${DATABASE_URL}/comments.json?auth=${encodeURIComponent(user.token)}`),
+        fetch(`${DATABASE_URL}/userSaves.json?auth=${encodeURIComponent(user.token)}`)
+      ]);
+      const commentsData=await commentsResponse.json();
+      const savesData=await savesResponse.json();
+      if(!commentsResponse.ok) throw new Error("Comment counts load nahi hue.");
+      if(!savesResponse.ok) throw new Error("Save counts load nahi hue.");
+
+      const nextCommentCounts={};
+      if(commentsData&&typeof commentsData==="object") {
+        Object.entries(commentsData).forEach(([postId,items])=>{
+          nextCommentCounts[postId]=items&&typeof items==="object"
+            ? Object.values(items).filter(item=>item&&typeof item==="object").length
+            : 0;
+        });
+      }
+
+      const nextSaveCounts={};
+      if(savesData&&typeof savesData==="object") {
+        Object.values(savesData).forEach(userSaves=>{
+          if(userSaves&&typeof userSaves==="object") {
+            Object.entries(userSaves).forEach(([postId,isSaved])=>{
+              if(isSaved) nextSaveCounts[postId]=(nextSaveCounts[postId]||0)+1;
+            });
+          }
+        });
+      }
+      setCommentCounts(nextCommentCounts);
+      setSaveCounts(nextSaveCounts);
+    } catch(error) {
+      console.log("ENGAGEMENT COUNTS LOAD ERROR:",error.message);
+    }
+  }
+
   async function loadFollowerCount() {
     if(!user?.token) return;
 
@@ -701,6 +742,7 @@ export default function App() {
         loadFollowing(),
         loadFollowerCount(),
         loadLikeSave(),
+        loadEngagementCounts(),
         loadMyProfile()
       ]);
     } finally {
@@ -715,6 +757,7 @@ export default function App() {
       loadFollowerCount();
       loadFollowing();
       loadLikeSave();
+      loadEngagementCounts();
     }
   },[user]);
 
@@ -790,6 +833,9 @@ export default function App() {
     const nextValue=!wasSaved;
 
     setSaved(old=>({...old,[id]:nextValue}));
+    if(!id.startsWith("demo")) {
+      setSaveCounts(old=>({...old,[id]:Math.max(0,(old[id]||0)+(nextValue?1:-1))}));
+    }
 
     if(id.startsWith("demo")) return;
     if(!user?.token) return;
@@ -806,6 +852,7 @@ export default function App() {
       if(!response.ok) throw new Error("Save nahi hua.");
     } catch(error) {
       setSaved(old=>({...old,[id]:wasSaved}));
+      setSaveCounts(old=>({...old,[id]:Math.max(0,(old[id]||0)+(wasSaved?1:-1))}));
       Alert.alert("Save Error","Video save nahi hui. Database Rules check karein.");
     }
   }
@@ -1385,6 +1432,7 @@ export default function App() {
       const response=await fetch(DATABASE_URL+"/comments/"+reel.id+".json?auth="+encodeURIComponent(user.token),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(commentData)});
       const result=await response.json();
       if(!response.ok||!result?.name) throw new Error(result?.error||"Emoji comment post nahi hua.");
+      setCommentCounts(old=>({...old,[reel.id]:(old[reel.id]||0)+1}));
       if(commentsVisible&&commentPost?.id===reel.id) setComments(old=>[...old,{id:result.name,...commentData}]);
     } catch(error) { Alert.alert("Emoji comment",error.message||"Emoji comment post nahi hua."); }
   }
@@ -1400,7 +1448,9 @@ export default function App() {
       const response=await fetch(DATABASE_URL+"/comments/"+commentPost.id+".json?auth="+encodeURIComponent(user.token),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(commentData)});
       const result=await response.json();
       if(!response.ok||!result?.name) throw new Error(result?.error||"Comment post nahi hua.");
-      setComments(old=>[...old,{id:result.name,...commentData}]); setCommentText(""); setCommentImage(null);
+      setComments(old=>[...old,{id:result.name,...commentData}]);
+      setCommentCounts(old=>({...old,[commentPost.id]:(old[commentPost.id]||0)+1}));
+      setCommentText(""); setCommentImage(null);
     } catch(error) { Alert.alert("Comment error",error.message||"Comment post nahi hua."); }
     finally { setCommentSending(false); }
   }
@@ -1423,6 +1473,7 @@ export default function App() {
           const response=await fetch(DATABASE_URL+"/comments/"+commentPost.id+"/"+comment.id+".json?auth="+encodeURIComponent(user.token),{method:"DELETE"});
           if(!response.ok) throw new Error("Comment delete nahi hua.");
           setComments(old=>old.filter(item=>item.id!==comment.id));
+          setCommentCounts(old=>({...old,[commentPost.id]:Math.max(0,(old[commentPost.id]||0)-1)}));
         } catch(error) { Alert.alert("Delete error",error.message||"Comment delete nahi hua."); }
       }}
     ]);
@@ -1586,6 +1637,8 @@ export default function App() {
                 isActive={page==="Home"&&index===activeReelIndex}
                 liked={!!liked[reel.id]}
                 saved={!!saved[reel.id]}
+                commentCount={commentCounts[reel.id]||0}
+                saveCount={saveCounts[reel.id]||0}
                 following={!!(reel.ownerId&&following[reel.ownerId])}
                 onLike={()=>toggleLike(reel.id)}
                 onDoubleLike={()=>{if(!liked[reel.id]) toggleLike(reel.id);}}
