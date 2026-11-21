@@ -323,6 +323,8 @@ export default function App() {
   const [selectedProfileData,setSelectedProfileData] = useState(null);
   const [selectedProfileFollowerCount,setSelectedProfileFollowerCount] = useState(0);
   const [messageDraft,setMessageDraft] = useState("");
+  const [chatInputFocused,setChatInputFocused] = useState(false);
+  const messageScrollRef = useRef(null);
   const [messageSendingText,setMessageSendingText] = useState(false);
 
   const [page,setPage] = useState("Home");
@@ -1984,9 +1986,9 @@ export default function App() {
 
   function renderInbox() {
     if(selectedChat)return (
-      <View style={styles.inboxPage}>
-        <View style={styles.inboxHeader}><TouchableOpacity onPress={()=>setSelectedChat(null)}><Text style={styles.inboxBack}>‹</Text></TouchableOpacity><TouchableOpacity onPress={()=>openUserProfile(selectedChat.otherUserId)}><Text style={styles.inboxTitle}>@{selectedChat.otherUsername||"User"}</Text></TouchableOpacity><TouchableOpacity onPress={()=>openInboxConversation(selectedChat)}><Text style={styles.recipientSend}>Refresh ↻</Text></TouchableOpacity></View>
-        {conversationLoading?<ActivityIndicator color={C.magenta} style={{marginTop:24}}/>:<ScrollView style={styles.messageList} contentContainerStyle={styles.messageListContent}>
+      <KeyboardAvoidingView style={styles.inboxPage} behavior={Platform.OS==="ios"?"padding":"padding"} keyboardVerticalOffset={0}>
+        <View style={styles.inboxHeader}><TouchableOpacity onPress={()=>{setChatInputFocused(false);setSelectedChat(null);}}><Text style={styles.inboxBack}>‹</Text></TouchableOpacity><TouchableOpacity onPress={()=>openUserProfile(selectedChat.otherUserId)}><Text style={styles.inboxTitle}>@{selectedChat.otherUsername||"User"}</Text></TouchableOpacity><TouchableOpacity onPress={()=>openInboxConversation(selectedChat)}><Text style={styles.recipientSend}>Refresh ↻</Text></TouchableOpacity></View>
+        {conversationLoading?<ActivityIndicator color={C.magenta} style={{marginTop:24}}/>:<ScrollView ref={messageScrollRef} style={styles.messageList} contentContainerStyle={styles.messageListContent} keyboardShouldPersistTaps="handled" keyboardDismissMode="none" onContentSizeChange={()=>messageScrollRef.current?.scrollToEnd({animated:true})}>
           {conversationMessages.map(message=><View key={message.id} style={[styles.messageBubble,message.senderId===user.id?styles.myMessageBubble:styles.theirMessageBubble]}>
             {message.type==="video"&&message.post&&<TouchableOpacity style={styles.messageVideoCard} onPress={()=>{const item=allReels.find(p=>p.id===message.post.postId);if(item){setPlayingPost(item);setPage("Home");}else Alert.alert("Video unavailable","Original video abhi load nahi hui.");}}>
               <Text style={styles.messageVideoIcon}>▶</Text><View style={{flex:1}}><Text style={styles.messageVideoCreator}>@{message.post.creator||"Creator"}</Text><Text numberOfLines={2} style={styles.messageVideoCaption}>{message.post.caption||"Shared a video"}</Text></View>
@@ -1995,8 +1997,8 @@ export default function App() {
           </View>)}
           {!conversationMessages.length&&<Text style={styles.smallMuted}>Abhi koi message nahi.</Text>}
         </ScrollView>}
-        <View style={styles.messageComposer}><TextInput value={messageDraft} onChangeText={setMessageDraft} placeholder="Message likhein..." placeholderTextColor={C.gray} style={styles.messageComposerInput} multiline/><TouchableOpacity style={styles.messageSendButton} onPress={sendDirectMessage} disabled={messageSendingText||!messageDraft.trim()}><Text style={styles.messageSendText}>{messageSendingText?"...":"Send"}</Text></TouchableOpacity></View>
-      </View>
+        <View style={styles.messageComposer}><TextInput value={messageDraft} onChangeText={setMessageDraft} onFocus={()=>setChatInputFocused(true)} onBlur={()=>setChatInputFocused(false)} placeholder="Message likhein..." placeholderTextColor={C.gray} style={styles.messageComposerInput} multiline blurOnSubmit={false} returnKeyType="default" onContentSizeChange={()=>messageScrollRef.current?.scrollToEnd({animated:true})}/><TouchableOpacity style={[styles.messageSendButton,(!messageDraft.trim()||messageSendingText)&&{opacity:0.55}]} onPress={sendDirectMessage} disabled={messageSendingText||!messageDraft.trim()}><Text style={styles.messageSendText}>{messageSendingText?"...":"Send"}</Text></TouchableOpacity></View>
+      </KeyboardAvoidingView>
     );
     const chats=Object.entries(userChats).map(([chatId,item])=>({chatId,...item})).sort((a,b)=>(b.lastMessageAt||0)-(a.lastMessageAt||0));
     const filteredChats=chats.filter(chat=>{
@@ -2729,7 +2731,7 @@ export default function App() {
         </View>
       </Modal>
 
-      {page!=="EditProfile"&&page!=="Sound"&&page!=="Settings"&&(
+      {page!=="EditProfile"&&page!=="Sound"&&page!=="Settings"&&!(page==="Inbox"&&selectedChat&&chatInputFocused)&&(
         <View style={styles.bottomNav}>
           <NavItem icon="home" label="Home" active={page==="Home"} onPress={()=>setPage("Home")}/>
           <NavItem icon="friends" label="Friends" active={page==="Explore"} onPress={()=>setPage("Explore")}/>
@@ -3067,7 +3069,7 @@ const styles=StyleSheet.create({
   inboxPreview:{color:C.gray,fontSize:12,marginTop:5},
   inboxTime:{color:C.gray,fontSize:10},
   messageList:{flex:1},
-  messageListContent:{padding:14,gap:12},
+  messageListContent:{padding:14,gap:12,flexGrow:1,justifyContent:"flex-end"},
   messageBubble:{maxWidth:"88%",padding:11,borderRadius:15},
   myMessageBubble:{alignSelf:"flex-end",backgroundColor:"#472044"},
   theirMessageBubble:{alignSelf:"flex-start",backgroundColor:C.card},
