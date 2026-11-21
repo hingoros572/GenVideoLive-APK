@@ -4,7 +4,7 @@ import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
   StyleSheet, StatusBar, Alert, Image, Animated, RefreshControl,
   KeyboardAvoidingView, Platform, ActivityIndicator, Modal,
-  Share, Dimensions
+  Share, Dimensions, Linking
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -316,6 +316,8 @@ export default function App() {
   const [editLocation,setEditLocation] = useState("");
   const [editProfileImage,setEditProfileImage] = useState("");
   const [editCoverImage,setEditCoverImage] = useState("");
+  const [youtubeLink,setYoutubeLink] = useState("");
+  const [editYoutubeLink,setEditYoutubeLink] = useState("");
   const [userProfiles,setUserProfiles] = useState({});
   const [selectedProfileId,setSelectedProfileId] = useState(null);
   const [selectedProfileData,setSelectedProfileData] = useState(null);
@@ -576,6 +578,8 @@ export default function App() {
         setEditLocation(data.location||"");
         setEditProfileImage(data.profileImage||"");
         setEditCoverImage(data.coverImage||"");
+        setYoutubeLink(data.youtubeLink||"");
+        setEditYoutubeLink(data.youtubeLink||"");
         setUserProfiles(old=>({...old,[user.id]:data}));
         await AsyncStorage.setItem(SESSION_STORAGE_KEY,JSON.stringify({
           ...user,username:data.username||username||user.email?.split("@")[0]||"User"
@@ -586,6 +590,8 @@ export default function App() {
         setEditLocation("");
         setEditProfileImage("");
         setEditCoverImage("");
+        setYoutubeLink("");
+        setEditYoutubeLink("");
       }
     } catch(error) {
       console.log("PROFILE LOAD ERROR:",error.message);
@@ -1523,6 +1529,7 @@ export default function App() {
         location:editLocation.trim(),
         profileImage:finalProfileImage||"",
         coverImage:finalCoverImage||"",
+        youtubeLink:editYoutubeLink.trim(),
         updatedAt:Date.now()
       };
 
@@ -1545,8 +1552,10 @@ export default function App() {
       setLocation(profileData.location);
       setProfileImage(profileData.profileImage);
       setCoverImage(profileData.coverImage);
+      setYoutubeLink(profileData.youtubeLink);
       setEditProfileImage(profileData.profileImage);
       setEditCoverImage(profileData.coverImage);
+      setEditYoutubeLink(profileData.youtubeLink);
       setUser(old=>({...old,token:data.idToken||old.token}));
       setUserProfiles(old=>({...old,[user.id]:profileData}));
       await AsyncStorage.setItem(SESSION_STORAGE_KEY,JSON.stringify({
@@ -1584,6 +1593,8 @@ export default function App() {
           setCoverImage("");
           setEditProfileImage("");
           setEditCoverImage("");
+          setYoutubeLink("");
+          setEditYoutubeLink("");
           setUserProfiles({});
           setPosts([]);
           setFollowing({});
@@ -2239,9 +2250,17 @@ export default function App() {
 
           <View style={styles.profileButtons}>
             {viewingOther ? (
-              <TouchableOpacity style={[styles.profileActionButton,styles.profileActionButtonRed]} onPress={()=>openDirectMessage(selectedProfileId,shownProfile)}><Text style={styles.profileActionText}>Message</Text></TouchableOpacity>
+              <>
+                <TouchableOpacity style={[styles.profileActionButton,styles.profileActionButtonRed]} onPress={()=>openDirectMessage(selectedProfileId,shownProfile)}><Text style={styles.profileActionText}>Message</Text></TouchableOpacity>
+                <TouchableOpacity style={[styles.profileActionButton,styles.profileActionButtonRed]} onPress={()=>toggleFollow({ownerId:selectedProfileId,creator:shownUsername})}><Text style={styles.profileActionText}>{following[selectedProfileId]?"Following":"Follow"}</Text></TouchableOpacity>
+              </>
             ) : (
-              <TouchableOpacity style={[styles.profileActionButton,styles.profileActionButtonRed]} onPress={()=>{setEditUsername(username);setEditBio(bio);setEditLocation(location);setEditProfileImage(profileImage);setEditCoverImage(coverImage);setPage("EditProfile");}}><Text style={styles.profileActionText}>Edit Profile</Text></TouchableOpacity>
+              <>
+                <TouchableOpacity style={[styles.profileActionButton,styles.profileActionButtonRed]} onPress={()=>{setEditUsername(username);setEditBio(bio);setEditLocation(location);setEditProfileImage(profileImage);setEditCoverImage(coverImage);setEditYoutubeLink(youtubeLink);setPage("EditProfile");}}><Text style={styles.profileActionText}>Edit Profile</Text></TouchableOpacity>
+                <TouchableOpacity style={[styles.profileActionButton,styles.profileActionButtonRed]} onPress={()=>youtubeLink?Linking.openURL(youtubeLink.startsWith("http")?youtubeLink:`https://${youtubeLink}`).catch(()=>Alert.alert("YouTube","YouTube link open nahi hua.")):Alert.alert("YouTube","Edit Profile mein pehle apna YouTube channel link save karein.")}>
+                  <Text style={styles.profileActionText}>▶ YouTube</Text>
+                </TouchableOpacity>
+              </>
             )}
             <TouchableOpacity style={[styles.profileActionButton,styles.profileActionButtonRed]} onPress={()=>Share.share({message:`Check out @${shownUsername} on Gen Video Live!`})}><Text style={styles.profileActionText}>Share Profile</Text></TouchableOpacity>
           </View>
@@ -2394,6 +2413,9 @@ export default function App() {
 
           <Text style={styles.fieldLabel}>Location</Text>
           <TextInput style={styles.input} value={editLocation} onChangeText={setEditLocation} placeholder="Your location" placeholderTextColor={C.gray}/>
+
+          <Text style={styles.fieldLabel}>YouTube Channel Link</Text>
+          <TextInput style={styles.input} value={editYoutubeLink} onChangeText={setEditYoutubeLink} placeholder="https://www.youtube.com/@YourChannel" placeholderTextColor={C.gray} autoCapitalize="none" autoCorrect={false} keyboardType="url"/>
 
           <Button title={loading?"Saving...":"Save Profile"} onPress={saveProfile} disabled={loading}/>
           {loading&&<ActivityIndicator color={C.magenta} style={{marginTop:12}}/>}
