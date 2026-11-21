@@ -2451,6 +2451,26 @@ export default function App() {
       {page==="Sound"&&renderSound()}
       {page==="Settings"&&renderSettings()}
 
+      <Modal visible={shareModalVisible} transparent animationType="slide" statusBarTranslucent onRequestClose={()=>setShareModalVisible(false)}>
+        <View style={styles.shareModalRoot}>
+          <TouchableOpacity style={styles.shareBackdrop} activeOpacity={1} onPress={()=>setShareModalVisible(false)}/>
+          <View style={styles.shareSheet}>
+            <View style={styles.shareSheetHeader}><Text style={styles.shareSheetTitle}>Share video</Text><TouchableOpacity onPress={()=>setShareModalVisible(false)}><Text style={styles.shareClose}>×</Text></TouchableOpacity></View>
+            <Button title="↗ Share to WhatsApp / other apps" onPress={shareReelExternally}/>
+            <Text style={styles.fieldLabel}>Optional message</Text>
+            <TextInput style={styles.input} value={messageText} onChangeText={setMessageText} placeholder="Write a message..." placeholderTextColor={C.gray}/>
+            <Text style={styles.fieldLabel}>Send to a Gen Video Live user</Text>
+            <TextInput style={styles.input} value={recipientQuery} onChangeText={searchMessageRecipients} placeholder="Search username..." placeholderTextColor={C.gray}/>
+            {recipientLoading?<ActivityIndicator color={C.magenta}/>:<ScrollView style={{maxHeight:190}} keyboardShouldPersistTaps="handled">
+              {recipientResults.map(recipient=><TouchableOpacity key={recipient.id} style={styles.recipientRow} onPress={()=>sendVideoToRecipient(recipient)} disabled={messageSending}>
+                <View style={styles.inboxAvatar}>{recipient.profileImage?<Image source={{uri:recipient.profileImage}} style={styles.inboxAvatarImage}/>:<Text>👤</Text>}</View><Text style={styles.recipientName}>@{recipient.username}</Text>{messageSending?<ActivityIndicator color={C.magenta}/>:<Text style={styles.recipientSend}>Send ›</Text>}
+              </TouchableOpacity>)}
+              {!!recipientQuery.trim()&&!recipientResults.length&&<Text style={styles.smallMuted}>Koi user nahi mila. Username check karein.</Text>}
+            </ScrollView>}
+          </View>
+        </View>
+      </Modal>
+
       <Modal visible={commentsVisible} transparent animationType="slide" statusBarTranslucent navigationBarTranslucent={true} onRequestClose={()=>setCommentsVisible(false)}>
         <View style={styles.commentsModalRoot}>
           <TouchableOpacity style={styles.commentsBackdrop} activeOpacity={1} onPress={()=>setCommentsVisible(false)}/>
