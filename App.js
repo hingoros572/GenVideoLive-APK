@@ -941,6 +941,7 @@ export default function App() {
 
   async function refreshAllFeeds() {
     if(!user?.token) return;
+    const nextFeedIndex=visibleReels.length>1?(activeReelIndex+1)%visibleReels.length:0;
     setRefreshing(true);
     try {
       await Promise.all([
@@ -952,6 +953,9 @@ export default function App() {
         loadSocialRecords(),
         loadMyProfile()
       ]);
+      const safeNextIndex=Math.min(nextFeedIndex,Math.max(0,visibleReels.length-1));
+      setActiveReelIndex(safeNextIndex);
+      feedScrollRef.current?.scrollTo({y:safeNextIndex*reelHeight,animated:false});
     } finally {
       setRefreshing(false);
     }
