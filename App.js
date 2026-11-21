@@ -337,6 +337,7 @@ export default function App() {
   const [reposts,setReposts] = useState({});
   const [myReposts,setMyReposts] = useState({});
   const [userChats,setUserChats] = useState({});
+  const [messageRequests,setMessageRequests] = useState({});
   const [inboxFilter,setInboxFilter] = useState("Main");
   const [inboxSearchOpen,setInboxSearchOpen] = useState(false);
   const [inboxSearch,setInboxSearch] = useState("");
@@ -739,11 +740,11 @@ export default function App() {
   async function loadSocialRecords() {
     if(!user?.token) return;
     try {
-      const paths=["reposts.json","shares.json",`userReposts/${user.id}.json`,`userChats/${user.id}.json`];
+      const paths=["reposts.json","shares.json",`userReposts/${user.id}.json`,`userChats/${user.id}.json`,`messageRequests/${user.id}.json`];
       const responses=await Promise.all(paths.map(path=>fetch(`${DATABASE_URL}/${path}?auth=${encodeURIComponent(user.token)}`)));
       const data=await Promise.all(responses.map(response=>response.json()));
       if(responses.some(response=>!response.ok)) throw new Error("Social records load nahi hue. Firebase Rules update required.");
-      const [repostsData,sharesData,myRepostsData,chatsData]=data;
+      const [repostsData,sharesData,myRepostsData,chatsData,requestsData]=data;
       const nextRepostCounts={},nextShareCounts={};
       Object.entries(repostsData||{}).forEach(([id,items])=>nextRepostCounts[id]=items&&typeof items==="object"?Object.keys(items).length:0);
       Object.entries(sharesData||{}).forEach(([id,items])=>nextShareCounts[id]=items&&typeof items==="object"?Object.keys(items).length:0);
@@ -751,6 +752,7 @@ export default function App() {
       setMyReposts(myRepostsData&&typeof myRepostsData==="object"?myRepostsData:{});
       setRepostCounts(nextRepostCounts);setShareCounts(nextShareCounts);
       setUserChats(chatsData&&typeof chatsData==="object"?chatsData:{});
+      setMessageRequests(requestsData&&typeof requestsData==="object"?requestsData:{});
     } catch(error){console.log("SOCIAL RECORDS LOAD ERROR:",error.message);}
   }
 
@@ -766,6 +768,35 @@ export default function App() {
       setRecipientResults(Object.entries(data||{}).filter(([id,p])=>id!==user.id&&p&&String(p.username||"").replace(/^@/,"").toLowerCase().includes(q)).slice(0,25).map(([id,p])=>({id,username:p.username||"User",profileImage:p.profileImage||""})));
     } catch(error){setRecipientResults([]);Alert.alert("User search",error.message||"Users search nahi ho sake.");}
     finally{setRecipientLoading(false);}
+  }
+
+  async function acceptMessageRequest(request) {
+    if(!user?.token||!request?.requesterId)return;
+    try {
+      const senderId=request.requesterId,chatId=[String(user.id),String(senderId)].sort().join("__"),now=Date.now();
+      const mine={chatId,otherUserId:senderId,otherUsername:request.requesterUsername||"User",lastMessageType:request.type||"text",lastMessageText:request.text||"",lastMessageAt:request.createdAt||now,lastMessageSenderId:senderId};
+      const theirs={...mine,otherUserId:user.id,otherUsername:username||"User"};
+      const patch={
+        [`userChats/${user.id}/${chatId}`]:mine,
+        [`userChats/${senderId}/${chatId}`]:theirs,
+        [`messages/${chatId}/accepted_${request.createdAt||now}`]:{...request,seen:false,acceptedAt:now},
+        [`messageRequests/${user.id}/${senderId}`]:null
+      };
+      const response=await fetch(`${DATABASE_URL}/.json?auth=${encodeURIComponent(user.token)}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(patch)});
+      if(!response.ok) {const errorData=await response.json();throw new Error(errorData?.error||"Request accept nahi hui. Firebase Rules check karein.");}
+      setMessageRequests(old=>{const next={...old};delete next[senderId];return next;});
+      setUserChats(old=>({...old,[chatId]:mine}));
+      Alert.alert("Accepted","Ab ye chat Main Inbox mein aa gayi hai.");
+    } catch(error){Alert.alert("Request error",error.message||"Request accept nahi hui.");}
+  }
+
+  async function ignoreMessageRequest(request) {
+    if(!user?.token||!request?.requesterId)return;
+    try {
+      const response=await fetch(`${DATABASE_URL}/messageRequests/${user.id}/${request.requesterId}.json?auth=${encodeURIComponent(user.token)}`,{method:"DELETE"});
+      if(!response.ok)throw new Error("Request remove nahi hui. Firebase Rules check karein.");
+      setMessageRequests(old=>{const next={...old};delete next[request.requesterId];return next;});
+    } catch(error){Alert.alert("Request error",error.message||"Request remove nahi hui.");}
   }
 
   async function openInboxConversation(chat) {
@@ -784,6 +815,24 @@ export default function App() {
     try {
       const chatId=[String(user.id),String(recipient.id)].sort().join("__"),now=Date.now();
       const message={type:"video",senderId:user.id,senderUsername:username||"User",recipientId:recipient.id,recipientUsername:recipient.username||"User",post:{postId:post.id,ownerId:post.ownerId||"",creator:post.creator||"Creator",caption:post.caption||"",videoUrl:post.videoUrl,thumbnailUrl:getVideoThumbnail(post)||""},text:messageText.trim(),createdAt:now,seen:false};
+      const followsMeResponse=await fetch(`${DATABASE_URL}/followers/${user.id}/${recipient.id}.json?auth=${encodeURIComponent(user.token)}`);
+      const followsMe=await followsMeResponse.json();
+      if(!followsMeResponse.ok) throw new Error("Follow status check nahi ho saka. Firebase Rules check karein.");
+      const isFollowingMe=!!followsMe;
+      if(!isFollowingMe) {
+        const request={...message,requesterId:user.id,requesterUsername:username||"User",recipientId:recipient.id,recipientUsername:recipient.username||"User",status:"pending",requestedAt:now};
+        const requestResponse=await fetch(`${DATABASE_URL}/messageRequests/${recipient.id}/${user.id}.json?auth=${encodeURIComponent(user.token)}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(request)});
+        if(!requestResponse.ok) throw new Error("Message request save nahi hui. Firebase Rules update required.");
+        const sharePath=`${DATABASE_URL}/shares/${post.id}/${user.id}.json?auth=${encodeURIComponent(user.token)}`;
+        const shareCheck=await fetch(sharePath),shareExisting=await shareCheck.json();
+        if(!shareCheck.ok) throw new Error("Share record check nahi ho saka.");
+        const shareSave=await fetch(sharePath,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({userId:user.id,destination:"in_app",firstSharedAt:shareExisting?.firstSharedAt||now,lastSharedAt:now,shareAttempts:Number(shareExisting?.shareAttempts||0)+1})});
+        if(!shareSave.ok) throw new Error("Request bheji gayi lekin Share count save nahi hua.");
+        if(!shareExisting)setShareCounts(old=>({...old,[post.id]:(old[post.id]||0)+1}));
+        setShareModalVisible(false);setShareTargetPost(null);setRecipientQuery("");setRecipientResults([]);setMessageText("");
+        Alert.alert("Request sent","Aapki video message request bhej di gayi hai. User accept karega to chat Main mein aa jayegi.");
+        return;
+      }
       const mine={chatId,otherUserId:recipient.id,otherUsername:recipient.username||"User",lastMessageType:"video",lastMessageText:message.text,lastMessageAt:now,lastMessageSenderId:user.id};
       const a=await fetch(`${DATABASE_URL}/userChats/${user.id}/${encodeURIComponent(chatId)}.json?auth=${encodeURIComponent(user.token)}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(mine)});
       if(!a.ok)throw new Error("Inbox conversation create nahi hui.");
@@ -1962,7 +2011,11 @@ export default function App() {
           {["Main","Requests","Unread"].map(tab=><TouchableOpacity key={tab} onPress={()=>setInboxFilter(tab)} style={[styles.inboxFilterChip,inboxFilter===tab&&styles.inboxFilterActive]}><Text style={[styles.inboxFilterText,inboxFilter===tab&&styles.inboxFilterTextActive]}>{tab}</Text></TouchableOpacity>)}
           <TouchableOpacity style={styles.inboxFilterIcon} onPress={loadSocialRecords}><Text style={styles.inboxFilterIconText}>☷</Text></TouchableOpacity>
         </View>
-        {inboxFilter==="Requests"?<View style={styles.inboxEmpty}><Text style={styles.inboxEmptyIcon}>✉</Text><Text style={styles.inboxEmptyTitle}>Message requests</Text><Text style={styles.inboxEmptyText}>Abhi koi message request nahi hai.</Text></View>:<>
+        {inboxFilter==="Requests"?<>{Object.entries(messageRequests).map(([senderId,request])=><View key={senderId} style={styles.inboxRequestRow}>
+          <View style={styles.inboxAvatar}><Text>👤</Text></View>
+          <View style={{flex:1}}><Text style={styles.inboxChatName}>{request.requesterUsername||"User"}</Text><Text numberOfLines={2} style={styles.inboxPreview}>{request.type==="video"?"🎬 Video message request":request.text||"Wants to message you"}</Text>
+          <View style={styles.inboxRequestActions}><TouchableOpacity style={styles.inboxAcceptButton} onPress={()=>acceptMessageRequest(request)}><Text style={styles.inboxAcceptText}>Accept</Text></TouchableOpacity><TouchableOpacity style={styles.inboxIgnoreButton} onPress={()=>ignoreMessageRequest(request)}><Text style={styles.inboxIgnoreText}>Ignore</Text></TouchableOpacity></View></View>
+        </View>)}{!Object.keys(messageRequests).length&&<View style={styles.inboxEmpty}><Text style={styles.inboxEmptyIcon}>✉</Text><Text style={styles.inboxEmptyTitle}>Message requests</Text><Text style={styles.inboxEmptyText}>Abhi koi message request nahi hai.</Text></View>}</>:<>
           {filteredChats.map(chat=>{
             const profile=userProfiles[chat.otherUserId]||people.find(person=>person.id===chat.otherUserId)||{};
             const unread=chat.lastMessageSenderId&&chat.lastMessageSenderId!==user.id;
@@ -2888,6 +2941,12 @@ const styles=StyleSheet.create({
   inboxFilterTextActive:{color:"#67d7f0"},
   inboxFilterIcon:{marginLeft:"auto",width:38,height:38,alignItems:"center",justifyContent:"center"},
   inboxFilterIconText:{color:C.white,fontSize:25},
+  inboxRequestRow:{flexDirection:"row",alignItems:"flex-start",paddingHorizontal:17,paddingVertical:14,borderBottomWidth:1,borderBottomColor:"#242032",gap:12},
+  inboxRequestActions:{flexDirection:"row",gap:9,marginTop:10},
+  inboxAcceptButton:{backgroundColor:C.magenta,borderRadius:9,paddingHorizontal:15,paddingVertical:8},
+  inboxAcceptText:{color:"#fff",fontSize:12,fontWeight:"900"},
+  inboxIgnoreButton:{backgroundColor:C.card2,borderRadius:9,paddingHorizontal:15,paddingVertical:8},
+  inboxIgnoreText:{color:C.white,fontSize:12,fontWeight:"800"},
   inboxChatRow:{flexDirection:"row",alignItems:"center",paddingHorizontal:17,paddingVertical:14,borderBottomWidth:1,borderBottomColor:"#242032",gap:12},
   inboxAvatar:{width:58,height:58,borderRadius:29,backgroundColor:C.card2,alignItems:"center",justifyContent:"center",overflow:"hidden"},
   inboxAvatarImage:{width:58,height:58,borderRadius:29},
