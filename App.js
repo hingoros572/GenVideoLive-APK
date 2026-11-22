@@ -7,6 +7,7 @@ import {
   Share, Dimensions, Linking
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import * as MediaLibrary from "expo-media-library/legacy";
 import { CameraView, Camera } from "expo-camera";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Video, ResizeMode, Audio } from "expo-av";
@@ -395,6 +396,9 @@ export default function App() {
   const [showCameraTools,setShowCameraTools] = useState(true);
   const cameraFilters=[{id:"none",label:"Original",tint:null},{id:"warm",label:"Warm",tint:"rgba(255,150,60,0.16)"},{id:"sepia",label:"Sepia",tint:"rgba(150,95,45,0.25)"},{id:"grayscale",label:"B&W",tint:"rgba(90,90,90,0.45)"},{id:"cool",label:"Cool",tint:"rgba(70,150,255,0.18)"},{id:"vignette",label:"Vintage",tint:"rgba(80,35,80,0.18)"},{id:"contrast",label:"Contrast",tint:"rgba(0,0,0,0.12)"},{id:"saturation",label:"Vivid",tint:"rgba(255,40,130,0.10)"}];
   const [galleryTab,setGalleryTab] = useState("All");
+  const [galleryAssets,setGalleryAssets] = useState([]);
+  const [galleryLoading,setGalleryLoading] = useState(false);
+  const [gallerySelectedIds,setGallerySelectedIds] = useState([]);
   const [drafts,setDrafts] = useState([]);
   const [soundReturnPage,setSoundReturnPage] = useState("Home");
   const [postCoverImage,setPostCoverImage] = useState(null);
@@ -1155,33 +1159,36 @@ export default function App() {
 
   async function chooseVideoFromGallery() {
     try {
-      const permission=await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if(!permission.granted)
-        return Alert.alert("Permission","Gallery permission allow karein.");
-
-      const result=await ImagePicker.launchImageLibraryAsync({
-        mediaTypes:["images","videos"],
-        allowsMultipleSelection:true,
-        selectionLimit:15,
-        orderedSelection:true,
-        allowsEditing:false,
-        quality:1,
-        videoMaxDuration:180
-      });
-
-      if(!result.canceled&&result.assets?.length) {
-        const picked=result.assets.slice(0,15);
-        const videos=picked.filter(asset=>asset.type==="video"||asset.mimeType?.startsWith("video/"));
-        const photos=picked.filter(asset=>asset.type==="image"||asset.mimeType?.startsWith("image/"));
-        setSelectedCreateMedia(picked);
-        setCreatePhotos(photos);
-        if(videos.length) setSelectedVideo(videos[0]);
-        else setSelectedVideo(null);
-        Alert.alert("Media selected",`${picked.length}/15 files selected. ${photos.length} photos, ${videos.length} videos.`);
-      }
+      setGalleryLoading(true);
+      setGallerySelectedIds(selectedCreateMedia.map(item=>item.id||item.uri));
+      setCreateStep("gallery");
+      const permission=await MediaLibrary.requestPermissionsAsync(false,["photo","video"]);
+      if(!permission.granted) { setCreateStep("camera"); return Alert.alert("Permission","Gallery access allow karein."); }
+      const result=await MediaLibrary.getAssetsAsync({first:150,mediaType:["photo","video"],sortBy:[["creationTime",false]]});
+      setGalleryAssets(result.assets||[]);
     } catch(error) {
-      Alert.alert("Gallery Error",error.message||"Photos/videos select nahi ho sakin.");
-    }
+      setCreateStep("camera");
+      Alert.alert("Gallery Error",error.message||"Gallery load nahi ho saki.");
+    } finally { setGalleryLoading(false); }
+  }
+
+  function toggleGalleryAsset(asset) {
+    const key=asset.id||asset.uri;
+    setGallerySelectedIds(old=>{
+      if(old.includes(key)) return old.filter(id=>id!==key);
+      if(old.length>=15) { Alert.alert("Selection limit","Ek baar mein zyada se zyada 15 photos/videos select kar sakte hain."); return old; }
+      return [...old,key];
+    });
+  }
+
+  function continueFromGallery() {
+    const picked=gallerySelectedIds.map(id=>galleryAssets.find(asset=>(asset.id||asset.uri)===id)).filter(Boolean).map(asset=>({
+      id:asset.id,uri:asset.uri,type:asset.mediaType==="video"?"video":"image",
+      mimeType:asset.mediaType==="video"?"video/mp4":"image/jpeg",fileName:asset.filename,duration:asset.duration
+    }));
+    if(!picked.length) return Alert.alert("Select media","Pehle gallery se photo ya video select karein.");
+    const videos=picked.filter(asset=>asset.type==="video"),photos=picked.filter(asset=>asset.type==="image");
+    setSelectedCreateMedia(picked); setCreatePhotos(photos); setSelectedVideo(videos[0]||null); setCreateStep("selected");
   }
 
   async function recordVideo() {
@@ -2118,6 +2125,39 @@ export default function App() {
   }
 
   function renderCreate() {
+    if(createStep==="gallery") {
+      const visibleAssets=galleryAssets.filter(asset=>galleryTab==="All"||(galleryTab==="Videos"?asset.mediaType==="video":asset.mediaType==="photo"));
+      const rows=[]; for(let i=0;i<visibleAssets.length;i+=3) rows.push(visibleAssets.slice(i,i+3));
+      return (
+        <View style={{flex:1,backgroundColor:"#fff"}}>
+          <View style={{height:58,paddingHorizontal:18,flexDirection:"row",alignItems:"center",justifyContent:"space-between",borderBottomWidth:1,borderBottomColor:"#eee"}}>
+            <TouchableOpacity onPress={()=>setCreateStep("camera")}><Text style={{fontSize:28,color:"#111"}}>×</Text></TouchableOpacity>
+            <Text style={{fontSize:19,fontWeight:"800",color:"#111"}}>Recents⌄</Text>
+            <Text style={{fontSize:13,color:"#777"}}>{gallerySelectedIds.length}/15</Text>
+          </View>
+          <View style={{height:48,flexDirection:"row",borderBottomWidth:1,borderBottomColor:"#eee"}}>
+            {["All","Videos","Photos"].map(tab=><TouchableOpacity key={tab} onPress={()=>setGalleryTab(tab)} style={{flex:1,alignItems:"center",justifyContent:"center",borderBottomWidth:galleryTab===tab?2:0,borderBottomColor:"#111"}}><Text style={{fontSize:15,fontWeight:galleryTab===tab?"800":"600",color:galleryTab===tab?"#111":"#888"}}>{tab}</Text></TouchableOpacity>)}
+          </View>
+          {galleryLoading?<View style={{flex:1,alignItems:"center",justifyContent:"center"}}><ActivityIndicator size="large" color={C.pink}/><Text style={{color:"#555",marginTop:12}}>Gallery load ho rahi hai...</Text></View>:<ScrollView style={{flex:1}} contentContainerStyle={{paddingBottom:12}}>
+            {rows.map((row,index)=><View key={index} style={{flexDirection:"row",gap:2,marginBottom:2}}>
+              {row.map(asset=>{const key=asset.id||asset.uri,selectedIndex=gallerySelectedIds.indexOf(key);return <TouchableOpacity key={key} onPress={()=>toggleGalleryAsset(asset)} style={{width:"33.05%",aspectRatio:0.82,backgroundColor:"#ddd"}}>
+                <Image source={{uri:asset.uri}} style={{width:"100%",height:"100%"}} resizeMode="cover"/>
+                {asset.mediaType==="video"&&<View style={{position:"absolute",bottom:5,left:5,backgroundColor:"#0009",paddingHorizontal:5,paddingVertical:2,borderRadius:5}}><Text style={{color:"#fff",fontSize:10}}>▶ {Math.round(asset.duration||0)}s</Text></View>}
+                <View style={{position:"absolute",top:7,right:7,width:25,height:25,borderRadius:13,backgroundColor:selectedIndex>=0?C.pink:"#0004",borderWidth:1.5,borderColor:"#fff",alignItems:"center",justifyContent:"center"}}><Text style={{color:"#fff",fontWeight:"900",fontSize:12}}>{selectedIndex>=0?selectedIndex+1:""}</Text></View>
+              </TouchableOpacity>;})}
+              {row.length<3&&Array.from({length:3-row.length}).map((_,i)=><View key={"empty"+i} style={{width:"33.05%"}}/>)}
+            </View>)}
+            {!visibleAssets.length&&<Text style={{textAlign:"center",color:"#777",marginTop:40}}>Is category mein media nahi mila.</Text>}
+          </ScrollView>}
+          <View style={{paddingHorizontal:16,paddingTop:10,paddingBottom:14,backgroundColor:"#fff",borderTopWidth:1,borderTopColor:"#eee"}}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{maxHeight:78,marginBottom:10}}><View style={{flexDirection:"row",gap:8}}>
+              {gallerySelectedIds.map(id=>{const asset=galleryAssets.find(item=>(item.id||item.uri)===id);return asset?<View key={id} style={{width:68,height:72,borderRadius:10,overflow:"hidden"}}><Image source={{uri:asset.uri}} style={{width:"100%",height:"100%"}}/><TouchableOpacity onPress={()=>toggleGalleryAsset(asset)} style={{position:"absolute",right:2,top:2,width:21,height:21,borderRadius:11,backgroundColor:"#0009",alignItems:"center",justifyContent:"center"}}><Text style={{color:"#fff"}}>×</Text></TouchableOpacity></View>:null;})}
+            </View></ScrollView>
+            <TouchableOpacity onPress={continueFromGallery} disabled={!gallerySelectedIds.length} style={{height:54,borderRadius:30,backgroundColor:gallerySelectedIds.length?C.pink:"#ddd",alignItems:"center",justifyContent:"center"}}><Text style={{color:"#fff",fontSize:18,fontWeight:"900"}}>Next ({gallerySelectedIds.length})</Text></TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
     if(createStep==="camera") {
       const firstMedia=selectedCreateMedia[0];
       const firstIsPhoto=firstMedia&&(firstMedia.type==="image"||firstMedia.mimeType?.startsWith("image/"));
