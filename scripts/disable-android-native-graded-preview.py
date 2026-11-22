@@ -12,15 +12,15 @@ matches = []
 for path in candidates:
     source = path.read_text(encoding="utf-8")
     pattern = re.compile(
-        r"((?:const|let|var)\\s+nativeRatePreviewActive\\s*=\\s*)(rateSynced\\s*&&)"
+        r"((?:const|let|var)\s+nativeRatePreviewActive\s*=\s*)(rateSynced\s*&&)"
     )
     updated, count = pattern.subn(
-        r"\\1Platform.OS !== 'android' && \\2",
+        r"\1Platform.OS !== 'android' && \2",
         source,
         count=1,
     )
     if count:
-        matches.append((path, source, updated))
+        matches.append((path, updated))
 
 if len(matches) != 1:
     raise SystemExit(
@@ -28,6 +28,6 @@ if len(matches) != 1:
         "No package files were changed."
     )
 
-path, _, updated = matches[0]
+path, updated = matches[0]
 path.write_text(updated, encoding="utf-8")
 print(f"Patched {path}: Android now uses the existing Skia preview; iOS is unchanged.")
