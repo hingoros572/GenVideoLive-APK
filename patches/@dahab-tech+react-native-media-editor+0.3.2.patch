@@ -2,7 +2,8 @@ diff --git a/node_modules/@dahab-tech/react-native-media-editor/android/build.gr
 index 0000000..0000000 100644
 --- a/node_modules/@dahab-tech/react-native-media-editor/android/build.gradle
 +++ b/node_modules/@dahab-tech/react-native-media-editor/android/build.gradle
-@@ -19,7 +19,7 @@ dependencies {
+@@ -18,8 +18,8 @@
+ dependencies {
    // Keep in sync with the media3 version used by expo-video to avoid resolution conflicts.
 -  def media3Version = "1.9.0"
 +  def media3Version = "1.8.0"
@@ -10,3 +11,4 @@ index 0000000..0000000 100644
    implementation "androidx.media3:media3-transformer:${media3Version}"
    implementation "androidx.media3:media3-effect:${media3Version}"
    implementation "androidx.media3:media3-exoplayer:${media3Version}"
+ }
