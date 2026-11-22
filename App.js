@@ -9,6 +9,7 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Video, ResizeMode, Audio } from "expo-av";
+// Preview playback uses expo-av; MediaEngine handles final native composition.
 import VideoEditorScreen from "./VideoEditorScreen";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
