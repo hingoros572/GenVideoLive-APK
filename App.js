@@ -2480,7 +2480,7 @@ export default function App() {
             <Text style={styles.smallMuted}>
               {profileTab==="Liked"?"Videos you like will appear here.":profileTab==="Reposted"?"Videos you repost will appear here.":"Your uploaded videos will appear here."}
             </Text>
-            {profileTab==="Videos"&&<Button title="＋ Create Video" onPress={()=>setPage("Create")}/>}
+            {profileTab==="Videos"&&<Button title="＋ Create Video" onPress={()=>{setCreateStep("camera");setPage("Create");}}/>}
           </View>
         )}
       </ScrollView>
@@ -2825,7 +2825,7 @@ export default function App() {
         <View style={styles.bottomNav}>
           <NavItem icon="home" label="Home" active={page==="Home"} onPress={()=>setPage("Home")}/>
           <NavItem icon="friends" label="Friends" active={page==="Explore"} onPress={()=>setPage("Explore")}/>
-          <NavItem icon="create" label="Create+" active={page==="Create"} onPress={()=>setPage("Create")}/>
+          <NavItem icon="create" label="Create+" active={page==="Create"} onPress={()=>{setCreateStep("camera");setPage("Create");}}/>
           <NavItem icon="inbox" label="Inbox" active={page==="Inbox"} onPress={()=>{setPage("Inbox");loadSocialRecords();}}/>
           <NavItem
             icon="profile"
