@@ -381,6 +381,7 @@ export default function App() {
   // Create/upload workflow pages and post metadata
   const [createStep,setCreateStep] = useState("camera");
   const [createPhotos,setCreatePhotos] = useState([]);
+  const [selectedCreateMedia,setSelectedCreateMedia] = useState([]);
   const [galleryTab,setGalleryTab] = useState("All");
   const [drafts,setDrafts] = useState([]);
   const [soundReturnPage,setSoundReturnPage] = useState("Home");
@@ -1129,18 +1130,27 @@ export default function App() {
         return Alert.alert("Permission","Gallery permission allow karein.");
 
       const result=await ImagePicker.launchImageLibraryAsync({
-        mediaTypes:["videos"],
+        mediaTypes:["images","videos"],
+        allowsMultipleSelection:true,
+        selectionLimit:15,
+        orderedSelection:true,
         allowsEditing:false,
         quality:1,
         videoMaxDuration:180
       });
 
       if(!result.canceled&&result.assets?.length) {
-        setSelectedVideo(result.assets[0]);
-        Alert.alert("Video selected",result.assets[0].fileName||"Video select ho gayi.");
+        const picked=result.assets.slice(0,15);
+        const videos=picked.filter(asset=>asset.type==="video"||asset.mimeType?.startsWith("video/"));
+        const photos=picked.filter(asset=>asset.type==="image"||asset.mimeType?.startsWith("image/"));
+        setSelectedCreateMedia(picked);
+        setCreatePhotos(photos);
+        if(videos.length) setSelectedVideo(videos[0]);
+        else setSelectedVideo(null);
+        Alert.alert("Media selected",`${picked.length}/15 files selected. ${photos.length} photos, ${videos.length} videos.`);
       }
     } catch(error) {
-      Alert.alert("Video Picker Error",error.message||"Video select nahi ho saki.");
+      Alert.alert("Gallery Error",error.message||"Photos/videos select nahi ho sakin.");
     }
   }
 
@@ -2108,11 +2118,22 @@ export default function App() {
         </View>}
 
         {createStep==="gallery"&&<View style={styles.card}>
-          <Text style={styles.sectionTitle}>🖼 Select a video</Text>
-          <Text style={styles.helpText}>Apne phone ki gallery se video choose karein.</Text>
-          <Button title="Choose Video from Gallery" onPress={chooseVideoFromGallery}/>
-          {!!selectedVideo&&<Text style={styles.selectedTitle}>✓ {selectedVideo.fileName||"Video selected"}</Text>}
-          <Button title="Continue" onPress={()=>{if(!selectedVideo?.uri)return Alert.alert("Video required","Pehle gallery se video select karein.");setCreateStep("selected");}}/>
+          <Text style={styles.sectionTitle}>🖼 Select Photos & Videos</Text>
+          <Text style={styles.helpText}>Phone ki Gallery se photos aur videos ek saath select karein. Aap maximum 15 files select kar sakte hain.</Text>
+          <View style={{backgroundColor:"#21172b",borderRadius:14,padding:14,marginBottom:14,alignItems:"center"}}>
+            <Text style={{color:C.magenta,fontSize:26,fontWeight:"900"}}>{selectedCreateMedia.length}/15</Text>
+            <Text style={styles.helpText}>Selected photos & videos</Text>
+          </View>
+          <Button title="▣ Open Phone Gallery" onPress={chooseVideoFromGallery}/>
+          {selectedCreateMedia.length>0&&<View style={{marginTop:14}}>
+            <Text style={styles.selectedTitle}>✓ {selectedCreateMedia.length} files selected</Text>
+            {selectedCreateMedia.map((asset,index)=>(
+              <View key={asset.assetId||asset.uri||String(index)} style={{paddingVertical:9,borderBottomWidth:1,borderBottomColor:C.border}}>
+                <Text style={{color:C.text,fontSize:13}}>{index+1}. {asset.type==="video"||asset.mimeType?.startsWith("video/")?"🎬 Video":"🖼 Photo"} · {asset.fileName||"Selected media"}</Text>
+              </View>
+            ))}
+          </View>}
+          <Button title="Continue" onPress={()=>{if(!selectedVideo?.uri)return Alert.alert("Video required","Abhi sirf media selection set ki hai. Aage ka photo/video workflow aglay step mein set karenge.");setCreateStep("selected");}}/>
         </View>}
 
         {createStep==="selected"&&<View style={styles.card}>
