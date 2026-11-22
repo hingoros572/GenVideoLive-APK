@@ -33,8 +33,16 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Fix Media3 PlayerId LoadControl compatibility
-        run: python3 scripts/fix-expo-video-loadcontrol.py
+      - name: DIAGNOSTIC ONLY - inspect actual Media3 LoadControl implementations
+        run: |
+          echo "=== Expo Video Android source declarations ==="
+          grep -R -n -E 'class .*LoadControl|interface LoadControl|implements LoadControl|extends DefaultLoadControl|getAllocator' node_modules/expo-video/android/src/main 2>/dev/null || true
+          echo "=== Media editor Android source declarations ==="
+          grep -R -n -E 'class .*LoadControl|interface LoadControl|implements LoadControl|extends DefaultLoadControl|getAllocator' node_modules/@dahab-tech/react-native-media-editor/android 2>/dev/null || true
+          echo "=== All installed Android sources mentioning LoadControl ==="
+          grep -R -n -E 'implements LoadControl|extends DefaultLoadControl|: LoadControl|getAllocator' node_modules --include='*.java' --include='*.kt' 2>/dev/null | grep -E 'media3|expo-video|media-editor|dahab' | head -240 || true
+          echo "Diagnostic run only: stopping before APK build so no unpatched APK is produced."
+          exit 1
 
       - name: Switch Android editor preview to Skia
         run: python3 scripts/disable-android-native-graded-preview.py
