@@ -2184,6 +2184,7 @@ export default function App() {
           source={selectedVideo.uri}
           initialSoundName={selectedSound}
           initialFilter={cameraFilter}
+          initialBrightness={cameraBrightness}
           onCancel={()=>setCreateStep("selected")}
           onCoverSelected={(cover)=>{if(cover?.uri)setPostCoverImage(cover.uri);}}
           onExport={(result)=>{
