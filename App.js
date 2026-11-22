@@ -388,6 +388,10 @@ export default function App() {
   const [microphonePermissionGranted,setMicrophonePermissionGranted] = useState(false);
   const [cameraFacing,setCameraFacing] = useState("back");
   const [isRecording,setIsRecording] = useState(false);
+  const [torchEnabled,setTorchEnabled] = useState(false);
+  const [cameraFilter,setCameraFilter] = useState("none");
+  const [cameraBrightness,setCameraBrightness] = useState(0);
+  const cameraFilters=[{id:"none",label:"Original",tint:null},{id:"warm",label:"Warm",tint:"rgba(255,150,60,0.16)"},{id:"sepia",label:"Sepia",tint:"rgba(150,95,45,0.25)"},{id:"grayscale",label:"B&W",tint:"rgba(90,90,90,0.45)"},{id:"cool",label:"Cool",tint:"rgba(70,150,255,0.18)"},{id:"vignette",label:"Vintage",tint:"rgba(80,35,80,0.18)"},{id:"contrast",label:"Contrast",tint:"rgba(0,0,0,0.12)"},{id:"saturation",label:"Vivid",tint:"rgba(255,40,130,0.10)"}];
   const [galleryTab,setGalleryTab] = useState("All");
   const [drafts,setDrafts] = useState([]);
   const [soundReturnPage,setSoundReturnPage] = useState("Home");
@@ -2118,45 +2122,42 @@ export default function App() {
       return (
         <View style={{flex:1,backgroundColor:"#000"}}>
           {cameraPermissionGranted ? (
-            <CameraView ref={cameraRef} style={{flex:1}} facing={cameraFacing} mode="video">
-              <View style={{flex:1,justifyContent:"space-between",paddingTop:12,paddingBottom:28,paddingHorizontal:18}}>
+            <CameraView ref={cameraRef} style={{flex:1}} facing={cameraFacing} mode="video" enableTorch={torchEnabled&&cameraFacing==="back"}>
+              <View style={{flex:1,justifyContent:"space-between",paddingTop:12,paddingBottom:12,paddingHorizontal:14}}>
                 <View style={{flexDirection:"row",alignItems:"center",justifyContent:"space-between"}}>
-                  <TouchableOpacity onPress={()=>{if(isRecording)stopCameraRecording();setPage("Home");}} style={{width:44,height:44,borderRadius:22,backgroundColor:"#0009",alignItems:"center",justifyContent:"center"}}>
-                    <Text style={{color:"#fff",fontSize:28,fontWeight:"500"}}>‹</Text>
-                  </TouchableOpacity>
+                  <TouchableOpacity onPress={()=>{if(isRecording)stopCameraRecording();setPage("Home");}} style={{width:44,height:44,borderRadius:22,backgroundColor:"#0009",alignItems:"center",justifyContent:"center"}}><Text style={{color:"#fff",fontSize:28}}>‹</Text></TouchableOpacity>
                   <Text style={{color:"#fff",fontSize:16,fontWeight:"900",letterSpacing:1}}>GEN-LIVE</Text>
-                  <TouchableOpacity onPress={()=>setCameraFacing(value=>value==="back"?"front":"back")} style={{width:44,height:44,borderRadius:22,backgroundColor:"#0009",alignItems:"center",justifyContent:"center"}}>
-                    <Text style={{color:"#fff",fontSize:22}}>↻</Text>
-                  </TouchableOpacity>
+                  <TouchableOpacity onPress={()=>setCameraFacing(v=>{if(v==="back")setTorchEnabled(false);return v==="back"?"front":"back";})} style={{width:44,height:44,borderRadius:22,backgroundColor:"#0009",alignItems:"center",justifyContent:"center"}}><Text style={{color:"#fff",fontSize:22}}>↻</Text></TouchableOpacity>
                 </View>
-                <View style={{flexDirection:"row",alignItems:"center",justifyContent:"space-between"}}>
-                  <View style={{width:70,alignItems:"center"}}>
-                    <Text style={{color:"#fff",fontSize:11,fontWeight:"700"}}>{isRecording?"REC":"VIDEO"}</Text>
+                <View style={{flex:1,flexDirection:"row",alignItems:"center",justifyContent:"flex-end"}}>
+                  <View style={{position:"absolute",right:0,top:"12%",alignItems:"center",gap:12,backgroundColor:"#0007",paddingVertical:12,paddingHorizontal:9,borderRadius:22}}>
+                    <TouchableOpacity onPress={()=>{if(cameraFacing!=="back")return Alert.alert("Flash unavailable","Flash sirf back camera par available hai.");setTorchEnabled(v=>!v);}} style={{alignItems:"center"}}><Text style={{fontSize:26,color:torchEnabled?"#ffd76a":"#fff"}}>ϟ</Text><Text style={{fontSize:9,color:"#fff"}}>{torchEnabled?"FLASH ON":"FLASH"}</Text></TouchableOpacity>
+                    <Text style={{color:"#fff",fontSize:20}}>☀</Text>
+                    <View onStartShouldSetResponder={()=>true} onMoveShouldSetResponder={()=>true} onResponderGrant={e=>setCameraBrightness(Math.max(-0.45,Math.min(0.45,0.45-e.nativeEvent.locationY/130*0.9)))} onResponderMove={e=>setCameraBrightness(Math.max(-0.45,Math.min(0.45,0.45-e.nativeEvent.locationY/130*0.9)))} style={{height:130,width:26,borderRadius:14,backgroundColor:"#ffffff66",alignItems:"center",justifyContent:"center"}}>
+                      <View style={{width:24,height:8,borderRadius:5,backgroundColor:"#fff",borderWidth:1,borderColor:"#333",transform:[{translateY:-cameraBrightness/0.9*65}]}}/>
+                    </View>
+                    <Text style={{fontSize:9,color:"#fff"}}>LIGHT</Text>
                   </View>
-                  <TouchableOpacity
-                    onPress={isRecording?stopCameraRecording:recordVideo}
-                    activeOpacity={0.8}
-                    style={{width:82,height:82,borderRadius:41,borderWidth:6,borderColor:"#fff",alignItems:"center",justifyContent:"center",backgroundColor:isRecording?C.pink:"#ffffff33"}}
-                  >
-                    <View style={{width:isRecording?27:58,height:isRecording?27:58,borderRadius:isRecording?6:29,backgroundColor:isRecording?C.white:C.pink}}/>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={chooseVideoFromGallery}
-                    activeOpacity={0.85}
-                    style={{width:66,height:72,borderRadius:12,borderWidth:2,borderColor:"#fff",backgroundColor:"#171321",overflow:"hidden",alignItems:"center",justifyContent:"center"}}
-                  >
-                    {firstIsPhoto ? <Image source={{uri:firstMedia.uri}} style={{width:"100%",height:"100%"}} resizeMode="cover"/> :
-                      <View style={{alignItems:"center",justifyContent:"center"}}>
-                        <Text style={{fontSize:25,color:"#fff"}}>▧</Text>
-                        <Text style={{fontSize:9,color:"#fff",fontWeight:"800"}}>GALLERY</Text>
-                      </View>}
-                    {selectedCreateMedia.length>0&&<View style={{position:"absolute",right:3,top:3,minWidth:19,height:19,borderRadius:10,backgroundColor:C.pink,alignItems:"center",justifyContent:"center",paddingHorizontal:4}}>
-                      <Text style={{color:"#fff",fontSize:10,fontWeight:"900"}}>{selectedCreateMedia.length}</Text>
-                    </View>}
-                  </TouchableOpacity>
+                  <View pointerEvents="none" style={{position:"absolute",left:0,right:42,top:0,bottom:0,backgroundColor:cameraBrightness>0.08?"rgba(255,255,255,0.20)":cameraBrightness< -0.08?"rgba(0,0,0,0.22)":"transparent"}}/>
                 </View>
-                {isRecording&&<Text style={{position:"absolute",bottom:120,alignSelf:"center",color:"#fff",fontWeight:"900",backgroundColor:"#0009",paddingHorizontal:12,paddingVertical:6,borderRadius:12}}>● RECORDING</Text>}
+                <View style={{alignItems:"center",paddingBottom:7}}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{alignItems:"center",gap:10,paddingHorizontal:8,paddingVertical:8}}>
+                    {cameraFilters.map(item=><TouchableOpacity key={item.id} onPress={()=>setCameraFilter(item.id)} style={{alignItems:"center",paddingHorizontal:13,paddingVertical:9,borderRadius:20,backgroundColor:cameraFilter===item.id?"#fff":"#0009",borderWidth:cameraFilter===item.id?2:1,borderColor:cameraFilter===item.id?C.pink:"#ffffff66"}}><Text style={{color:cameraFilter===item.id?"#111":"#fff",fontSize:12,fontWeight:"800"}}>{item.label}</Text></TouchableOpacity>)}
+                  </ScrollView>
+                  <View style={{flexDirection:"row",alignItems:"center",justifyContent:"center",width:"100%",paddingTop:3}}>
+                    <View style={{width:64,alignItems:"center"}}><Text style={{color:"#fff",fontSize:10,fontWeight:"800"}}>{isRecording?"● REC":"VIDEO"}</Text></View>
+                    <TouchableOpacity onPress={isRecording?stopCameraRecording:recordVideo} activeOpacity={0.8} style={{width:86,height:86,borderRadius:43,borderWidth:6,borderColor:"#fff",alignItems:"center",justifyContent:"center",backgroundColor:isRecording?C.pink:"#ffffff33"}}><View style={{width:isRecording?28:60,height:isRecording?28:60,borderRadius:isRecording?6:30,backgroundColor:isRecording?C.white:C.pink}}/></TouchableOpacity>
+                    <View style={{width:64,alignItems:"center"}}><Text style={{color:"#fff",fontSize:10,fontWeight:"800"}}>{cameraFilter.toUpperCase()}</Text></View>
+                  </View>
+                  {isRecording&&<Text style={{color:"#fff",fontWeight:"900",backgroundColor:"#0009",paddingHorizontal:12,paddingVertical:5,borderRadius:12,marginTop:5}}>● RECORDING</Text>}
+                </View>
+                <View style={{height:66,backgroundColor:"#050505",borderRadius:14,flexDirection:"row",alignItems:"center",justifyContent:"space-around",marginBottom:3}}>
+                  <TouchableOpacity onPress={chooseVideoFromGallery} style={{flex:1,alignItems:"center",justifyContent:"center",height:"100%"}}>{firstIsPhoto?<Image source={{uri:firstMedia.uri}} style={{width:34,height:34,borderRadius:6}}/>:<Text style={{fontSize:21,color:"#fff"}}>▧</Text>}<Text style={{color:"#fff",fontSize:12,fontWeight:"800"}}>GALLERY</Text>{selectedCreateMedia.length>0&&<Text style={{position:"absolute",top:1,right:20,color:C.pink,fontSize:10,fontWeight:"900"}}>{selectedCreateMedia.length}</Text>}</TouchableOpacity>
+                  <TouchableOpacity onPress={()=>{if(isRecording)stopCameraRecording();else Alert.alert("Camera ready","Beech wala gol button dabakar recording shuru karein.");}} style={{flex:1,alignItems:"center",justifyContent:"center",height:"100%"}}><Text style={{color:"#fff",fontSize:14,fontWeight:"900"}}>CAMERA</Text></TouchableOpacity>
+                  <TouchableOpacity onPress={()=>{if(selectedVideo?.uri)setCreateStep("selected");else if(selectedCreateMedia.some(x=>x.type==="video"||x.mimeType?.startsWith("video/")))setCreateStep("selected");else Alert.alert("Create","Pehle video record karein ya Gallery se video select karein.");}} style={{flex:1,alignItems:"center",justifyContent:"center",height:"100%"}}><Text style={{color:C.pink,fontSize:14,fontWeight:"900"}}>CREATE</Text></TouchableOpacity>
+                </View>
               </View>
+              {cameraFilters.find(x=>x.id===cameraFilter)?.tint&&<View pointerEvents="none" style={{position:"absolute",top:0,left:0,right:0,bottom:0,backgroundColor:cameraFilters.find(x=>x.id===cameraFilter).tint}}/>}
             </CameraView>
           ) : (
             <View style={{flex:1,alignItems:"center",justifyContent:"center",padding:24}}>
@@ -2182,6 +2183,7 @@ export default function App() {
           key={selectedVideo.uri}
           source={selectedVideo.uri}
           initialSoundName={selectedSound}
+          initialFilter={cameraFilter}
           onCancel={()=>setCreateStep("selected")}
           onCoverSelected={(cover)=>{if(cover?.uri)setPostCoverImage(cover.uri);}}
           onExport={(result)=>{
