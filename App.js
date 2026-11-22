@@ -2187,6 +2187,7 @@ export default function App() {
                   </View>
                 </View>
                 <View style={{alignItems:"center",paddingBottom:7}}>
+                  <Text style={{color:"#fff",fontSize:10,fontWeight:"800",opacity:.8,marginBottom:2}}>LIFE / DAILY</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{alignItems:"center",gap:15,paddingHorizontal:12,paddingVertical:9}}>
                     {cameraFilters.map(item=><TouchableOpacity key={item.id} onPress={()=>setCameraFilter(item.id)} style={{alignItems:"center",width:58}}>
                       <View style={{width:48,height:48,borderRadius:24,backgroundColor:item.tint||"#373544",borderWidth:cameraFilter===item.id?3:1.5,borderColor:cameraFilter===item.id?C.pink:"#ffffffaa",alignItems:"center",justifyContent:"center",overflow:"hidden"}}>
