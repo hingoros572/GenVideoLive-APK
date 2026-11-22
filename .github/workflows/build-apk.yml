@@ -33,6 +33,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Switch Android editor preview to Skia
+        run: python3 scripts/disable-android-native-graded-preview.py
+
       - name: Inspect Expo Video LoadControl source before patching
         run: |
           echo "=== Expo Video Android LoadControl source files ==="
