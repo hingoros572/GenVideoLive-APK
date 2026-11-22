@@ -6,7 +6,8 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import MediaEngine from "@projectyoked/expo-media-engine";
 const C={bg:"#10101a",card:"#1c1c2b",card2:"#29283b",pink:"#ff315f",magenta:"#ff4fc8",white:"#fff",gray:"#aaaabd"};
-const FILTERS=["none","warm","sepia","grayscale","brightness","contrast","saturation","cool","vignette"];
+const FILTERS=["clear","warm","fresh","natural","bright","daily","cozy","sunlight","morning","clean","sepia","grayscale","brightness","contrast","saturation","cool","vignette"];
+const FILTER_ENGINE_MAP={clear:"none",warm:"warm",fresh:"saturation",natural:"none",bright:"brightness",daily:"none",cozy:"warm",sunlight:"brightness",morning:"warm",clean:"contrast"};
 const SW=Dimensions.get("window").width;
 function Btn({label,onPress,secondary=false,disabled=false}){return <TouchableOpacity disabled={disabled} onPress={onPress} style={[s.btn,secondary&&s.secondary,disabled&&{opacity:.45}]}><Text style={s.btnText}>{label}</Text></TouchableOpacity>}
 function Field({label,value,onChangeText,keyboardType="default"}){return <View style={s.field}><Text style={s.label}>{label}</Text><TextInput value={String(value)} onChangeText={onChangeText} keyboardType={keyboardType} placeholderTextColor={C.gray} style={s.input}/></View>}
@@ -27,7 +28,7 @@ export default function VideoEditorScreen({source,initialSoundName,initialFilter
   if(exporting)return;if(!source)return Alert.alert("Video missing","Video dobara select karein.");if(safeEnd<=safeStart)return Alert.alert("Trim range","Start aur End time check karein.");if(!MediaEngine.isAvailable())return Alert.alert("Editor not ready","Media Engine native module load nahi hua. APK dobara build karein.");
   setExporting(true);
   try{const outputUri=(FileSystem.cacheDirectory||"file:///")+"gen-video-edited-"+Date.now()+".mp4";
-   const tracks=[{type:"video",clips:[{uri:source,startTime:0,duration:clipDuration,clipStart:safeStart,clipEnd:safeEnd,resizeMode:"cover",volume:musicUri?originalVolume:1,...(filter!=="none"?{filter,filterIntensity:.75}:brightness>0.04?{filter:"brightness",filterIntensity:Math.min(1,Math.abs(brightness)*1.8)}:brightness< -0.04?{filter:"contrast",filterIntensity:Math.min(1,Math.abs(brightness)*1.8)}:{})}]}];
+   const tracks=[{type:"video",clips:[{uri:source,startTime:0,duration:clipDuration,clipStart:safeStart,clipEnd:safeEnd,resizeMode:"cover",volume:musicUri?originalVolume:1,...((FILTER_ENGINE_MAP[filter]||filter)!=="none"?{filter:FILTER_ENGINE_MAP[filter]||filter,filterIntensity:.75}:brightness>0.04?{filter:"brightness",filterIntensity:Math.min(1,Math.abs(brightness)*1.8)}:brightness< -0.04?{filter:"contrast",filterIntensity:Math.min(1,Math.abs(brightness)*1.8)}:{})}]}];
    if(musicUri)tracks.push({type:"audio",clips:[{uri:musicUri,startTime:0,duration:clipDuration,volume:musicVolume,fadeInDuration:.25,fadeOutDuration:.4}]});
    if(texts.length)tracks.push({type:"text",clips:texts.map(x=>({text:x.text,startTime:x.startTime,duration:x.duration,x:x.x,y:x.y,color:x.color,fontSize:x.fontSize,textStyle:{color:x.color,fontSize:x.fontSize,fontWeight:"bold",backgroundColor:"#66000000",backgroundPadding:8}}))});
    if(images.length)tracks.push({type:"image",clips:images.map(x=>({uri:x.uri,startTime:x.startTime,duration:x.duration,x:x.x,y:x.y,scale:x.scale,rotation:x.rotation,opacity:x.opacity}))});
