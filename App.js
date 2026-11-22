@@ -391,6 +391,8 @@ export default function App() {
   const [torchEnabled,setTorchEnabled] = useState(false);
   const [cameraFilter,setCameraFilter] = useState("none");
   const [cameraBrightness,setCameraBrightness] = useState(0);
+  const [showBrightnessControl,setShowBrightnessControl] = useState(false);
+  const [showCameraTools,setShowCameraTools] = useState(true);
   const cameraFilters=[{id:"none",label:"Original",tint:null},{id:"warm",label:"Warm",tint:"rgba(255,150,60,0.16)"},{id:"sepia",label:"Sepia",tint:"rgba(150,95,45,0.25)"},{id:"grayscale",label:"B&W",tint:"rgba(90,90,90,0.45)"},{id:"cool",label:"Cool",tint:"rgba(70,150,255,0.18)"},{id:"vignette",label:"Vintage",tint:"rgba(80,35,80,0.18)"},{id:"contrast",label:"Contrast",tint:"rgba(0,0,0,0.12)"},{id:"saturation",label:"Vivid",tint:"rgba(255,40,130,0.10)"}];
   const [galleryTab,setGalleryTab] = useState("All");
   const [drafts,setDrafts] = useState([]);
@@ -1844,7 +1846,7 @@ export default function App() {
   function renderLogin() {
     return (
       <KeyboardAvoidingView style={styles.authScreen} behavior={Platform.OS==="ios"?"padding":"height"} keyboardVerticalOffset={0}>
-        <StatusBar backgroundColor={C.bg} barStyle="light-content"/>
+        <StatusBar backgroundColor="#000" barStyle="light-content" hidden={page==="Create"&&createStep==="camera"}/>
         <ScrollView contentContainerStyle={styles.authContent} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" scrollsChildToFocus={true} showsVerticalScrollIndicator={true}>
           <Text style={styles.crown}>👑</Text>
           <Text style={styles.authTitle}>Gen Video Live</Text>
@@ -2130,19 +2132,28 @@ export default function App() {
                   <TouchableOpacity onPress={()=>setCameraFacing(v=>{if(v==="back")setTorchEnabled(false);return v==="back"?"front":"back";})} style={{width:44,height:44,borderRadius:22,backgroundColor:"#0009",alignItems:"center",justifyContent:"center"}}><Text style={{color:"#fff",fontSize:22}}>↻</Text></TouchableOpacity>
                 </View>
                 <View style={{flex:1,flexDirection:"row",alignItems:"center",justifyContent:"flex-end"}}>
-                  <View style={{position:"absolute",right:0,top:"12%",alignItems:"center",gap:12,backgroundColor:"#0007",paddingVertical:12,paddingHorizontal:9,borderRadius:22}}>
-                    <TouchableOpacity onPress={()=>{if(cameraFacing!=="back")return Alert.alert("Flash unavailable","Flash sirf back camera par available hai.");setTorchEnabled(v=>!v);}} style={{alignItems:"center"}}><Text style={{fontSize:26,color:torchEnabled?"#ffd76a":"#fff"}}>ϟ</Text><Text style={{fontSize:9,color:"#fff"}}>{torchEnabled?"FLASH ON":"FLASH"}</Text></TouchableOpacity>
-                    <Text style={{color:"#fff",fontSize:20}}>☀</Text>
-                    <View onStartShouldSetResponder={()=>true} onMoveShouldSetResponder={()=>true} onResponderGrant={e=>setCameraBrightness(Math.max(-0.45,Math.min(0.45,0.45-e.nativeEvent.locationY/130*0.9)))} onResponderMove={e=>setCameraBrightness(Math.max(-0.45,Math.min(0.45,0.45-e.nativeEvent.locationY/130*0.9)))} style={{height:130,width:26,borderRadius:14,backgroundColor:"#ffffff66",alignItems:"center",justifyContent:"center"}}>
-                      <View style={{width:24,height:8,borderRadius:5,backgroundColor:"#fff",borderWidth:1,borderColor:"#333",transform:[{translateY:-cameraBrightness/0.9*65}]}}/>
-                    </View>
-                    <Text style={{fontSize:9,color:"#fff"}}>LIGHT</Text>
+                  <View style={{position:"absolute",right:0,top:"10%",alignItems:"center",gap:13,backgroundColor:"#080710B8",paddingVertical:12,paddingHorizontal:9,borderRadius:24}}>
+                    {showCameraTools&&<TouchableOpacity onPress={()=>{if(cameraFacing!=="back")return Alert.alert("Flash unavailable","Flash sirf back camera par available hai.");setTorchEnabled(v=>!v);}} style={{alignItems:"center",width:38}}><Text style={{fontSize:25,color:torchEnabled?"#ffd76a":"#fff"}}>ϟ</Text><Text style={{fontSize:9,color:"#fff"}}>{torchEnabled?"ON":"FLASH"}</Text></TouchableOpacity>}
+                    <TouchableOpacity onPress={()=>setShowBrightnessControl(v=>!v)} style={{alignItems:"center",width:38,paddingVertical:3}}>
+                      <Text style={{fontSize:25,color:showBrightnessControl?"#ffd76a":"#fff"}}>☀</Text>
+                    </TouchableOpacity>
+                    {showBrightnessControl&&<View onStartShouldSetResponder={()=>true} onMoveShouldSetResponder={()=>true} onResponderGrant={e=>setCameraBrightness(Math.max(-0.45,Math.min(0.45,0.45-e.nativeEvent.locationY/130*0.9)))} onResponderMove={e=>setCameraBrightness(Math.max(-0.45,Math.min(0.45,0.45-e.nativeEvent.locationY/130*0.9)))} style={{height:126,width:27,borderRadius:15,backgroundColor:"#ffffff66",alignItems:"center",justifyContent:"center"}}>
+                      <View style={{width:24,height:8,borderRadius:5,backgroundColor:"#fff",borderWidth:1,borderColor:"#333",transform:[{translateY:-cameraBrightness/0.9*63}]}}/>
+                    </View>}
+                    <TouchableOpacity onPress={()=>setShowCameraTools(v=>!v)} style={{width:38,height:30,alignItems:"center",justifyContent:"center"}}>
+                      <Text style={{fontSize:22,color:"#fff"}}>{showCameraTools?"⌄":"⌃"}</Text>
+                    </TouchableOpacity>
                   </View>
-                  <View pointerEvents="none" style={{position:"absolute",left:0,right:42,top:0,bottom:0,backgroundColor:cameraBrightness>0.08?"rgba(255,255,255,0.20)":cameraBrightness< -0.08?"rgba(0,0,0,0.22)":"transparent"}}/>
                 </View>
                 <View style={{alignItems:"center",paddingBottom:7}}>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{alignItems:"center",gap:10,paddingHorizontal:8,paddingVertical:8}}>
-                    {cameraFilters.map(item=><TouchableOpacity key={item.id} onPress={()=>setCameraFilter(item.id)} style={{alignItems:"center",paddingHorizontal:13,paddingVertical:9,borderRadius:20,backgroundColor:cameraFilter===item.id?"#fff":"#0009",borderWidth:cameraFilter===item.id?2:1,borderColor:cameraFilter===item.id?C.pink:"#ffffff66"}}><Text style={{color:cameraFilter===item.id?"#111":"#fff",fontSize:12,fontWeight:"800"}}>{item.label}</Text></TouchableOpacity>)}
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{alignItems:"center",gap:15,paddingHorizontal:12,paddingVertical:9}}>
+                    {cameraFilters.map(item=><TouchableOpacity key={item.id} onPress={()=>setCameraFilter(item.id)} style={{alignItems:"center",width:58}}>
+                      <View style={{width:48,height:48,borderRadius:24,backgroundColor:item.tint||"#373544",borderWidth:cameraFilter===item.id?3:1.5,borderColor:cameraFilter===item.id?C.pink:"#ffffffaa",alignItems:"center",justifyContent:"center",overflow:"hidden"}}>
+                        <View style={{position:"absolute",top:0,left:0,right:0,bottom:0,backgroundColor:item.tint||"rgba(255,255,255,0.08)"}}/>
+                        <Text style={{fontSize:17,color:"#fff"}}>{item.id==="grayscale"?"◐":item.id==="warm"?"☀":item.id==="sepia"?"◉":item.id==="cool"?"❄":item.id==="vignette"?"✦":item.id==="contrast"?"◒":item.id==="saturation"?"✺":"◌"}</Text>
+                      </View>
+                      <Text numberOfLines={1} style={{color:"#fff",fontSize:10,fontWeight:cameraFilter===item.id?"900":"700",marginTop:4}}>{item.label}</Text>
+                    </TouchableOpacity>)}
                   </ScrollView>
                   <View style={{flexDirection:"row",alignItems:"center",justifyContent:"center",width:"100%",paddingTop:3}}>
                     <View style={{width:64,alignItems:"center"}}><Text style={{color:"#fff",fontSize:10,fontWeight:"800"}}>{isRecording?"● REC":"VIDEO"}</Text></View>
@@ -2157,7 +2168,7 @@ export default function App() {
                   <TouchableOpacity onPress={()=>{if(selectedVideo?.uri)setCreateStep("selected");else if(selectedCreateMedia.some(x=>x.type==="video"||x.mimeType?.startsWith("video/")))setCreateStep("selected");else Alert.alert("Create","Pehle video record karein ya Gallery se video select karein.");}} style={{flex:1,alignItems:"center",justifyContent:"center",height:"100%"}}><Text style={{color:C.pink,fontSize:14,fontWeight:"900"}}>CREATE</Text></TouchableOpacity>
                 </View>
               </View>
-              {cameraFilters.find(x=>x.id===cameraFilter)?.tint&&<View pointerEvents="none" style={{position:"absolute",top:0,left:0,right:0,bottom:0,backgroundColor:cameraFilters.find(x=>x.id===cameraFilter).tint}}/>}
+              {(cameraFilters.find(x=>x.id===cameraFilter)?.tint||cameraBrightness!==0)&&<View pointerEvents="none" style={{position:"absolute",top:0,left:0,right:0,bottom:0,backgroundColor:cameraBrightness>0.08?"rgba(255,255,255,0.14)":cameraBrightness< -0.08?"rgba(0,0,0,0.18)":(cameraFilters.find(x=>x.id===cameraFilter)?.tint||"transparent")}}/>}
             </CameraView>
           ) : (
             <View style={{flex:1,alignItems:"center",justifyContent:"center",padding:24}}>
