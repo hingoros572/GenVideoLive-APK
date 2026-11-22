@@ -33,6 +33,14 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Inspect Expo Video LoadControl source before patching
+        run: |
+          echo "=== Expo Video Android LoadControl source files ==="
+          find node_modules/expo-video/android/src/main -type f 2>/dev/null | grep -Ei 'LoadControl|VideoPlayer' | sort || true
+          echo "=== LoadControl declarations and allocator methods ==="
+          grep -R -n -E 'class .*LoadControl|interface LoadControl|implements LoadControl|extends DefaultLoadControl|getAllocator' node_modules/expo-video/android/src/main 2>/dev/null || true
+          echo "=== DefaultLoadControl source candidates ==="
+          find node_modules/expo-video/android/src/main -type f -iname '*DefaultLoadControl*' -print -exec sed -n '1,260p' {} \; 2>/dev/null || true
       - name: Verify Expo Video Media3 LoadControl compatibility method
         run: |
           python3 - <<'PY'
