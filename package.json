@@ -25,7 +25,8 @@
     "react-native-worklets": "0.5.1",
     "@projectyoked/expo-media-engine": "1.0.0-alpha-4",
     "expo-document-picker": "~14.0.7",
-    "expo-file-system": "~19.0.12"
+    "expo-file-system": "~19.0.12",
+    "expo-modules-core": "~3.0.15"
   },
   "devDependencies": {
     "babel-preset-expo": "~54.0.10",
