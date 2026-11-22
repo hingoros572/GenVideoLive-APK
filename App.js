@@ -390,11 +390,12 @@ export default function App() {
   const [cameraFacing,setCameraFacing] = useState("back");
   const [isRecording,setIsRecording] = useState(false);
   const [torchEnabled,setTorchEnabled] = useState(false);
-  const [cameraFilter,setCameraFilter] = useState("none");
+  const [cameraFilter,setCameraFilter] = useState("clear");
   const [cameraBrightness,setCameraBrightness] = useState(0);
   const [showBrightnessControl,setShowBrightnessControl] = useState(false);
   const [showCameraTools,setShowCameraTools] = useState(true);
-  const cameraFilters=[{id:"none",label:"Original",tint:null},{id:"warm",label:"Warm",tint:"rgba(255,150,60,0.16)"},{id:"sepia",label:"Sepia",tint:"rgba(150,95,45,0.25)"},{id:"grayscale",label:"B&W",tint:"rgba(90,90,90,0.45)"},{id:"cool",label:"Cool",tint:"rgba(70,150,255,0.18)"},{id:"vignette",label:"Vintage",tint:"rgba(80,35,80,0.18)"},{id:"contrast",label:"Contrast",tint:"rgba(0,0,0,0.12)"},{id:"saturation",label:"Vivid",tint:"rgba(255,40,130,0.10)"}];
+  const cameraFilterCategories=[{category:"Life / Daily",filters:[{id:1,name:"Clear",slug:"clear",tint:null,engineFilter:"none"},{id:2,name:"Warm",slug:"warm",tint:"rgba(255,150,60,0.16)",engineFilter:"warm"},{id:3,name:"Fresh",slug:"fresh",tint:"rgba(100,210,170,0.12)",engineFilter:"saturation"},{id:4,name:"Natural",slug:"natural",tint:"rgba(255,220,170,0.08)",engineFilter:"none"},{id:5,name:"Bright",slug:"bright",tint:"rgba(255,245,180,0.18)",engineFilter:"brightness"},{id:6,name:"Daily",slug:"daily",tint:"rgba(255,255,255,0.05)",engineFilter:"none"},{id:7,name:"Cozy",slug:"cozy",tint:"rgba(210,125,80,0.16)",engineFilter:"warm"},{id:8,name:"Sunlight",slug:"sunlight",tint:"rgba(255,205,90,0.20)",engineFilter:"brightness"},{id:9,name:"Morning",slug:"morning",tint:"rgba(255,190,135,0.14)",engineFilter:"warm"},{id:10,name:"Clean",slug:"clean",tint:"rgba(180,225,255,0.10)",engineFilter:"contrast"}]}];
+  const cameraFilters=cameraFilterCategories.flatMap(category=>category.filters.map(filter=>({...filter,label:filter.name})));
   const [galleryTab,setGalleryTab] = useState("All");
   const [galleryAssets,setGalleryAssets] = useState([]);
   const [galleryLoading,setGalleryLoading] = useState(false);
@@ -2198,7 +2199,7 @@ export default function App() {
                   <View style={{flexDirection:"row",alignItems:"center",justifyContent:"center",width:"100%",paddingTop:3}}>
                     <View style={{width:64,alignItems:"center"}}><Text style={{color:"#fff",fontSize:10,fontWeight:"800"}}>{isRecording?"● REC":"VIDEO"}</Text></View>
                     <TouchableOpacity onPress={isRecording?stopCameraRecording:recordVideo} activeOpacity={0.8} style={{width:86,height:86,borderRadius:43,borderWidth:6,borderColor:"#fff",alignItems:"center",justifyContent:"center",backgroundColor:isRecording?C.pink:"#ffffff33"}}><View style={{width:isRecording?28:60,height:isRecording?28:60,borderRadius:isRecording?6:30,backgroundColor:isRecording?C.white:C.pink}}/></TouchableOpacity>
-                    <View style={{width:64,alignItems:"center"}}><Text style={{color:"#fff",fontSize:10,fontWeight:"800"}}>{cameraFilter.toUpperCase()}</Text></View>
+                    <View style={{width:64,alignItems:"center"}}><Text style={{color:"#fff",fontSize:10,fontWeight:"800"}}>{(cameraFilters.find(x=>x.slug===cameraFilter)?.name||"CLEAR").toUpperCase()}</Text></View>
                   </View>
                   {isRecording&&<Text style={{color:"#fff",fontWeight:"900",backgroundColor:"#0009",paddingHorizontal:12,paddingVertical:5,borderRadius:12,marginTop:5}}>● RECORDING</Text>}
                 </View>
