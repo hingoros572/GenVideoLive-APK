@@ -85,7 +85,7 @@ jobs:
           echo "JADX exit code: $JADX_EXIT (partial source output will still be inspected)"
           echo "=== LoadControl declarations and allocator overrides in the packaged APK ==="
           if [ -d /tmp/jadx-out/sources ]; then
-            grep -R -n -E 'implements LoadControl|: LoadControl|extends DefaultLoadControl|getAllocator\\(' /tmp/jadx-out/sources | head -240 || true
+            grep -R -n -E 'implements LoadControl|: LoadControl|extends DefaultLoadControl|getAllocator' /tmp/jadx-out/sources | head -240 || true
           else
             echo "JADX did not create a sources directory."
           fi
