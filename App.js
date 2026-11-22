@@ -391,10 +391,11 @@ export default function App() {
   const [isRecording,setIsRecording] = useState(false);
   const [torchEnabled,setTorchEnabled] = useState(false);
   const [cameraFilter,setCameraFilter] = useState("clear");
+  const [activeCameraFilterCategory,setActiveCameraFilterCategory] = useState("Life / Daily");
   const [cameraBrightness,setCameraBrightness] = useState(0);
   const [showBrightnessControl,setShowBrightnessControl] = useState(false);
   const [showCameraTools,setShowCameraTools] = useState(true);
-  const cameraFilterCategories=[{category:"Life / Daily",filters:[{id:1,name:"Clear",slug:"clear",tint:null,engineFilter:"none"},{id:2,name:"Warm",slug:"warm",tint:"rgba(255,150,60,0.16)",engineFilter:"warm"},{id:3,name:"Fresh",slug:"fresh",tint:"rgba(100,210,170,0.12)",engineFilter:"saturation"},{id:4,name:"Natural",slug:"natural",tint:"rgba(255,220,170,0.08)",engineFilter:"none"},{id:5,name:"Bright",slug:"bright",tint:"rgba(255,245,180,0.18)",engineFilter:"brightness"},{id:6,name:"Daily",slug:"daily",tint:"rgba(255,255,255,0.05)",engineFilter:"none"},{id:7,name:"Cozy",slug:"cozy",tint:"rgba(210,125,80,0.16)",engineFilter:"warm"},{id:8,name:"Sunlight",slug:"sunlight",tint:"rgba(255,205,90,0.20)",engineFilter:"brightness"},{id:9,name:"Morning",slug:"morning",tint:"rgba(255,190,135,0.14)",engineFilter:"warm"},{id:10,name:"Clean",slug:"clean",tint:"rgba(180,225,255,0.10)",engineFilter:"contrast"}]}];
+  const cameraFilterCategories=[{category:"Life / Daily",filters:[{id:1,name:"Clear",slug:"clear",tint:null,engineFilter:"none"},{id:2,name:"Warm",slug:"warm",tint:"rgba(255,150,60,0.16)",engineFilter:"warm"},{id:3,name:"Fresh",slug:"fresh",tint:"rgba(100,210,170,0.12)",engineFilter:"saturation"},{id:4,name:"Natural",slug:"natural",tint:"rgba(255,220,170,0.08)",engineFilter:"none"},{id:5,name:"Bright",slug:"bright",tint:"rgba(255,245,180,0.18)",engineFilter:"brightness"},{id:6,name:"Daily",slug:"daily",tint:"rgba(255,255,255,0.05)",engineFilter:"none"},{id:7,name:"Cozy",slug:"cozy",tint:"rgba(210,125,80,0.16)",engineFilter:"warm"},{id:8,name:"Sunlight",slug:"sunlight",tint:"rgba(255,205,90,0.20)",engineFilter:"brightness"},{id:9,name:"Morning",slug:"morning",tint:"rgba(255,190,135,0.14)",engineFilter:"warm"},{id:10,name:"Clean",slug:"clean",tint:"rgba(180,225,255,0.10)",engineFilter:"contrast"},{category:"Food",filters:[{id:1,name:"Delicious",slug:"delicious",tint:"rgba(255,95,70,0.16)",engineFilter:"saturation"},{id:2,name:"Tasty",slug:"tasty",tint:"rgba(255,165,65,0.14)",engineFilter:"warm"},{id:3,name:"Sweet",slug:"sweet",tint:"rgba(255,125,175,0.16)",engineFilter:"warm"},{id:4,name:"Crisp",slug:"crisp",tint:"rgba(180,225,255,0.12)",engineFilter:"contrast"},{id:5,name:"Appetite",slug:"appetite",tint:"rgba(255,190,80,0.18)",engineFilter:"saturation"},{id:6,name:"Juicy",slug:"juicy",tint:"rgba(255,70,85,0.17)",engineFilter:"saturation"},{id:7,name:"Coffee",slug:"coffee",tint:"rgba(115,70,45,0.22)",engineFilter:"warm"},{id:8,name:"Cream",slug:"cream",tint:"rgba(255,230,190,0.18)",engineFilter:"warm"},{id:9,name:"BBQ",slug:"bbq",tint:"rgba(125,55,35,0.20)",engineFilter:"contrast"}]}];
   const cameraFilters=cameraFilterCategories.flatMap(category=>category.filters.map(filter=>({...filter,label:filter.name})));
   const [galleryTab,setGalleryTab] = useState("All");
   const [galleryAssets,setGalleryAssets] = useState([]);
@@ -2187,14 +2188,14 @@ export default function App() {
                   </View>
                 </View>
                 <View style={{alignItems:"center",paddingBottom:7}}>
-                  <Text style={{color:"#fff",fontSize:10,fontWeight:"800",opacity:.8,marginBottom:2}}>LIFE / DAILY</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:8,paddingHorizontal:10,paddingTop:5}}>{cameraFilterCategories.map(category=><TouchableOpacity key={category.category} onPress={()=>setActiveCameraFilterCategory(category.category)} style={{paddingHorizontal:12,paddingVertical:5,borderRadius:14,backgroundColor:activeCameraFilterCategory===category.category?C.pink:"#0009"}}><Text style={{color:"#fff",fontSize:10,fontWeight:"800"}}>{category.category.toUpperCase()}</Text></TouchableOpacity>)}</ScrollView>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{alignItems:"center",gap:15,paddingHorizontal:12,paddingVertical:9}}>
-                    {cameraFilters.map(item=><TouchableOpacity key={item.id} onPress={()=>setCameraFilter(item.id)} style={{alignItems:"center",width:58}}>
-                      <View style={{width:48,height:48,borderRadius:24,backgroundColor:item.tint||"#373544",borderWidth:cameraFilter===item.id?3:1.5,borderColor:cameraFilter===item.id?C.pink:"#ffffffaa",alignItems:"center",justifyContent:"center",overflow:"hidden"}}>
+                    {cameraFilters.filter(item=>cameraFilterCategories.find(category=>category.category===activeCameraFilterCategory)?.filters.some(filter=>filter.slug===item.slug)).map(item=><TouchableOpacity key={item.slug} onPress={()=>setCameraFilter(item.slug)} style={{alignItems:"center",width:58}}>
+                      <View style={{width:48,height:48,borderRadius:24,backgroundColor:item.tint||"#373544",borderWidth:cameraFilter===item.slug?3:1.5,borderColor:cameraFilter===item.slug?C.pink:"#ffffffaa",alignItems:"center",justifyContent:"center",overflow:"hidden"}}>
                         <View style={{position:"absolute",top:0,left:0,right:0,bottom:0,backgroundColor:item.tint||"rgba(255,255,255,0.08)"}}/>
                         <Text style={{fontSize:17,color:"#fff"}}>{item.id==="grayscale"?"◐":item.id==="warm"?"☀":item.id==="sepia"?"◉":item.id==="cool"?"❄":item.id==="vignette"?"✦":item.id==="contrast"?"◒":item.id==="saturation"?"✺":"◌"}</Text>
                       </View>
-                      <Text numberOfLines={1} style={{color:"#fff",fontSize:10,fontWeight:cameraFilter===item.id?"900":"700",marginTop:4}}>{item.label}</Text>
+                      <Text numberOfLines={1} style={{color:"#fff",fontSize:10,fontWeight:cameraFilter===item.slug?"900":"700",marginTop:4}}>{item.label}</Text>
                     </TouchableOpacity>)}
                   </ScrollView>
                   <View style={{flexDirection:"row",alignItems:"center",justifyContent:"center",width:"100%",paddingTop:3}}>
@@ -2210,7 +2211,7 @@ export default function App() {
                   <TouchableOpacity onPress={()=>{if(selectedVideo?.uri)setCreateStep("selected");else if(selectedCreateMedia.some(x=>x.type==="video"||x.mimeType?.startsWith("video/")))setCreateStep("selected");else Alert.alert("Create","Pehle video record karein ya Gallery se video select karein.");}} style={{flex:1,alignItems:"center",justifyContent:"center",height:"100%"}}><Text style={{color:C.pink,fontSize:14,fontWeight:"900"}}>CREATE</Text></TouchableOpacity>
                 </View>
               </View>
-              {(cameraFilters.find(x=>x.id===cameraFilter)?.tint||cameraBrightness!==0)&&<View pointerEvents="none" style={{position:"absolute",top:0,left:0,right:0,bottom:0,backgroundColor:cameraBrightness>0.08?"rgba(255,255,255,0.14)":cameraBrightness< -0.08?"rgba(0,0,0,0.18)":(cameraFilters.find(x=>x.id===cameraFilter)?.tint||"transparent")}}/>}
+              {(cameraFilters.find(x=>x.slug===cameraFilter)?.tint||cameraBrightness!==0)&&<View pointerEvents="none" style={{position:"absolute",top:0,left:0,right:0,bottom:0,backgroundColor:cameraBrightness>0.08?"rgba(255,255,255,0.14)":cameraBrightness< -0.08?"rgba(0,0,0,0.18)":(cameraFilters.find(x=>x.id===cameraFilter)?.tint||"transparent")}}/>}
             </CameraView>
           ) : (
             <View style={{flex:1,alignItems:"center",justifyContent:"center",padding:24}}>
@@ -2236,7 +2237,7 @@ export default function App() {
           key={selectedVideo.uri}
           source={selectedVideo.uri}
           initialSoundName={selectedSound}
-          initialFilter={cameraFilter}
+          initialFilter={cameraFilters.find(x=>x.slug===cameraFilter)?.engineFilter||"none"}
           initialBrightness={cameraBrightness}
           onCancel={()=>setCreateStep("selected")}
           onCoverSelected={(cover)=>{if(cover?.uri)setPostCoverImage(cover.uri);}}
