@@ -3,7 +3,7 @@ index 4ffe72b..8b1cf1d 100644
 --- a/node_modules/expo-video/android/src/main/java/expo/modules/video/player/VideoPlayerLoadControl.kt
 +++ b/node_modules/expo-video/android/src/main/java/expo/modules/video/player/VideoPlayerLoadControl.kt
 @@ -54,4 +54,9 @@ class VideoPlayerLoadControl : DefaultLoadControl() {
- 
+
      updateAllocator()
    }
 +
