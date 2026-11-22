@@ -7,6 +7,7 @@ import {
   Share, Dimensions, Linking
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { CameraView, Camera } from "expo-camera";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Video, ResizeMode, Audio } from "expo-av";
 // Preview playback uses expo-av; MediaEngine handles final native composition.
@@ -382,6 +383,11 @@ export default function App() {
   const [createStep,setCreateStep] = useState("camera");
   const [createPhotos,setCreatePhotos] = useState([]);
   const [selectedCreateMedia,setSelectedCreateMedia] = useState([]);
+  const cameraRef = useRef(null);
+  const [cameraPermissionGranted,setCameraPermissionGranted] = useState(false);
+  const [microphonePermissionGranted,setMicrophonePermissionGranted] = useState(false);
+  const [cameraFacing,setCameraFacing] = useState("back");
+  const [isRecording,setIsRecording] = useState(false);
   const [galleryTab,setGalleryTab] = useState("All");
   const [drafts,setDrafts] = useState([]);
   const [soundReturnPage,setSoundReturnPage] = useState("Home");
@@ -410,6 +416,24 @@ export default function App() {
   const liveUnlocked = followerCount >= 1000;
   const statusHeight = Platform.OS==="android"?(StatusBar.currentHeight||0):0;
   const reelHeight = feedHeight || SCREEN_HEIGHT-62-66-statusHeight;
+
+  useEffect(()=>{
+    if(page!=="Create"||createStep!=="camera") return;
+    let active=true;
+    (async()=>{
+      try {
+        const cameraResult=await Camera.requestCameraPermissionsAsync();
+        const micResult=await Camera.requestMicrophonePermissionsAsync();
+        if(active) {
+          setCameraPermissionGranted(!!cameraResult.granted);
+          setMicrophonePermissionGranted(!!micResult.granted);
+        }
+      } catch(error) {
+        if(active) Alert.alert("Camera Permission",error.message||"Camera permission allow karein.");
+      }
+    })();
+    return ()=>{active=false;};
+  },[page,createStep]);
 
   useEffect(()=>{
     Audio.setAudioModeAsync({
@@ -1155,25 +1179,44 @@ export default function App() {
   }
 
   async function recordVideo() {
+    if(!cameraPermissionGranted) {
+      try {
+        const result=await Camera.requestCameraPermissionsAsync();
+        setCameraPermissionGranted(!!result.granted);
+        if(!result.granted) return Alert.alert("Permission","Camera permission allow karein.");
+      } catch(error) {
+        return Alert.alert("Camera Error",error.message||"Camera permission nahi mili.");
+      }
+    }
+    if(!microphonePermissionGranted) {
+      try {
+        const result=await Camera.requestMicrophonePermissionsAsync();
+        setMicrophonePermissionGranted(!!result.granted);
+        if(!result.granted) return Alert.alert("Permission","Video ki awaaz record karne ke liye microphone permission allow karein.");
+      } catch(error) {
+        return Alert.alert("Microphone Permission",error.message||"Microphone permission nahi mili.");
+      }
+    }
+    if(!cameraRef.current) return Alert.alert("Camera","Camera abhi ready nahi hai. Ek second baad dobara try karein.");
     try {
-      const permission=await ImagePicker.requestCameraPermissionsAsync();
-      if(!permission.granted)
-        return Alert.alert("Permission","Camera permission allow karein.");
-
-      const result=await ImagePicker.launchCameraAsync({
-        mediaTypes:["videos"],
-        videoMaxDuration:180,
-        quality:1
-      });
-
-      if(!result.canceled&&result.assets?.length) {
-        setSelectedVideo(result.assets[0]);
+      setIsRecording(true);
+      const result=await cameraRef.current.recordAsync({maxDuration:180});
+      setIsRecording(false);
+      if(result?.uri) {
+        const recorded={uri:result.uri,type:"video",mimeType:"video/mp4",fileName:"gen-live-recording-"+Date.now()+".mp4"};
+        setSelectedVideo(recorded);
+        setSelectedCreateMedia(old=>[recorded,...old.filter(item=>item.uri!==recorded.uri)].slice(0,15));
         setCreateStep("selected");
-        Alert.alert("Video selected","Camera video select ho gayi.");
       }
     } catch(error) {
-      Alert.alert("Camera Error",error.message||"Camera start nahi hua.");
+      setIsRecording(false);
+      Alert.alert("Recording Error",error.message||"Video record nahi ho saki.");
     }
+  }
+
+  function stopCameraRecording() {
+    try { cameraRef.current?.stopRecording(); }
+    catch(error) { Alert.alert("Recording Error",error.message||"Recording stop nahi hui."); }
   }
 
   // Profile photo picker
@@ -2069,6 +2112,64 @@ export default function App() {
   }
 
   function renderCreate() {
+    if(createStep==="camera") {
+      const firstMedia=selectedCreateMedia[0];
+      const firstIsPhoto=firstMedia&&(firstMedia.type==="image"||firstMedia.mimeType?.startsWith("image/"));
+      return (
+        <View style={{flex:1,backgroundColor:"#000"}}>
+          {cameraPermissionGranted ? (
+            <CameraView ref={cameraRef} style={{flex:1}} facing={cameraFacing} mode="video">
+              <View style={{flex:1,justifyContent:"space-between",paddingTop:12,paddingBottom:28,paddingHorizontal:18}}>
+                <View style={{flexDirection:"row",alignItems:"center",justifyContent:"space-between"}}>
+                  <TouchableOpacity onPress={()=>{if(isRecording)stopCameraRecording();setPage("Home");}} style={{width:44,height:44,borderRadius:22,backgroundColor:"#0009",alignItems:"center",justifyContent:"center"}}>
+                    <Text style={{color:"#fff",fontSize:28,fontWeight:"500"}}>‹</Text>
+                  </TouchableOpacity>
+                  <Text style={{color:"#fff",fontSize:16,fontWeight:"900",letterSpacing:1}}>GEN-LIVE</Text>
+                  <TouchableOpacity onPress={()=>setCameraFacing(value=>value==="back"?"front":"back")} style={{width:44,height:44,borderRadius:22,backgroundColor:"#0009",alignItems:"center",justifyContent:"center"}}>
+                    <Text style={{color:"#fff",fontSize:22}}>↻</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={{flexDirection:"row",alignItems:"center",justifyContent:"space-between"}}>
+                  <View style={{width:70,alignItems:"center"}}>
+                    <Text style={{color:"#fff",fontSize:11,fontWeight:"700"}}>{isRecording?"REC":"VIDEO"}</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={isRecording?stopCameraRecording:recordVideo}
+                    activeOpacity={0.8}
+                    style={{width:82,height:82,borderRadius:41,borderWidth:6,borderColor:"#fff",alignItems:"center",justifyContent:"center",backgroundColor:isRecording?C.pink:"#ffffff33"}}
+                  >
+                    <View style={{width:isRecording?27:58,height:isRecording?27:58,borderRadius:isRecording?6:29,backgroundColor:isRecording?C.white:C.pink}}/>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={chooseVideoFromGallery}
+                    activeOpacity={0.85}
+                    style={{width:66,height:72,borderRadius:12,borderWidth:2,borderColor:"#fff",backgroundColor:"#171321",overflow:"hidden",alignItems:"center",justifyContent:"center"}}
+                  >
+                    {firstIsPhoto ? <Image source={{uri:firstMedia.uri}} style={{width:"100%",height:"100%"}} resizeMode="cover"/> :
+                      <View style={{alignItems:"center",justifyContent:"center"}}>
+                        <Text style={{fontSize:25,color:"#fff"}}>▧</Text>
+                        <Text style={{fontSize:9,color:"#fff",fontWeight:"800"}}>GALLERY</Text>
+                      </View>}
+                    {selectedCreateMedia.length>0&&<View style={{position:"absolute",right:3,top:3,minWidth:19,height:19,borderRadius:10,backgroundColor:C.pink,alignItems:"center",justifyContent:"center",paddingHorizontal:4}}>
+                      <Text style={{color:"#fff",fontSize:10,fontWeight:"900"}}>{selectedCreateMedia.length}</Text>
+                    </View>}
+                  </TouchableOpacity>
+                </View>
+                {isRecording&&<Text style={{position:"absolute",bottom:120,alignSelf:"center",color:"#fff",fontWeight:"900",backgroundColor:"#0009",paddingHorizontal:12,paddingVertical:6,borderRadius:12}}>● RECORDING</Text>}
+              </View>
+            </CameraView>
+          ) : (
+            <View style={{flex:1,alignItems:"center",justifyContent:"center",padding:24}}>
+              <Text style={{color:"#fff",fontSize:18,fontWeight:"800",textAlign:"center"}}>Camera permission required</Text>
+              <Text style={{color:C.gray,textAlign:"center",marginTop:8}}>Camera preview ke liye permission allow karein.</Text>
+              <Button title="Allow Camera" onPress={async()=>{const result=await Camera.requestCameraPermissionsAsync();setCameraPermissionGranted(!!result.granted);}}/>
+              <Button title="Open Gallery" secondary onPress={chooseVideoFromGallery}/>
+              <TouchableOpacity onPress={()=>setPage("Home")} style={{marginTop:18}}><Text style={{color:C.magenta}}>‹ Back</Text></TouchableOpacity>
+            </View>
+          )}
+        </View>
+      );
+    }
     if(createStep==="editor") {
       if(!selectedVideo?.uri) {
         return <View style={{flex:1,backgroundColor:C.bg,padding:20,justifyContent:"center"}}>
@@ -2108,14 +2209,7 @@ export default function App() {
           <Text style={{color:C.gray,fontSize:12}}>{stepNumber}</Text>
         </View>
 
-        {createStep==="camera"&&<View style={styles.card}>
-          <Text style={styles.sectionTitle}>🎬 Create your video</Text>
-          <Text style={styles.helpText}>Camera se nayi video record karein ya phone gallery se apni video select karein.</Text>
-          <Button title="📷 Record Video" onPress={recordVideo}/>
-          <Button title="🖼 Upload from Gallery" secondary onPress={()=>setCreateStep("gallery")}/>
-          <Button title="♫ Choose Music / Sound" secondary onPress={()=>{setSoundReturnPage("Create");setPage("Sound");}}/>
-          <Button title={`Drafts (${drafts.length})`} secondary onPress={openDrafts}/>
-        </View>}
+
 
         {createStep==="gallery"&&<View style={styles.card}>
           <Text style={styles.sectionTitle}>🖼 Select Photos & Videos</Text>
@@ -2727,7 +2821,7 @@ export default function App() {
         </View>
       </Modal>
 
-      {page!=="EditProfile"&&page!=="Sound"&&page!=="Settings"&&!(page==="Inbox"&&selectedChat&&chatInputFocused)&&!(page==="Create"&&createStep==="editor")&&(
+      {page!=="EditProfile"&&page!=="Sound"&&page!=="Settings"&&!(page==="Inbox"&&selectedChat&&chatInputFocused)&&!(page==="Create"&&(createStep==="editor"||createStep==="camera"))&&(
         <View style={styles.bottomNav}>
           <NavItem icon="home" label="Home" active={page==="Home"} onPress={()=>setPage("Home")}/>
           <NavItem icon="friends" label="Friends" active={page==="Explore"} onPress={()=>setPage("Explore")}/>
