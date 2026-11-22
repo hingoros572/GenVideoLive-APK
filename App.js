@@ -1846,7 +1846,7 @@ export default function App() {
   function renderLogin() {
     return (
       <KeyboardAvoidingView style={styles.authScreen} behavior={Platform.OS==="ios"?"padding":"height"} keyboardVerticalOffset={0}>
-        <StatusBar backgroundColor="#000" barStyle="light-content" hidden={page==="Create"&&createStep==="camera"}/>
+        <StatusBar backgroundColor={C.bg} barStyle="light-content"/>
         <ScrollView contentContainerStyle={styles.authContent} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" scrollsChildToFocus={true} showsVerticalScrollIndicator={true}>
           <Text style={styles.crown}>👑</Text>
           <Text style={styles.authTitle}>Gen Video Live</Text>
@@ -2755,7 +2755,7 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{flex:1}}>
     <View style={styles.app}>
-      <StatusBar backgroundColor={C.bg} barStyle="light-content"/>
+      <StatusBar backgroundColor="#000" barStyle="light-content" hidden={page==="Create"&&createStep==="camera"}/>
 
       {page==="Home"&&renderHome()}
       {page==="Explore"&&renderExplore()}
