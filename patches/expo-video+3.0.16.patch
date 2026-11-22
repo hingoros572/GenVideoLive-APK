@@ -12,19 +12,3 @@ index 0000000..0000000 100644
 +  public Allocator getAllocator(PlayerId playerId) {
 +    return allocator;
 +  }
-diff --git a/node_modules/expo-video/android/src/main/java/expo/modules/video/player/VideoPlayerLoadControl.kt b/node_modules/expo-video/android/src/main/java/expo/modules/video/player/VideoPlayerLoadControl.kt
-index 0000000..0000000 100644
---- a/node_modules/expo-video/android/src/main/java/expo/modules/video/player/VideoPlayerLoadControl.kt
-+++ b/node_modules/expo-video/android/src/main/java/expo/modules/video/player/VideoPlayerLoadControl.kt
-@@ -3,7 +3,9 @@
- import androidx.media3.common.C
- import androidx.media3.common.util.UnstableApi
- import androidx.media3.common.util.Util
-+import androidx.media3.exoplayer.analytics.PlayerId
-+import androidx.media3.exoplayer.upstream.Allocator
- import expo.modules.video.records.BufferOptions
- 
- @UnstableApi
- class VideoPlayerLoadControl : DefaultLoadControl() {
-+  override fun getAllocator(playerId: PlayerId): Allocator = super.getAllocator(playerId)
-   private var targetBufferMs: Long
