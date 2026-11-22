@@ -6,8 +6,8 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import MediaEngine from "@projectyoked/expo-media-engine";
 const C={bg:"#10101a",card:"#1c1c2b",card2:"#29283b",pink:"#ff315f",magenta:"#ff4fc8",white:"#fff",gray:"#aaaabd"};
-const FILTERS=["clear","warm","fresh","natural","bright","daily","cozy","sunlight","morning","clean","sepia","grayscale","brightness","contrast","saturation","cool","vignette"];
-const FILTER_ENGINE_MAP={clear:"none",warm:"warm",fresh:"saturation",natural:"none",bright:"brightness",daily:"none",cozy:"warm",sunlight:"brightness",morning:"warm",clean:"contrast"};
+const FILTERS=["clear","warm","fresh","natural","bright","daily","cozy","sunlight","morning","clean","delicious","tasty","sweet","crisp","appetite","juicy","coffee","cream","bbq","sepia","grayscale","brightness","contrast","saturation","cool","vignette"];
+const FILTER_ENGINE_MAP={clear:"none",warm:"warm",fresh:"saturation",natural:"none",bright:"brightness",daily:"none",cozy:"warm",sunlight:"brightness",morning:"warm",clean:"contrast",delicious:"saturation",tasty:"warm",sweet:"warm",crisp:"contrast",appetite:"saturation",juicy:"saturation",coffee:"warm",cream:"warm",bbq:"contrast"};
 const SW=Dimensions.get("window").width;
 function Btn({label,onPress,secondary=false,disabled=false}){return <TouchableOpacity disabled={disabled} onPress={onPress} style={[s.btn,secondary&&s.secondary,disabled&&{opacity:.45}]}><Text style={s.btnText}>{label}</Text></TouchableOpacity>}
 function Field({label,value,onChangeText,keyboardType="default"}){return <View style={s.field}><Text style={s.label}>{label}</Text><TextInput value={String(value)} onChangeText={onChangeText} keyboardType={keyboardType} placeholderTextColor={C.gray} style={s.input}/></View>}
