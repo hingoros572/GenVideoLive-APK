@@ -1,14 +1,15 @@
-diff --git a/node_modules/expo-video/android/src/main/java/expo/modules/video/player/DefaultLoadControl.java b/node_modules/expo-video/android/src/main/java/expo/modules/video/player/DefaultLoadControl.java
-index 0000000..0000000 100644
---- a/node_modules/expo-video/android/src/main/java/expo/modules/video/player/DefaultLoadControl.java
-+++ b/node_modules/expo-video/android/src/main/java/expo/modules/video/player/DefaultLoadControl.java
-@@ -391,4 +391,9 @@
-   @Override
-   public Allocator getAllocator() {
-     return allocator;
+diff --git a/node_modules/expo-video/android/src/main/java/expo/modules/video/player/VideoPlayerLoadControl.kt b/node_modules/expo-video/android/src/main/java/expo/modules/video/player/VideoPlayerLoadControl.kt
+index 4ffe72b..8b1cf1d 100644
+--- a/node_modules/expo-video/android/src/main/java/expo/modules/video/player/VideoPlayerLoadControl.kt
++++ b/node_modules/expo-video/android/src/main/java/expo/modules/video/player/VideoPlayerLoadControl.kt
+@@ -54,4 +54,9 @@ class VideoPlayerLoadControl : DefaultLoadControl() {
+ 
+     updateAllocator()
    }
 +
-+  @Override
-+  public Allocator getAllocator(PlayerId playerId) {
-+    return allocator;
++  // Media3 requires the PlayerId-aware allocator method; Keep prevents R8 from stripping it.
++  @androidx.annotation.Keep
++  override fun getAllocator(playerId: androidx.media3.exoplayer.analytics.PlayerId): androidx.media3.exoplayer.upstream.Allocator {
++    return super.getAllocator()
 +  }
+ }
