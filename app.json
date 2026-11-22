@@ -2,13 +2,13 @@
   "expo": {
     "name": "Gen Video Live",
     "slug": "gen-video-live",
-    "version": "2.0.0",
+    "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "android": {
       "package": "com.genvideolive.app",
-      "versionCode": 2,
+      "versionCode": 1,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
