@@ -1,30 +1,33 @@
 from pathlib import Path
+import re
 
-path = Path("node_modules/@dahab-tech/react-native-media-editor/src/video/VideoEditor.tsx")
-source = path.read_text()
+root = Path("node_modules/@dahab-tech/react-native-media-editor")
+if not root.is_dir():
+    raise SystemExit("Media editor package folder was not found after npm install.")
 
-old = """  const nativeRatePreviewActive =
-    rateSynced &&
-    colorPreviewMounted &&
-    !nativePreviewFailed &&
-    (state.overlayId == null || previewWashUri != null);"""
+# npm publishes compiled JavaScript under build/, not the TypeScript src/ folder.
+candidates = list((root / "build").rglob("*.js"))
+matches = []
 
-new = """  // Android workaround: use the existing Skia preview pipeline instead of the
-  // package's separate Media3 ExoPlayer (GradedPreviewView), which can crash
-  // with AbstractMethodError on LoadControl.getAllocator(PlayerId).
-  // iOS keeps its native rate-controlled preview unchanged.
-  const nativeRatePreviewActive =
-    Platform.OS !== 'android' &&
-    rateSynced &&
-    colorPreviewMounted &&
-    !nativePreviewFailed &&
-    (state.overlayId == null || previewWashUri != null);"""
+for path in candidates:
+    source = path.read_text(encoding="utf-8")
+    pattern = re.compile(
+        r"((?:const|let|var)\\s+nativeRatePreviewActive\\s*=\\s*)(rateSynced\\s*&&)"
+    )
+    updated, count = pattern.subn(
+        r"\\1Platform.OS !== 'android' && \\2",
+        source,
+        count=1,
+    )
+    if count:
+        matches.append((path, source, updated))
 
-if source.count(old) != 1:
+if len(matches) != 1:
     raise SystemExit(
-        "Expected exactly one nativeRatePreviewActive block in the installed media-editor package; "
-        "refusing to patch an unknown version."
+        f"Expected exactly one compiled nativeRatePreviewActive expression, found {len(matches)}. "
+        "No package files were changed."
     )
 
-path.write_text(source.replace(old, new, 1))
-print("Patched Android VideoEditor to use the existing Skia preview instead of native Media3 ExoPlayer.")
+path, _, updated = matches[0]
+path.write_text(updated, encoding="utf-8")
+print(f"Patched {path}: Android now uses the existing Skia preview; iOS is unchanged.")
