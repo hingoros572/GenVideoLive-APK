@@ -33,24 +33,17 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Keep Expo Video Media3 LoadControl compatibility method
+      - name: Verify Expo Video Media3 LoadControl compatibility method
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          path = Path("node_modules/expo-video/android/src/main/java/expo/modules/video/player/DefaultLoadControl.java")
+          path = Path("node_modules/expo-video/android/src/main/java/expo/modules/video/player/VideoPlayerLoadControl.kt")
           source = path.read_text()
-          method = "  @Override\n  public Allocator getAllocator(PlayerId playerId) {\n    return allocator;\n  }"
+          method = "  @androidx.annotation.Keep\\n  override fun getAllocator(playerId: androidx.media3.exoplayer.analytics.PlayerId): androidx.media3.exoplayer.upstream.Allocator {\\n    return super.getAllocator()\\n  }"
           if source.count(method) != 1:
-              raise SystemExit("Expected exactly one PlayerId allocator override in Expo Video source.")
-          keep = "  @androidx.annotation.Keep\\n" + method
-          if keep not in source:
-              source = source.replace(method, keep)
-              path.write_text(source)
-          if source.count(keep) != 1:
-              raise SystemExit("Could not preserve the PlayerId allocator override.")
-          print("Verified and kept getAllocator(PlayerId) against R8 shrinking.")
+              raise SystemExit("Expected exactly one kept getAllocator(PlayerId) override in VideoPlayerLoadControl.kt.")
+          print("Verified kept getAllocator(PlayerId) override in the actual Expo Video LoadControl subclass.")
           PY
-
       - name: Generate native Android project
         run: npx expo prebuild --platform android --no-install --non-interactive
 
