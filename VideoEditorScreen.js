@@ -10,10 +10,10 @@ const FILTERS=["none","warm","sepia","grayscale","brightness","contrast","satura
 const SW=Dimensions.get("window").width;
 function Btn({label,onPress,secondary=false,disabled=false}){return <TouchableOpacity disabled={disabled} onPress={onPress} style={[s.btn,secondary&&s.secondary,disabled&&{opacity:.45}]}><Text style={s.btnText}>{label}</Text></TouchableOpacity>}
 function Field({label,value,onChangeText,keyboardType="default"}){return <View style={s.field}><Text style={s.label}>{label}</Text><TextInput value={String(value)} onChangeText={onChangeText} keyboardType={keyboardType} placeholderTextColor={C.gray} style={s.input}/></View>}
-export default function VideoEditorScreen({source,initialSoundName,onCancel,onCoverSelected,onExport,onError}){
+export default function VideoEditorScreen({source,initialSoundName,initialFilter="none",initialBrightness=0,onCancel,onCoverSelected,onExport,onError}){
  const player=useRef(null);
  const [duration,setDuration]=useState(0),[position,setPosition]=useState(0),[playing,setPlaying]=useState(false),[start,setStart]=useState("0"),[end,setEnd]=useState("");
- const [filter,setFilter]=useState("none"),[textValue,setTextValue]=useState(""),[textStart,setTextStart]=useState("0"),[textDuration,setTextDuration]=useState("5"),[texts,setTexts]=useState([]);
+ const [filter,setFilter]=useState(initialFilter||"none"),[textValue,setTextValue]=useState(""),[textStart,setTextStart]=useState("0"),[textDuration,setTextDuration]=useState("5"),[texts,setTexts]=useState([]);
  const [images,setImages]=useState([]),[selectedId,setSelectedId]=useState(null),[previewSize,setPreviewSize]=useState({width:SW-32,height:340});
  const [musicUri,setMusicUri]=useState(""),[musicName,setMusicName]=useState(""),[musicVolume,setMusicVolume]=useState(.8),[originalVolume,setOriginalVolume]=useState(.8),[coverUri,setCoverUri]=useState(""),[exporting,setExporting]=useState(false);
  const safeStart=Math.max(0,Number(start)||0),safeEnd=Math.max(safeStart+.1,Math.min(duration||Number(end)||60,Number(end)||duration||60)),clipDuration=Math.max(.1,safeEnd-safeStart);
