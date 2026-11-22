@@ -39,7 +39,7 @@ jobs:
           from pathlib import Path
           path = Path("node_modules/expo-video/android/src/main/java/expo/modules/video/player/DefaultLoadControl.java")
           source = path.read_text()
-          method = "  @Override\\n  public Allocator getAllocator(PlayerId playerId) {\\n    return allocator;\\n  }"
+          method = "  @Override\n  public Allocator getAllocator(PlayerId playerId) {\n    return allocator;\n  }"
           if source.count(method) != 1:
               raise SystemExit("Expected exactly one PlayerId allocator override in Expo Video source.")
           keep = "  @androidx.annotation.Keep\\n" + method
