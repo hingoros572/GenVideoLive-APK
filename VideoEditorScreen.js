@@ -13,7 +13,7 @@ function Field({label,value,onChangeText,keyboardType="default"}){return <View s
 export default function VideoEditorScreen({source,initialSoundName,initialFilter="none",initialBrightness=0,onCancel,onCoverSelected,onExport,onError}){
  const player=useRef(null);
  const [duration,setDuration]=useState(0),[position,setPosition]=useState(0),[playing,setPlaying]=useState(false),[start,setStart]=useState("0"),[end,setEnd]=useState("");
- const [filter,setFilter]=useState(initialFilter||"none"),[textValue,setTextValue]=useState(""),[textStart,setTextStart]=useState("0"),[textDuration,setTextDuration]=useState("5"),[texts,setTexts]=useState([]);
+ const [filter,setFilter]=useState(initialFilter||"none"),[brightness,setBrightness]=useState(initialBrightness||0),[textValue,setTextValue]=useState(""),[textStart,setTextStart]=useState("0"),[textDuration,setTextDuration]=useState("5"),[texts,setTexts]=useState([]);
  const [images,setImages]=useState([]),[selectedId,setSelectedId]=useState(null),[previewSize,setPreviewSize]=useState({width:SW-32,height:340});
  const [musicUri,setMusicUri]=useState(""),[musicName,setMusicName]=useState(""),[musicVolume,setMusicVolume]=useState(.8),[originalVolume,setOriginalVolume]=useState(.8),[coverUri,setCoverUri]=useState(""),[exporting,setExporting]=useState(false);
  const safeStart=Math.max(0,Number(start)||0),safeEnd=Math.max(safeStart+.1,Math.min(duration||Number(end)||60,Number(end)||duration||60)),clipDuration=Math.max(.1,safeEnd-safeStart);
@@ -27,7 +27,7 @@ export default function VideoEditorScreen({source,initialSoundName,initialFilter
   if(exporting)return;if(!source)return Alert.alert("Video missing","Video dobara select karein.");if(safeEnd<=safeStart)return Alert.alert("Trim range","Start aur End time check karein.");if(!MediaEngine.isAvailable())return Alert.alert("Editor not ready","Media Engine native module load nahi hua. APK dobara build karein.");
   setExporting(true);
   try{const outputUri=(FileSystem.cacheDirectory||"file:///")+"gen-video-edited-"+Date.now()+".mp4";
-   const tracks=[{type:"video",clips:[{uri:source,startTime:0,duration:clipDuration,clipStart:safeStart,clipEnd:safeEnd,resizeMode:"cover",volume:musicUri?originalVolume:1,...(filter!=="none"?{filter,filterIntensity:.75}:{})}]}];
+   const tracks=[{type:"video",clips:[{uri:source,startTime:0,duration:clipDuration,clipStart:safeStart,clipEnd:safeEnd,resizeMode:"cover",volume:musicUri?originalVolume:1,...(filter!=="none"?{filter,filterIntensity:.75}:brightness>0.04?{filter:"brightness",filterIntensity:Math.min(1,Math.abs(brightness)*1.8)}:brightness< -0.04?{filter:"contrast",filterIntensity:Math.min(1,Math.abs(brightness)*1.8)}:{})}]}];
    if(musicUri)tracks.push({type:"audio",clips:[{uri:musicUri,startTime:0,duration:clipDuration,volume:musicVolume,fadeInDuration:.25,fadeOutDuration:.4}]});
    if(texts.length)tracks.push({type:"text",clips:texts.map(x=>({text:x.text,startTime:x.startTime,duration:x.duration,x:x.x,y:x.y,color:x.color,fontSize:x.fontSize,textStyle:{color:x.color,fontSize:x.fontSize,fontWeight:"bold",backgroundColor:"#66000000",backgroundPadding:8}}))});
    if(images.length)tracks.push({type:"image",clips:images.map(x=>({uri:x.uri,startTime:x.startTime,duration:x.duration,x:x.x,y:x.y,scale:x.scale,rotation:x.rotation,opacity:x.opacity}))});
