@@ -55,12 +55,6 @@ jobs:
       - name: Generate native Android project
         run: npx expo prebuild --platform android --no-install --non-interactive
 
-      - name: Diagnose Media3 dependency versions
-        working-directory: android
-        run: |
-          ./gradlew :app:dependencyInsight --dependency media3-exoplayer --configuration releaseRuntimeClasspath --no-daemon
-          ./gradlew :app:dependencyInsight --dependency media3-common --configuration releaseRuntimeClasspath --no-daemon
-
       # IMPORTANT: assembleRelease bundles the JavaScript into the APK.
       # assembleDebug is a development build and expects Metro to be running.
       - name: Build standalone Release APK
