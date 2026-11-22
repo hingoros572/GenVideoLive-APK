@@ -9,7 +9,7 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Video, ResizeMode, Audio } from "expo-av";
-import { VideoEditor } from "@dahab-tech/react-native-media-editor/videoEditor";
+import VideoEditorScreen from "./VideoEditorScreen";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 const API_KEY = "AIzaSyCoE-u18gD7wBg20dtLBtctQbM6KHzUFtk";
@@ -2066,36 +2066,20 @@ export default function App() {
         </View>;
       }
       return (
-        <View style={{flex:1,backgroundColor:C.bg}}>
-          <VideoEditor
-            key={selectedVideo.uri}
-            source={selectedVideo.uri}
-            locale="en"
-            theme={{colors:{accent:C.magenta,background:C.bg}}}
-            onCancel={()=>setCreateStep("selected")}
-            onCoverSelected={(cover)=>{
-              if(cover?.uri) setPostCoverImage(cover.uri);
-            }}
-            onExport={(result)=>{
-              if(!result?.uri) {
-                Alert.alert("Export Error","Edited video file nahi mili. Dobara export karein.");
-                return;
-              }
-              setSelectedVideo(current=>({
-                ...(current||{}),
-                uri:result.uri,
-                fileName:"gen-video-edited-"+Date.now()+".mp4",
-                mimeType:"video/mp4",
-                duration:result.durationMs?result.durationMs/1000:(current?.duration||null)
-              }));
-              setCreateStep("location");
-              Alert.alert("Video ready","Aapki edited video final MP4 mein save ho gayi. Ab location aur post details complete karein.");
-            }}
-            onError={(error)=>{
-              Alert.alert("Video Editor Error",error?.message||"Video edit/export nahi ho saka.");
-            }}
-          />
-        </View>
+        <VideoEditorScreen
+          key={selectedVideo.uri}
+          source={selectedVideo.uri}
+          initialSoundName={selectedSound}
+          onCancel={()=>setCreateStep("selected")}
+          onCoverSelected={(cover)=>{if(cover?.uri)setPostCoverImage(cover.uri);}}
+          onExport={(result)=>{
+            if(!result?.uri){Alert.alert("Export Error","Edited video file nahi mili. Dobara export karein.");return;}
+            setSelectedVideo(current=>({...((current)||{}),uri:result.uri,fileName:"gen-video-edited-"+Date.now()+".mp4",mimeType:"video/mp4",duration:result.durationMs?result.durationMs/1000:(current?.duration||null)}));
+            setCreateStep("location");
+            Alert.alert("Video ready","Aapki edited video final MP4 mein save ho gayi. Ab location aur post details complete karein.");
+          }}
+          onError={(error)=>console.log("NEW VIDEO EDITOR ERROR:",error?.message||error)}
+        />
       );
     }
     const pageTitle={camera:"Create Video",gallery:"Select Video",selected:"Video Preview",editor:"Video Editor",location:"Add Location",post:"Post Video"}[createStep]||"Create Video";
