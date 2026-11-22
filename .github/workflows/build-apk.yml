@@ -33,6 +33,25 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Enforce Expo Video Media3 LoadControl compatibility
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("node_modules/expo-video/android/src/main/java/expo/modules/video/player/DefaultLoadControl.java")
+          source = path.read_text()
+          signature = "  public Allocator getAllocator(PlayerId playerId) {"
+          if signature not in source:
+              needle = "  @Override\\n  public Allocator getAllocator() {\\n    return allocator;\\n  }"
+              if source.count(needle) != 1:
+                  raise SystemExit("Could not find the exact Expo Video allocator method; stopping safely.")
+              replacement = needle + "\\n\\n  @Override\\n  public Allocator getAllocator(PlayerId playerId) {\\n    return allocator;\\n  }"
+              source = source.replace(needle, replacement)
+              path.write_text(source)
+          if source.count(signature) != 1:
+              raise SystemExit("Media3 PlayerId allocator method is missing or duplicated.")
+          print("Verified: Expo Video DefaultLoadControl implements getAllocator(PlayerId).")
+          PY
+
       - name: Generate native Android project
         run: npx expo prebuild --platform android --no-install --non-interactive
 
