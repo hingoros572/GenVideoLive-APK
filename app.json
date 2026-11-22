@@ -37,6 +37,14 @@
           "cameraPermission": "Gen Video Live ko video record karne ke liye camera ki ijazat dein.",
           "microphonePermission": "Gen Video Live ko video ke sath audio record karne ki ijazat dein."
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Gen Video Live ko video record karne ke liye camera ki ijazat dein.",
+          "microphonePermission": "Gen Video Live ko video ke sath awaaz record karne ke liye microphone ki ijazat dein.",
+          "recordAudioAndroid": true
+        }
       ]
     ],
     "icon": "./assets/icon.png",
