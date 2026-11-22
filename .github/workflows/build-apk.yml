@@ -39,10 +39,10 @@ jobs:
           from pathlib import Path
           path = Path("node_modules/expo-video/android/src/main/java/expo/modules/video/player/DefaultLoadControl.java")
           source = path.read_text()
-          method = "  @Override\n  public Allocator getAllocator(PlayerId playerId) {\n    return allocator;\n  }"
+          method = "  @Override\\n  public Allocator getAllocator(PlayerId playerId) {\\n    return allocator;\\n  }"
           if source.count(method) != 1:
               raise SystemExit("Expected exactly one PlayerId allocator override in Expo Video source.")
-          keep = "  @androidx.annotation.Keep\n" + method
+          keep = "  @androidx.annotation.Keep\\n" + method
           if keep not in source:
               source = source.replace(method, keep)
               path.write_text(source)
@@ -78,9 +78,19 @@ jobs:
           mkdir -p /tmp/jadx
           unzip -q /tmp/jadx.zip -d /tmp/jadx
           chmod +x /tmp/jadx/bin/jadx
+          set +e
           /tmp/jadx/bin/jadx --no-res --show-bad-code -d /tmp/jadx-out android/app/build/outputs/apk/release/app-release.apk
+          JADX_EXIT=$?
+          set -e
+          echo "JADX exit code: $JADX_EXIT (partial source output will still be inspected)"
           echo "=== LoadControl declarations and allocator overrides in the packaged APK ==="
-          grep -R -n -E 'implements LoadControl|: LoadControl|extends DefaultLoadControl|getAllocator\(' /tmp/jadx-out/sources | head -240 || true
+          if [ -d /tmp/jadx-out/sources ]; then
+            grep -R -n -E 'implements LoadControl|: LoadControl|extends DefaultLoadControl|getAllocator\\(' /tmp/jadx-out/sources | head -240 || true
+          else
+            echo "JADX did not create a sources directory."
+          fi
+          echo "=== Candidate Media3 LoadControl source files ==="
+          find /tmp/jadx-out/sources -type f 2>/dev/null | grep -Ei 'LoadControl|ExoPlayer' | head -100 || true
 
       - name: Upload standalone APK
         uses: actions/upload-artifact@v4
