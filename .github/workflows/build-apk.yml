@@ -39,7 +39,7 @@ jobs:
           from pathlib import Path
           path = Path("node_modules/expo-video/android/src/main/java/expo/modules/video/player/VideoPlayerLoadControl.kt")
           source = path.read_text()
-          method = "  @androidx.annotation.Keep\\n  override fun getAllocator(playerId: androidx.media3.exoplayer.analytics.PlayerId): androidx.media3.exoplayer.upstream.Allocator {\\n    return super.getAllocator()\\n  }"
+          method = "  @androidx.annotation.Keep\n  override fun getAllocator(playerId: androidx.media3.exoplayer.analytics.PlayerId): androidx.media3.exoplayer.upstream.Allocator {\n    return super.getAllocator()\n  }"
           if source.count(method) != 1:
               raise SystemExit("Expected exactly one kept getAllocator(PlayerId) override in VideoPlayerLoadControl.kt.")
           print("Verified kept getAllocator(PlayerId) override in the actual Expo Video LoadControl subclass.")
