@@ -36,6 +36,13 @@ jobs:
       - name: Generate native Android project
         run: npx expo prebuild --platform android --no-install --non-interactive
 
+      # Release build bundles the JavaScript and creates an installable APK.
+      - name: Build standalone Release APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+
       - name: Upload standalone APK
         uses: actions/upload-artifact@v4
         with:
