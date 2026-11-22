@@ -7,7 +7,7 @@ import {
   Share, Dimensions, Linking
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import * as MediaLibrary from "expo-media-library/legacy";
+import * as MediaLibrary from "expo-media-library";
 import { CameraView, Camera } from "expo-camera";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Video, ResizeMode, Audio } from "expo-av";
