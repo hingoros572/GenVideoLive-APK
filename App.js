@@ -2259,7 +2259,7 @@ export default function App() {
       const tools=[["⚙","Settings"],["↗","Share"],["▣","Ratio"],["▶","Speed"],["Aa","Text"],["▧","Stickers"],["◉","Filters"],["🎙","Voice"],["▤","Captions"]];
       return (
         <View style={{flex:1,backgroundColor:"#000"}}>
-          <View style={{flex:1,backgroundColor:"#000",marginTop:6,marginBottom:12,borderRadius:22,overflow:"hidden"}}>
+          <View style={{flex:1,backgroundColor:"#000",marginTop:2,marginBottom:6,borderRadius:22,overflow:"hidden"}}>
             {previewMedia?.uri ? (previewIsVideo
               ? <Video source={{uri:previewMedia.uri}} style={{width:"100%",height:"100%"}} resizeMode={ResizeMode.COVER} shouldPlay isLooping isMuted/>
               : <Image source={{uri:previewMedia.uri}} style={{width:"100%",height:"100%"}} resizeMode="contain"/>)
@@ -2837,7 +2837,7 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={{flex:1}}>
-    <View style={styles.app}>
+    <View style={[styles.app,(page==="Create"&&(createStep==="selected"||createStep==="editor"))&&{paddingBottom:0}]}>
       <StatusBar backgroundColor="#000" barStyle="light-content" hidden={page==="Create"&&createStep==="camera"}/>
 
       {page==="Home"&&renderHome()}
