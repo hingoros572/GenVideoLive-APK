@@ -2259,7 +2259,7 @@ export default function App() {
       const tools=[["⚙","Settings"],["↗","Share"],["▣","Ratio"],["▶","Speed"],["Aa","Text"],["▧","Stickers"],["◉","Filters"],["🎙","Voice"],["▤","Captions"]];
       return (
         <View style={{flex:1,backgroundColor:"#000"}}>
-          <View style={{flex:1,backgroundColor:"#080808"}}>
+          <View style={{flex:1,backgroundColor:"#000",marginTop:6,marginBottom:12,borderRadius:22,overflow:"hidden"}}>
             {previewMedia?.uri ? (previewIsVideo
               ? <Video source={{uri:previewMedia.uri}} style={{width:"100%",height:"100%"}} resizeMode={ResizeMode.COVER} shouldPlay isLooping isMuted/>
               : <Image source={{uri:previewMedia.uri}} style={{width:"100%",height:"100%"}} resizeMode="contain"/>)
@@ -2270,7 +2270,7 @@ export default function App() {
               <View style={{width:46}}/>
             </View>
             <View style={{position:"absolute",right:10,top:88,bottom:105,alignItems:"center",justifyContent:"space-between",paddingVertical:10}}>
-              {tools.map(([symbol,label])=><TouchableOpacity key={label} onPress={()=>setSelectedEditorTool(label)} style={{width:46,height:43,alignItems:"center",justifyContent:"center",borderRadius:12,backgroundColor:selectedEditorTool===label?"#ff315f99":"#0005"}}>
+              {tools.map(([symbol,label])=><TouchableOpacity key={label} onPress={()=>{if(label==="Ratio"){if(selectedVideo?.uri)setCreateStep("editor");else Alert.alert("Video required","Ratio se Video Editor kholne ke liye pehle gallery se video select karein.");}else setSelectedEditorTool(label);}} style={{width:46,height:43,alignItems:"center",justifyContent:"center",borderRadius:12,backgroundColor:selectedEditorTool===label?"#ff315f99":"#0005"}}>
                 <Text style={{color:"#fff",fontSize:label==="Text"?21:25,fontWeight:"700"}}>{symbol}</Text>
               </TouchableOpacity>)}
               <TouchableOpacity onPress={()=>setSelectedEditorTool(v=>v==="More"?"":"More")} style={{width:46,height:36,alignItems:"center",justifyContent:"center"}}><Text style={{color:"#fff",fontSize:30}}>⌄</Text></TouchableOpacity>
@@ -2280,7 +2280,7 @@ export default function App() {
               <Text style={{color:"#fff",fontSize:18}}>✦</Text><Text style={{color:"#fff",fontSize:15}}>AutoCut</Text>
             </TouchableOpacity>
           </View>
-          <View style={{height:100,backgroundColor:"#000",flexDirection:"row",alignItems:"center",justifyContent:"space-around",paddingHorizontal:14,paddingBottom:12}}>
+          <View style={{height:112,backgroundColor:"#000",flexDirection:"row",alignItems:"center",justifyContent:"space-around",paddingHorizontal:14,paddingBottom:10}}>
             <TouchableOpacity onPress={()=>Alert.alert("Your Story","Your Story ka sharing step baad mein connect karenge.")} style={{height:58,flex:1,marginRight:8,borderRadius:32,backgroundColor:"#fff",alignItems:"center",justifyContent:"center",flexDirection:"row",gap:9}}>
               <View style={{width:38,height:38,borderRadius:19,backgroundColor:C.magenta,alignItems:"center",justifyContent:"center"}}><Text style={{color:"#fff",fontWeight:"900"}}>G</Text></View><Text style={{color:"#171717",fontSize:17,fontWeight:"900"}}>Your Story</Text>
             </TouchableOpacity>
@@ -2918,7 +2918,7 @@ export default function App() {
         </View>
       </Modal>
 
-      {page!=="EditProfile"&&page!=="Sound"&&page!=="Settings"&&!(page==="Inbox"&&selectedChat&&chatInputFocused)&&!(page==="Create"&&(createStep==="editor"||createStep==="camera"))&&(
+      {page!=="EditProfile"&&page!=="Sound"&&page!=="Settings"&&!(page==="Inbox"&&selectedChat&&chatInputFocused)&&!(page==="Create"&&(createStep==="editor"||createStep==="camera"||createStep==="selected"))&&(
         <View style={styles.bottomNav}>
           <NavItem icon="home" label="Home" active={page==="Home"} onPress={()=>setPage("Home")}/>
           <NavItem icon="friends" label="Friends" active={page==="Explore"} onPress={()=>setPage("Explore")}/>
