@@ -375,6 +375,7 @@ export default function App() {
   const commentInputRef = useRef(null);
 
   const [selectedVideo,setSelectedVideo] = useState(null);
+  const [selectedEditorTool,setSelectedEditorTool] = useState("");
   const [caption,setCaption] = useState("");
   const [privacy,setPrivacy] = useState("Public");
   const [uploading,setUploading] = useState(false);
@@ -2249,6 +2250,45 @@ export default function App() {
           }}
           onError={(error)=>console.log("NEW VIDEO EDITOR ERROR:",error?.message||error)}
         />
+      );
+    }
+
+    if(createStep==="selected") {
+      const previewMedia=selectedCreateMedia[0]||selectedVideo;
+      const previewIsVideo=previewMedia?.type==="video"||previewMedia?.mimeType?.startsWith("video/");
+      const tools=[["⚙","Settings"],["↗","Share"],["▣","Ratio"],["▶","Speed"],["Aa","Text"],["▧","Stickers"],["◉","Filters"],["🎙","Voice"],["▤","Captions"]];
+      return (
+        <View style={{flex:1,backgroundColor:"#000"}}>
+          <View style={{flex:1,backgroundColor:"#080808"}}>
+            {previewMedia?.uri ? (previewIsVideo
+              ? <Video source={{uri:previewMedia.uri}} style={{width:"100%",height:"100%"}} resizeMode={ResizeMode.COVER} shouldPlay isLooping isMuted/>
+              : <Image source={{uri:previewMedia.uri}} style={{width:"100%",height:"100%"}} resizeMode="contain"/>)
+              : <View style={{flex:1,alignItems:"center",justifyContent:"center"}}><Text style={{color:"#fff"}}>Media preview</Text></View>}
+            <View style={{position:"absolute",top:16,left:16,right:16,flexDirection:"row",alignItems:"center",justifyContent:"space-between"}}>
+              <TouchableOpacity onPress={()=>setCreateStep("gallery")} style={{width:46,height:46,borderRadius:23,backgroundColor:"#0008",alignItems:"center",justifyContent:"center"}}><Text style={{color:"#fff",fontSize:32}}>‹</Text></TouchableOpacity>
+              <TouchableOpacity onPress={()=>Alert.alert("Add sound","Agley step mein Add sound ka option set karenge.")} style={{paddingHorizontal:24,paddingVertical:12,borderRadius:28,backgroundColor:"#0009",flexDirection:"row",alignItems:"center",gap:8}}><Text style={{fontSize:19,color:"#fff"}}>♫</Text><Text style={{fontSize:16,color:"#fff",fontWeight:"900"}}>Add sound</Text></TouchableOpacity>
+              <View style={{width:46}}/>
+            </View>
+            <View style={{position:"absolute",right:10,top:88,bottom:105,alignItems:"center",justifyContent:"space-between",paddingVertical:10}}>
+              {tools.map(([symbol,label])=><TouchableOpacity key={label} onPress={()=>setSelectedEditorTool(label)} style={{width:46,height:43,alignItems:"center",justifyContent:"center",borderRadius:12,backgroundColor:selectedEditorTool===label?"#ff315f99":"#0005"}}>
+                <Text style={{color:"#fff",fontSize:label==="Text"?21:25,fontWeight:"700"}}>{symbol}</Text>
+              </TouchableOpacity>)}
+              <TouchableOpacity onPress={()=>setSelectedEditorTool(v=>v==="More"?"":"More")} style={{width:46,height:36,alignItems:"center",justifyContent:"center"}}><Text style={{color:"#fff",fontSize:30}}>⌄</Text></TouchableOpacity>
+            </View>
+            {selectedEditorTool!==""&&<View style={{position:"absolute",right:62,top:"48%",backgroundColor:"#000b",paddingHorizontal:12,paddingVertical:8,borderRadius:12}}><Text style={{color:"#fff",fontWeight:"800"}}>{selectedEditorTool}</Text></View>}
+            <TouchableOpacity onPress={()=>Alert.alert("AutoCut","AutoCut ka workflow aglay step mein set karenge.")} style={{position:"absolute",bottom:18,alignSelf:"center",backgroundColor:"#0009",borderRadius:24,paddingHorizontal:18,paddingVertical:10,flexDirection:"row",alignItems:"center",gap:7}}>
+              <Text style={{color:"#fff",fontSize:18}}>✦</Text><Text style={{color:"#fff",fontSize:15}}>AutoCut</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={{height:100,backgroundColor:"#000",flexDirection:"row",alignItems:"center",justifyContent:"space-around",paddingHorizontal:14,paddingBottom:12}}>
+            <TouchableOpacity onPress={()=>Alert.alert("Your Story","Your Story ka sharing step baad mein connect karenge.")} style={{height:58,flex:1,marginRight:8,borderRadius:32,backgroundColor:"#fff",alignItems:"center",justifyContent:"center",flexDirection:"row",gap:9}}>
+              <View style={{width:38,height:38,borderRadius:19,backgroundColor:C.magenta,alignItems:"center",justifyContent:"center"}}><Text style={{color:"#fff",fontWeight:"900"}}>G</Text></View><Text style={{color:"#171717",fontSize:17,fontWeight:"900"}}>Your Story</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={()=>{if(!selectedVideo?.uri)return Alert.alert("Next step","Filhal selected photo/video ka preview page tayyar hai. Agla screenshot bhejein; uske mutabiq Next ka agla page banayenge.");setCreateStep("editor");}} style={{height:58,flex:1,marginLeft:8,borderRadius:32,backgroundColor:C.pink,alignItems:"center",justifyContent:"center"}}>
+              <Text style={{color:"#fff",fontSize:18,fontWeight:"900"}}>Next</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       );
     }
     const pageTitle={camera:"Create Video",gallery:"Select Video",selected:"Video Preview",editor:"Video Editor",location:"Add Location",post:"Post Video"}[createStep]||"Create Video";
