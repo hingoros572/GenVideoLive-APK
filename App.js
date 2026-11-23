@@ -312,6 +312,7 @@ export default function App() {
   const [user,setUser] = useState(null);
   const [sessionLoading,setSessionLoading] = useState(true);
   const [username,setUsername] = useState("");
+  const [appLanguage,setAppLanguage] = useState("auto");
   const [bio,setBio] = useState("Welcome to my Gen Video Live profile! 👑");
   const [location,setLocation] = useState("");
   const [profileImage,setProfileImage] = useState("");
@@ -426,6 +427,12 @@ export default function App() {
   const viewedPostIdsRef = useRef({});
   const [feedHeight,setFeedHeight] = useState(0);
   const feedScrollRef = useRef(null);
+
+  useEffect(()=>{
+    AsyncStorage.getItem("genVideoLive.appLanguage.v1").then(value=>{
+      if(value) setAppLanguage(value);
+    }).catch(error=>console.log("LANGUAGE PREFERENCE LOAD ERROR:",error.message));
+  },[]);
 
   const liveUnlocked = followerCount >= 1000;
   const statusHeight = Platform.OS==="android"?(StatusBar.currentHeight||0):0;
@@ -1803,6 +1810,33 @@ export default function App() {
     ]);
   }
 
+  async function saveAppLanguage(value) {
+    setAppLanguage(value);
+    try {
+      await AsyncStorage.setItem("genVideoLive.appLanguage.v1",value);
+      const label=value==="auto"?"Automatic (device)":value;
+      Alert.alert("Language Saved",label+" language preference save ho gayi. App translation aglay AI development step mein connect hogi.");
+    } catch(error) {
+      Alert.alert("Language Error",error.message||"Language preference save nahi hui.");
+    }
+  }
+
+  function openLanguagePicker() {
+    let detected="English";
+    try {
+      const locale=Intl.DateTimeFormat().resolvedOptions().locale.toLowerCase();
+      if(locale.startsWith("ur")) detected="Urdu";
+      else if(locale.startsWith("hi")) detected="Hindi";
+    } catch(error) {}
+    Alert.alert("App Language", "Automatic detected language: "+detected+"\\nChoose how Gen Video Live should set your language.", [
+      {text:"Automatic ("+detected+")",onPress:()=>saveAppLanguage("auto")},
+      {text:"Urdu",onPress:()=>saveAppLanguage("Urdu")},
+      {text:"English",onPress:()=>saveAppLanguage("English")},
+      {text:"Hindi",onPress:()=>saveAppLanguage("Hindi")},
+      {text:"Cancel",style:"cancel"}
+    ]);
+  }
+
   function showPlaceholder(title) {
     Alert.alert(title,"Yeh feature aglay development step mein add hoga.");
   }
@@ -2757,13 +2791,16 @@ export default function App() {
           ["🔐","Privacy & Security"],
           ["🚫","Blocked Users"],
           ["🌙","Appearance / Dark Mode"],
-          ["🌐","Language: Urdu / English"],
+          ["🌐","App Language"],
           ["📦","Data & Storage"],
           ["❓","Help & Support"]
         ].map(item=>(
-          <TouchableOpacity key={item[1]} style={styles.settingRow} onPress={()=>showPlaceholder(item[1])}>
+          <TouchableOpacity key={item[1]} style={styles.settingRow} onPress={()=>item[1]==="App Language"?openLanguagePicker():showPlaceholder(item[1])}>
             <Text style={styles.settingIcon}>{item[0]}</Text>
-            <Text style={styles.settingTitle}>{item[1]}</Text>
+            <View style={{flex:1}}>
+              <Text style={styles.settingTitle}>{item[1]}</Text>
+              {item[1]==="App Language"&&<Text style={styles.smallMuted}>{appLanguage==="auto"?"Automatic (device)":appLanguage}</Text>}
+            </View>
             <Text style={styles.settingArrow}>›</Text>
           </TouchableOpacity>
         ))}
