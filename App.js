@@ -2168,7 +2168,7 @@ export default function App() {
             </View>)}
             {!visibleAssets.length&&galleryTab!=="AI Gallery"&&<Text style={{textAlign:"center",color:"#777",marginTop:40}}>Is category mein media nahi mila.</Text>}
           </ScrollView>}
-          <View style={{backgroundColor:"#fff",borderTopWidth:1,borderTopColor:"#eee",paddingTop:5,paddingBottom:8}}>
+          <View style={{backgroundColor:"#fff",borderTopWidth:1,borderTopColor:"#eee",paddingTop:7,paddingBottom:Platform.OS==="android"?42:10}}> 
             <TouchableOpacity onPress={()=>setGalleryUseLayout(v=>!v)} style={{height:28,flexDirection:"row",alignItems:"center",paddingHorizontal:20,gap:7}}>
               <View style={{width:17,height:17,borderRadius:9,borderWidth:1.5,borderColor:galleryUseLayout?C.pink:"#aaa",backgroundColor:galleryUseLayout?C.pink:"#fff",alignItems:"center",justifyContent:"center"}}>{galleryUseLayout&&<Text style={{color:"#fff",fontSize:10,fontWeight:"900"}}>✓</Text>}</View>
               <Text style={{fontSize:12,color:"#555",fontWeight:"600"}}>Use layout</Text>
@@ -2181,7 +2181,7 @@ export default function App() {
                 <TouchableOpacity onPress={()=>toggleGalleryAsset(asset)} style={{position:"absolute",right:2,top:2,width:20,height:20,borderRadius:10,backgroundColor:"#0009",alignItems:"center",justifyContent:"center"}}><Text style={{color:"#fff",fontSize:15,lineHeight:17}}>×</Text></TouchableOpacity>
               </View>)}
             </ScrollView>
-            <View style={{height:58,flexDirection:"row",alignItems:"center",paddingHorizontal:14,paddingTop:5,gap:10}}>
+            <View style={{height:64,flexDirection:"row",alignItems:"center",paddingHorizontal:14,paddingTop:5,gap:10}}>
               <TouchableOpacity onPress={()=>Alert.alert("AutoCut","AutoCut ka editing workflow aglay step mein connect karenge.")} style={{height:48,flex:1,borderRadius:28,backgroundColor:"#f1f1f1",alignItems:"center",justifyContent:"center",flexDirection:"row",gap:8}}>
                 <Text style={{fontSize:18,color:C.pink}}>▣</Text><Text style={{fontSize:16,fontWeight:"900",color:"#161616"}}>AutoCut</Text>
               </TouchableOpacity>
