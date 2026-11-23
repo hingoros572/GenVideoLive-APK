@@ -2280,12 +2280,12 @@ export default function App() {
               <Text style={{color:"#fff",fontSize:18}}>✦</Text><Text style={{color:"#fff",fontSize:15}}>AutoCut</Text>
             </TouchableOpacity>
           </View>
-          <View style={{height:112,backgroundColor:"#000",flexDirection:"row",alignItems:"center",justifyContent:"space-around",paddingHorizontal:14,paddingBottom:10}}>
-            <TouchableOpacity onPress={()=>Alert.alert("Your Story","Your Story ka sharing step baad mein connect karenge.")} style={{height:58,flex:1,marginRight:8,borderRadius:32,backgroundColor:"#fff",alignItems:"center",justifyContent:"center",flexDirection:"row",gap:9}}>
-              <View style={{width:38,height:38,borderRadius:19,backgroundColor:C.magenta,alignItems:"center",justifyContent:"center"}}><Text style={{color:"#fff",fontWeight:"900"}}>G</Text></View><Text style={{color:"#171717",fontSize:17,fontWeight:"900"}}>Your Story</Text>
+          <View style={{height:82,backgroundColor:"#000",flexDirection:"row",alignItems:"center",justifyContent:"space-between",paddingHorizontal:16,paddingTop:6,paddingBottom:8}}>
+            <TouchableOpacity onPress={()=>Alert.alert("Your Story","Your Story ka sharing step baad mein connect karenge.")} style={{height:50,flex:1,marginRight:7,borderRadius:26,backgroundColor:"#fff",alignItems:"center",justifyContent:"center",flexDirection:"row",gap:8}}>
+              <View style={{width:32,height:32,borderRadius:16,backgroundColor:C.magenta,alignItems:"center",justifyContent:"center"}}><Text style={{color:"#fff",fontWeight:"900",fontSize:14}}>G</Text></View><Text style={{color:"#171717",fontSize:16,fontWeight:"900"}}>Your Story</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={()=>{if(!selectedVideo?.uri)return Alert.alert("Next step","Filhal selected photo/video ka preview page tayyar hai. Agla screenshot bhejein; uske mutabiq Next ka agla page banayenge.");setCreateStep("editor");}} style={{height:58,flex:1,marginLeft:8,borderRadius:32,backgroundColor:C.pink,alignItems:"center",justifyContent:"center"}}>
-              <Text style={{color:"#fff",fontSize:18,fontWeight:"900"}}>Next</Text>
+            <TouchableOpacity onPress={()=>{if(!selectedVideo?.uri)return Alert.alert("Next step","Filhal selected photo/video ka preview page tayyar hai. Agla screenshot bhejein; uske mutabiq Next ka agla page banayenge.");setCreateStep("editor");}} style={{height:50,flex:1,marginLeft:7,borderRadius:26,backgroundColor:C.pink,alignItems:"center",justifyContent:"center"}}>
+              <Text style={{color:"#fff",fontSize:17,fontWeight:"900"}}>Next</Text>
             </TouchableOpacity>
           </View>
         </View>
