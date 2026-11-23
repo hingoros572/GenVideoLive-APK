@@ -1185,14 +1185,28 @@ export default function App() {
     });
   }
 
-  function continueFromGallery() {
-    const picked=gallerySelectedIds.map(id=>galleryAssets.find(asset=>(asset.id||asset.uri)===id)).filter(Boolean).map(asset=>({
-      id:asset.id,uri:asset.uri,type:asset.mediaType==="video"?"video":"image",
-      mimeType:asset.mediaType==="video"?"video/mp4":"image/jpeg",fileName:asset.filename,duration:asset.duration
-    }));
-    if(!picked.length) return Alert.alert("Select media","Pehle gallery se photo ya video select karein.");
-    const videos=picked.filter(asset=>asset.type==="video"),photos=picked.filter(asset=>asset.type==="image");
-    setSelectedCreateMedia(picked); setCreatePhotos(photos); setSelectedVideo(videos[0]||null); setCreateStep("selected");
+  async function continueFromGallery() {
+    const selectedAssets=gallerySelectedIds.map(id=>galleryAssets.find(asset=>(asset.id||asset.uri)===id)).filter(Boolean);
+    if(!selectedAssets.length) return Alert.alert("Select media","Pehle gallery se photo ya video select karein.");
+    try {
+      const picked=await Promise.all(selectedAssets.map(async asset=>{
+        let resolvedUri=asset.uri;
+        try {
+          const info=await MediaLibrary.getAssetInfoAsync(asset,{shouldDownloadFromNetwork:true});
+          resolvedUri=info?.localUri||info?.uri||asset.uri;
+        } catch(error) {
+          console.log("MEDIA LOCAL URI FALLBACK:",error?.message||error);
+        }
+        return {
+          id:asset.id,uri:resolvedUri,originalUri:asset.uri,type:asset.mediaType==="video"?"video":"image",
+          mimeType:asset.mediaType==="video"?"video/mp4":"image/jpeg",fileName:asset.filename,duration:asset.duration
+        };
+      }));
+      const videos=picked.filter(asset=>asset.type==="video"),photos=picked.filter(asset=>asset.type==="image");
+      setSelectedCreateMedia(picked); setCreatePhotos(photos); setSelectedVideo(videos[0]||null); setCreateStep("selected");
+    } catch(error) {
+      Alert.alert("Media preview",error?.message||"Selected media open nahi ho saka.");
+    }
   }
 
   async function recordVideo() {
@@ -2279,7 +2293,7 @@ export default function App() {
         <View style={{flex:1,backgroundColor:"#000"}}>
           <View style={{flex:1,backgroundColor:"#000",marginTop:2,marginBottom:6,borderRadius:22,overflow:"hidden"}}>
             {previewMedia?.uri ? (previewIsVideo
-              ? <Video source={{uri:previewMedia.uri}} style={{width:"100%",height:"100%"}} resizeMode={ResizeMode.COVER} shouldPlay isLooping isMuted/>
+              ? <Video source={{uri:previewMedia.uri}} style={{width:"100%",height:"100%"}} resizeMode={ResizeMode.COVER} shouldPlay isLooping isMuted={false} volume={1} useNativeControls={false} onError={error=>console.log("SELECTED PREVIEW VIDEO ERROR:",error)}/>
               : <Image source={{uri:previewMedia.uri}} style={{width:"100%",height:"100%"}} resizeMode="contain"/>)
               : <View style={{flex:1,alignItems:"center",justifyContent:"center"}}><Text style={{color:"#fff"}}>Media preview</Text></View>}
             <View style={{position:"absolute",top:16,left:16,right:16,flexDirection:"row",alignItems:"center",justifyContent:"space-between"}}>
@@ -2855,7 +2869,7 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={{flex:1}}>
-    <View style={[styles.app,(page==="Create"&&(createStep==="gallery"||createStep==="selected"||createStep==="editor"||createStep==="camera"))&&{paddingBottom:0}]}>
+    <View style={styles.app}>
       <StatusBar backgroundColor="#000" barStyle="light-content" hidden={page==="Create"&&createStep==="camera"}/>
 
       {page==="Home"&&renderHome()}
