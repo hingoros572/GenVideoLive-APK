@@ -87,7 +87,15 @@ export default function VideoEditorScreen({source,initialSoundName,initialFilter
  function updateSelectedSegment(field,value){
   if(!selectedSegment)return;const n=Math.max(0,Number(value)||0);const next=effectiveSegments.map(x=>x.id===selectedSegment.id?{...x,[field]:field==="clipEnd"?Math.max(x.clipStart+.1,n):Math.min(n,x.clipEnd-.1)}:x);let cursor=0;const positioned=next.map(x=>{const item={...x,timelineStart:cursor};cursor+=Math.max(.1,item.clipEnd-item.clipStart);return item;});setVideoSegments(positioned);
  }
- function splitMusicAtPlayhead(){\n  const t=position;const seg=effectiveMusicSegments.find(x=>t>x.timelineStart+.05&&t<x.timelineStart+(x.clipEnd-x.clipStart)-.05);\n  if(!seg)return Alert.alert("Audio split point","Playhead ko music clip ke beech mein rakhein.");\n  const cut=seg.clipStart+(t-seg.timelineStart);const left={...seg,clipEnd:cut};const right={...seg,id:"music-"+Date.now(),clipStart:cut,timelineStart:t};const next=[];effectiveMusicSegments.forEach(x=>{if(x.id===seg.id)next.push(left,right);else next.push(x);});setMusicSegments(next);setSelectedMusicSegmentId(right.id);Alert.alert("Audio split","Music track playhead par split ho gayi.");\n }\n function updateSelectedMusicSegment(field,value){\n  if(!selectedMusicSegment)return;const n=Math.max(0,Number(value)||0);const next=effectiveMusicSegments.map(x=>x.id===selectedMusicSegment.id?{...x,[field]:field==="clipEnd"?Math.max(x.clipStart+.1,n):Math.min(n,x.clipEnd-.1)}:x);let cursor=musicStart;const positioned=next.map(x=>{const item={...x,timelineStart:cursor};cursor+=Math.max(.1,item.clipEnd-item.clipStart);return item;});setMusicSegments(positioned);\n }\n async function exportVideo(){
+ function splitMusicAtPlayhead(){
+  const t=position;const seg=effectiveMusicSegments.find(x=>t>x.timelineStart+.05&&t<x.timelineStart+(x.clipEnd-x.clipStart)-.05);
+  if(!seg)return Alert.alert("Audio split point","Playhead ko music clip ke beech mein rakhein.");
+  const cut=seg.clipStart+(t-seg.timelineStart);const left={...seg,clipEnd:cut};const right={...seg,id:"music-"+Date.now(),clipStart:cut,timelineStart:t};const next=[];effectiveMusicSegments.forEach(x=>{if(x.id===seg.id)next.push(left,right);else next.push(x);});setMusicSegments(next);setSelectedMusicSegmentId(right.id);Alert.alert("Audio split","Music track playhead par split ho gayi.");
+ }
+ function updateSelectedMusicSegment(field,value){
+  if(!selectedMusicSegment)return;const n=Math.max(0,Number(value)||0);const next=effectiveMusicSegments.map(x=>x.id===selectedMusicSegment.id?{...x,[field]:field==="clipEnd"?Math.max(x.clipStart+.1,n):Math.min(n,x.clipEnd-.1)}:x);let cursor=musicStart;const positioned=next.map(x=>{const item={...x,timelineStart:cursor};cursor+=Math.max(.1,item.clipEnd-item.clipStart);return item;});setMusicSegments(positioned);
+ }
+ async function exportVideo(){
   if(exporting)return;if(!source)return Alert.alert("Video missing","Video dobara select karein.");if(safeEnd<=safeStart)return Alert.alert("Trim range","Start aur End time check karein.");if(!MediaEngine.isAvailable())return Alert.alert("Editor not ready","Media Engine native module load nahi hua. APK dobara build karein.");
   setExporting(true);
   try{const outputUri=(FileSystem.cacheDirectory||"file:///")+"gen-video-edited-"+Date.now()+".mp4";
