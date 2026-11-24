@@ -12,7 +12,6 @@ import { CameraView, Camera } from "expo-camera";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Video, ResizeMode, Audio } from "expo-av";
 // Preview playback uses expo-av; MediaEngine handles final native composition.
-import VideoEditorScreen from "./VideoEditorScreen";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 const API_KEY = "AIzaSyCoE-u18gD7wBg20dtLBtctQbM6KHzUFtk";
@@ -2304,34 +2303,6 @@ export default function App() {
         </View>
       );
     }
-    if(createStep==="editor") {
-      if(!selectedVideo?.uri) {
-        return <View style={{flex:1,backgroundColor:C.bg,padding:20,justifyContent:"center"}}>
-          <Text style={styles.helpText}>Pehle video select karein.</Text>
-          <Button title="Back to Video Preview" onPress={()=>setCreateStep("selected")}/>
-        </View>;
-      }
-      return (
-        <VideoEditorScreen
-          key={selectedVideo.uri}
-          source={selectedVideo.uri}
-          initialSoundName={selectedSound}
-          initialFilter={cameraFilters.find(x=>x.slug===cameraFilter)?.engineFilter||"none"}
-          initialBrightness={cameraBrightness}
-          onCancel={()=>setCreateStep("selected")}
-          onCoverSelected={(cover)=>{if(cover?.uri)setPostCoverImage(cover.uri);}}
-          onExport={(result)=>{
-            if(!result?.uri){Alert.alert("Export Error","Edited video file nahi mili. Dobara export karein.");return;}
-            setSelectedVideo(current=>({...((current)||{}),uri:result.uri,fileName:"gen-video-edited-"+Date.now()+".mp4",mimeType:"video/mp4",duration:result.durationMs?result.durationMs/1000:(current?.duration||null)}));
-            setCreateStep("location");
-            Alert.alert("Video ready","Aapki edited video final MP4 mein save ho gayi. Ab location aur post details complete karein.");
-          }}
-          onUploadMagicMedia={uploadMagicMediaToCloudinary}
-          onError={(error)=>console.log("NEW VIDEO EDITOR ERROR:",error?.message||error)}
-        />
-      );
-    }
-
     if(createStep==="selected") {
       const previewMedia=selectedCreateMedia[0]||selectedVideo;
       const previewIsVideo=previewMedia?.type==="video"||previewMedia?.mimeType?.startsWith("video/");
@@ -2349,7 +2320,7 @@ export default function App() {
               <View style={{width:46}}/>
             </View>
             <View style={{position:"absolute",right:10,top:88,bottom:105,alignItems:"center",justifyContent:"space-between",paddingVertical:10}}>
-              {tools.map(([symbol,label])=><TouchableOpacity key={label} onPress={()=>{if(label==="Ratio"){if(selectedVideo?.uri)setCreateStep("editor");else Alert.alert("Video required","Ratio se Video Editor kholne ke liye pehle gallery se video select karein.");}else setSelectedEditorTool(label);}} style={{width:46,height:43,alignItems:"center",justifyContent:"center",borderRadius:12,backgroundColor:selectedEditorTool===label?"#ff315f99":"#0005"}}>
+              {tools.map(([symbol,label])=><TouchableOpacity key={label} onPress={()=>{if(label==="Ratio"){Alert.alert("Ratio","Video Editor filhal app se alag rakha gaya hai. Ratio editing baad mein wapas add hogi.");}else setSelectedEditorTool(label);}} style={{width:46,height:43,alignItems:"center",justifyContent:"center",borderRadius:12,backgroundColor:selectedEditorTool===label?"#ff315f99":"#0005"}}>
                 <Text style={{color:"#fff",fontSize:label==="Text"?21:25,fontWeight:"700"}}>{symbol}</Text>
               </TouchableOpacity>)}
               <TouchableOpacity onPress={()=>setSelectedEditorTool(v=>v==="More"?"":"More")} style={{width:46,height:36,alignItems:"center",justifyContent:"center"}}><Text style={{color:"#fff",fontSize:30}}>⌄</Text></TouchableOpacity>
@@ -2363,17 +2334,17 @@ export default function App() {
             <TouchableOpacity onPress={()=>Alert.alert("Your Story","Your Story ka sharing step baad mein connect karenge.")} style={{height:50,flex:1,marginRight:7,borderRadius:26,backgroundColor:"#fff",alignItems:"center",justifyContent:"center",flexDirection:"row",gap:8}}>
               <View style={{width:32,height:32,borderRadius:16,backgroundColor:C.magenta,alignItems:"center",justifyContent:"center"}}><Text style={{color:"#fff",fontWeight:"900",fontSize:14}}>G</Text></View><Text style={{color:"#171717",fontSize:16,fontWeight:"900"}}>Your Story</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={()=>{if(!selectedVideo?.uri)return Alert.alert("Next step","Filhal selected photo/video ka preview page tayyar hai. Agla screenshot bhejein; uske mutabiq Next ka agla page banayenge.");setCreateStep("editor");}} style={{height:50,flex:1,marginLeft:7,borderRadius:26,backgroundColor:C.pink,alignItems:"center",justifyContent:"center"}}>
+            <TouchableOpacity onPress={()=>{if(!selectedVideo?.uri)return Alert.alert("Next step","Filhal selected photo/video ka preview page tayyar hai. Agla screenshot bhejein; uske mutabiq Next ka agla page banayenge.");setCreateStep("location");}} style={{height:50,flex:1,marginLeft:7,borderRadius:26,backgroundColor:C.pink,alignItems:"center",justifyContent:"center"}}>
               <Text style={{color:"#fff",fontSize:17,fontWeight:"900"}}>Next</Text>
             </TouchableOpacity>
           </View>
         </View>
       );
     }
-    const pageTitle={camera:"Create Video",gallery:"Select Video",selected:"Video Preview",editor:"Video Editor",location:"Add Location",post:"Post Video"}[createStep]||"Create Video";
-    const stepNumber={camera:"1/6",gallery:"2/6",selected:"3/6",editor:"4/6",location:"5/6",post:"6/6"}[createStep]||"1/6";
+    const pageTitle={camera:"Create Video",gallery:"Select Video",selected:"Video Preview",location:"Add Location",post:"Post Video"}[createStep]||"Create Video";
+    const stepNumber={camera:"1/4",gallery:"2/4",selected:"3/4",location:"4/4",post:"4/4"}[createStep]||"1/4";
     const goBack=()=>{
-      const prev={gallery:"camera",selected:"gallery",editor:"selected",location:"editor",post:"location"}[createStep];
+      const prev={gallery:"camera",selected:"gallery",location:"selected",post:"location"}[createStep];
       if(prev)setCreateStep(prev);else setPage("Home");
     };
     const action=(label,onPress,secondary=false)=><Button title={label} onPress={onPress} secondary={secondary}/>;
@@ -2410,12 +2381,7 @@ export default function App() {
           <Text style={styles.sectionTitle}>▶ Video Preview</Text>
           {selectedVideo?.uri?<Video source={{uri:selectedVideo.uri}} style={{width:"100%",height:360,backgroundColor:"#000",borderRadius:14}} useNativeControls resizeMode={ResizeMode.CONTAIN}/>:<Text style={styles.helpText}>Pehle video select karein.</Text>}
           <Button title="Change Video" secondary onPress={()=>setCreateStep("gallery")}/>
-          <Button title="Continue to Editor" onPress={()=>{if(!selectedVideo?.uri)return Alert.alert("Video required","Pehle video select karein.");setCreateStep("editor");}}/>
-        </View>}
-
-        {createStep==="editor"&&<View style={styles.card}>
-          <Text style={styles.sectionTitle}>Video Editor</Text>
-          <Text style={styles.helpText}>Editor yahan open hoga.</Text>
+          <Button title="Continue to Post Settings" onPress={()=>{if(!selectedVideo?.uri)return Alert.alert("Video required","Pehle video select karein.");setCreateStep("location");}}/>
         </View>}
 
         {createStep==="location"&&<View style={styles.card}>
