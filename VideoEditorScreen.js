@@ -17,7 +17,8 @@ export default function VideoEditorScreen({source,initialSoundName,initialFilter
  const player=useRef(null),timelineRef=useRef(null);
  const [duration,setDuration]=useState(0),[position,setPosition]=useState(0),[playing,setPlaying]=useState(false),[start,setStart]=useState("0"),[end,setEnd]=useState("");
  const [videoReady,setVideoReady]=useState(false),[videoError,setVideoError]=useState(""),[playbackEngine,setPlaybackEngine]=useState("ExoPlayer"),[engineRetried,setEngineRetried]=useState(false);
- const [filter,setFilter]=useState(initialFilter||"none"),[brightness,setBrightness]=useState(initialBrightness||0),[textValue,setTextValue]=useState(""),[textStart,setTextStart]=useState("0"),[textDuration,setTextDuration]=useState("5"),[texts,setTexts]=useState([]),[activePanel,setActivePanel]=useState("Edit");
+ const [filter,setFilter]=useState(initialFilter||"none"),[brightness,setBrightness]=useState(initialBrightness||0),[textValue,setTextValue]=useState(""),[textStart,setTextStart]=useState("0"),[textDuration,setTextDuration]=useState("5"),[texts,setTexts]=useState([]);
+ const [activePanel,setActivePanel]=useState("Edit");
  const [images,setImages]=useState([]),[selectedId,setSelectedId]=useState(null),[previewSize,setPreviewSize]=useState({width:SW-32,height:340});
  const [toolsExpanded,setToolsExpanded]=useState(false),[timelineThumbs,setTimelineThumbs]=useState([]),[mainClipSelected,setMainClipSelected]=useState(false),[selectedTrack,setSelectedTrack]=useState("Main Video");
  const [magicMedia,setMagicMedia]=useState(null),[magicBackground,setMagicBackground]=useState(null),[magicBgColor,setMagicBgColor]=useState("#10101a");
