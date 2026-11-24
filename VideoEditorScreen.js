@@ -13,7 +13,7 @@ const SW=Dimensions.get("window").width;
 const SH=Dimensions.get("window").height;
 function Btn({label,onPress,secondary=false,disabled=false}){return <TouchableOpacity disabled={disabled} onPress={onPress} style={[s.btn,secondary&&s.secondary,disabled&&{opacity:.45}]}><Text style={s.btnText}>{label}</Text></TouchableOpacity>}
 function Field({label,value,onChangeText,keyboardType="default"}){return <View style={s.field}><Text style={s.label}>{label}</Text><TextInput value={String(value)} onChangeText={onChangeText} keyboardType={keyboardType} placeholderTextColor={C.gray} style={s.input}/></View>}
-export default function VideoEditorScreen({source,initialSoundName,initialFilter="none",initialBrightness=0,onCancel,onCoverSelected,onExport,onError}){
+export default function VideoEditorScreen({source,initialSoundName,initialFilter="none",initialBrightness=0,onCancel,onCoverSelected,onExport,onError,onUploadMagicMedia}){
  const player=useRef(null),timelineRef=useRef(null);
  const [duration,setDuration]=useState(0),[position,setPosition]=useState(0),[playing,setPlaying]=useState(false),[start,setStart]=useState("0"),[end,setEnd]=useState("");
  const [videoReady,setVideoReady]=useState(false),[videoError,setVideoError]=useState(""),[playbackEngine,setPlaybackEngine]=useState("ExoPlayer"),[engineRetried,setEngineRetried]=useState(false);
@@ -21,6 +21,7 @@ export default function VideoEditorScreen({source,initialSoundName,initialFilter
  const [images,setImages]=useState([]),[selectedId,setSelectedId]=useState(null),[previewSize,setPreviewSize]=useState({width:SW-32,height:340});
  const [toolsExpanded,setToolsExpanded]=useState(false),[timelineThumbs,setTimelineThumbs]=useState([]);
  const [magicMedia,setMagicMedia]=useState(null),[magicBackground,setMagicBackground]=useState(null),[magicBgColor,setMagicBgColor]=useState("#10101a");
+ const [magicProcessing,setMagicProcessing]=useState(false),[magicResultUri,setMagicResultUri]=useState("");
  const captionFontFamilies=[{name:"Sans",family:"sans-serif"},{name:"Serif",family:"serif"},{name:"Mono",family:"monospace"},{name:"Condensed",family:"sans-serif-condensed"},{name:"Light",family:"sans-serif-light"},{name:"Medium",family:"sans-serif-medium"},{name:"Black",family:"sans-serif-black"},{name:"Casual",family:"casual"}];
  const captionWeights=[{name:"Regular",weight:"400"},{name:"Bold",weight:"700"},{name:"Extra Bold",weight:"900"}];
  const captionColors=[{name:"White",color:"#FFFFFF",backgroundColor:"transparent"},{name:"Pink",color:"#FF75D8",backgroundColor:"#66000000"},{name:"Yellow",color:"#FFF2A6",backgroundColor:"#66000000"},{name:"Cyan",color:"#8DEBFF",backgroundColor:"transparent"},{name:"Black",color:"#111111",backgroundColor:"#CCFFFFFF"},{name:"Lime",color:"#C8FF78",backgroundColor:"#66000000"}];
@@ -37,8 +38,26 @@ export default function VideoEditorScreen({source,initialSoundName,initialFilter
  async function pickPhoto(replaceId){try{const r=await ImagePicker.launchImageLibraryAsync({mediaTypes:["images"],allowsEditing:true,aspect:[9,16],quality:1});if(r.canceled||!r.assets?.[0]?.uri)return;const a=r.assets[0];if(replaceId)updateImage(replaceId,{uri:a.uri});else{const id=String(Date.now());setImages(old=>[...old,{id,uri:a.uri,name:a.fileName||"Photo overlay",startTime:0,duration:Math.min(5,clipDuration),x:.5,y:.5,scale:1,rotation:0,opacity:1}]);setSelectedId(id);}}catch(e){Alert.alert("Photo error",e.message||"Photo select nahi ho saki.");}}
  async function pickMusic(){try{const r=await DocumentPicker.getDocumentAsync({type:"audio/*",copyToCacheDirectory:true});if(!r.canceled&&r.assets?.[0]){setMusicUri(r.assets[0].uri);setMusicName(r.assets[0].name||"Selected audio");}}catch(e){Alert.alert("Audio error",e.message||"Audio select nahi ho saka.");}}
  async function pickCover(){try{const r=await ImagePicker.launchImageLibraryAsync({mediaTypes:["images"],allowsEditing:true,aspect:[9,16],quality:1});if(!r.canceled&&r.assets?.[0]?.uri){setCoverUri(r.assets[0].uri);onCoverSelected?.({uri:r.assets[0].uri});}}catch(e){Alert.alert("Cover error",e.message||"Cover select nahi ho saka.");}}
- async function pickMagicMedia(){try{const r=await ImagePicker.launchImageLibraryAsync({mediaTypes:["images","videos"],allowsEditing:false,quality:1});if(!r.canceled&&r.assets?.[0]){const a=r.assets[0];setMagicMedia({uri:a.uri,type:a.type==="video"?"Video":"Photo",name:a.fileName||(a.type==="video"?"Selected video":"Selected photo")});setMagicBackground(null);}}catch(e){Alert.alert("Media error",e.message||"Photo ya video select nahi ho saka.");}}
+ async function pickMagicMedia(){try{const r=await ImagePicker.launchImageLibraryAsync({mediaTypes:["images","videos"],allowsEditing:false,quality:1});if(!r.canceled&&r.assets?.[0]){const a=r.assets[0];setMagicMedia({uri:a.uri,type:a.type==="video"?"Video":"Photo",name:a.fileName||(a.type==="video"?"Selected video":"Selected photo")});setMagicBackground(null);setMagicResultUri("");}}catch(e){Alert.alert("Media error",e.message||"Photo ya video select nahi ho saka.");}}
  async function pickMagicBackground(){try{const r=await ImagePicker.launchImageLibraryAsync({mediaTypes:["images"],allowsEditing:true,aspect:[9,16],quality:1});if(!r.canceled&&r.assets?.[0]?.uri)setMagicBackground(r.assets[0].uri);}catch(e){Alert.alert("Background error",e.message||"Background photo select nahi ho saki.");}}
+ async function removeMagicBackground(){
+  if(magicProcessing||!magicMedia)return;
+  if(magicMedia.type!=="Photo")return Alert.alert("Video processing abhi tayyar nahi","Poof video job aur transparent video ko background ke saath final MP4 mein compose karne ka pipeline abhi baqi hai. Photo processing pehle connect ki ja rahi hai.");
+  if(typeof onUploadMagicMedia!=="function")return Alert.alert("Upload setup missing","Media upload callback available nahi hai. App update check karein.");
+  setMagicProcessing(true);setMagicResultUri("");
+  try{
+   const publicUrl=await onUploadMagicMedia(magicMedia.uri,magicMedia.type);
+   const response=await fetch("https://gen-live-background-api.vercel.app/api/remove",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:publicUrl,format:"png",channels:"rgba"})});
+   const result=await response.json();
+   if(!response.ok)throw new Error(result?.error||result?.details?.message||"AI background removal request failed.");
+   if(!result?.data||!result?.contentType)throw new Error(result?.error||"Poof response mein processed image data nahi mila.");
+   const outputUri=(FileSystem.cacheDirectory||"file:///")+"gen-live-bg-removed-"+Date.now()+".png";
+   await FileSystem.writeAsStringAsync(outputUri,result.data,{encoding:FileSystem.EncodingType.Base64});
+   setMagicResultUri(outputUri);
+   Alert.alert("Photo ready","AI ne background removal result diya hai. Preview neeche dikh raha hai.");
+  }catch(e){Alert.alert("AI Background Removal Error",e?.message||"Photo process nahi ho saki.");}
+  finally{setMagicProcessing(false);}
+ }
  function addText(){if(!textValue.trim())return Alert.alert("Text required","Pehle caption text likhein.");setTexts(old=>[...old,{id:String(Date.now()),text:textValue.trim(),startTime:Math.max(0,Number(textStart)||0),duration:Math.max(.5,Number(textDuration)||5),x:.5,y:.18,color:captionStyle.color,fontSize:captionStyle.fontSize,fontWeight:captionStyle.fontWeight,fontFamily:captionStyle.fontFamily,fontStyle:captionStyle.fontStyle,backgroundColor:captionStyle.backgroundColor}]);setTextValue("");Alert.alert("Added to video","Aapka selected caption style video mein add ho gaya.");}
  async function exportVideo(){
   if(exporting)return;if(!source)return Alert.alert("Video missing","Video dobara select karein.");if(safeEnd<=safeStart)return Alert.alert("Trim range","Start aur End time check karein.");if(!MediaEngine.isAvailable())return Alert.alert("Editor not ready","Media Engine native module load nahi hua. APK dobara build karein.");
@@ -116,8 +135,9 @@ export default function VideoEditorScreen({source,initialSoundName,initialFilter
     </View>
     <Text style={s.magicSubheading}>Background color</Text>
     <View style={s.magicColors}>{["#10101a","#FFFFFF","#FF315F","#2678FF","#19A66A","#FFD54A"].map(color=><TouchableOpacity key={color} onPress={()=>{setMagicBgColor(color);setMagicBackground(null);}} style={[s.magicColorDot,{backgroundColor:color,borderColor:magicBgColor===color?C.magenta:"#555",borderWidth:magicBgColor===color?3:1}]}/>)}</View>
-    <TouchableOpacity onPress={()=>Alert.alert("AI service not connected","Photo/video selection aur background options ka interface tayyar hai. Asal AI background removal ke liye processing service connect karni baqi hai.")} disabled={!magicMedia} style={[s.magicApplyButton,!magicMedia&&{opacity:.45}]}><Text style={s.magicApplyText}>✦  Remove Background with AI</Text></TouchableOpacity>
-    <Text style={s.magicHint}>AI processing service abhi connect nahi hai. Connect hone ke baad result preview karke Apply to Video kiya ja sakega.</Text>
+    <TouchableOpacity onPress={removeMagicBackground} disabled={!magicMedia||magicProcessing} style={[s.magicApplyButton,(!magicMedia||magicProcessing)&&{opacity:.45}]}>{magicProcessing?<ActivityIndicator color="#fff"/>:<Text style={s.magicApplyText}>✦  Remove Background with AI</Text>}</TouchableOpacity>
+    {!!magicResultUri&&<View style={{marginTop:7,alignItems:"center"}}><Text style={s.magicInfoText}>AI result preview</Text><Image source={{uri:magicResultUri}} resizeMode="contain" style={{width:100,height:120,marginTop:4,borderRadius:8,backgroundColor:"#333"}}/></View>}
+    <Text style={s.magicHint}>Photo AI processing connected. Video processing aur Apply to Video compositing abhi pending hai.</Text>
    </View>}
 
   </View>
