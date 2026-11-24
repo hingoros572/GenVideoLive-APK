@@ -128,7 +128,6 @@ export default function VideoEditorScreen({source,initialSoundName,initialFilter
        <TouchableOpacity activeOpacity={0.85} onPress={()=>{setSelectedTrack("Stickers / Overlays");setActivePanel("Layers");}} style={[s.imageTrack,{width:timelineWidth-8,backgroundColor:"#28203b",borderWidth:selectedTrack==="Stickers / Overlays"?1:0,borderColor:C.magenta}]}><Text style={[s.imageTrackLabel,{color:"#d8b6ff"}]}>STICKERS / OVERLAYS · TAP TO SELECT</Text></TouchableOpacity>
        <TouchableOpacity activeOpacity={0.85} onPress={()=>{setSelectedTrack("Background Layer");setActivePanel("Layers");}} style={[s.imageTrack,{width:timelineWidth-8,backgroundColor:"#1d2938",borderWidth:selectedTrack==="Background Layer"?1:0,borderColor:C.magenta}]}><Text style={[s.imageTrackLabel,{color:"#a9c9ff"}]}>BACKGROUND LAYER · TAP TO SELECT</Text></TouchableOpacity>
        <TouchableOpacity activeOpacity={0.85} onPress={()=>{setSelectedTrack("AI Cutout / Extra Layers");setActivePanel("Layers");}} style={[s.imageTrack,{width:timelineWidth-8,backgroundColor:"#30202e",borderWidth:selectedTrack==="AI Cutout / Extra Layers"?1:0,borderColor:C.magenta}]}><Text style={[s.imageTrackLabel,{color:"#ff9edc"}]}>AI CUTOUT / EXTRA LAYERS · TAP TO SELECT</Text></TouchableOpacity>
-      </View>
      </ScrollView>
     </View>
     <View pointerEvents="none" style={s.playheadFixed}/>
