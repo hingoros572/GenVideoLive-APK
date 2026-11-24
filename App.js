@@ -1392,6 +1392,18 @@ export default function App() {
   }
 
   // Cloudinary image upload for profile and cover photos
+  async function uploadMagicMediaToCloudinary(uri,mediaType) {
+    const isVideo=mediaType==="Video";
+    const endpoint=isVideo?"video":"image";
+    const formData=new FormData();
+    formData.append("file",{uri,name:"magic-"+Date.now()+(isVideo?".mp4":".jpg"),type:isVideo?"video/mp4":"image/jpeg"});
+    formData.append("upload_preset",UPLOAD_PRESET);
+    const response=await fetch("https://api.cloudinary.com/v1_1/"+CLOUD_NAME+"/"+endpoint+"/upload",{method:"POST",body:formData});
+    const data=await response.json();
+    if(!response.ok||!data.secure_url) throw new Error(data?.error?.message||"Media upload nahi ho saki.");
+    return data.secure_url;
+  }
+
   async function uploadImageToCloudinary(uri,label) {
     const formData=new FormData();
 
@@ -2314,6 +2326,7 @@ export default function App() {
             setCreateStep("location");
             Alert.alert("Video ready","Aapki edited video final MP4 mein save ho gayi. Ab location aur post details complete karein.");
           }}
+          onUploadMagicMedia={uploadMagicMediaToCloudinary}
           onError={(error)=>console.log("NEW VIDEO EDITOR ERROR:",error?.message||error)}
         />
       );
