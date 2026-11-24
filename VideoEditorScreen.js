@@ -88,7 +88,7 @@ export default function VideoEditorScreen({source,initialSoundName,initialFilter
  const timelineDuration=Math.max(10,duration||Number(end)||10);
  const timelineWidth=Math.max(SW-24,timelineDuration*pxPerSecond+24);
  const timelineTicks=Array.from({length:Math.ceil(timelineDuration)+1},(_,i)=>i);
- const editorCategories=[{label:"Edit",icon:"✂"},{label:"Audio",icon:"♫"},{label:"Text",icon:"T"},{label:"Effects",icon:"✦"},{label:"Overlay",icon:"▧"},{label:"Caption",icon:"▤"},{label:"Video quality",icon:"HD"},{label:"Remove BG",icon:"◉"},{label:"AI remove",icon:"✧"},{label:"AI expand",icon:"⛶"},{label:"AI remix",icon:"✦"}];
+ const editorCategories=[{label:"Edit",icon:"✂"},{label:"Audio",icon:"♫"},{label:"Text",icon:"T"},{label:"Effects",icon:"✦"},{label:"Magic",icon:"✧"},{label:"Overlay",icon:"▧"},{label:"Caption",icon:"▤"},{label:"Video quality",icon:"HD"},{label:"Remove BG",icon:"◉"},{label:"AI remove",icon:"✧"},{label:"AI expand",icon:"⛶"},{label:"AI remix",icon:"✦"}];
  const selectedImage=images.find(x=>x.id===selectedId)||null;
  const playheadOffset=18;
  const jumpToTime=(seconds)=>{const t=Math.max(0,Math.min(timelineDuration,seconds));const x=Math.max(0,t*pxPerSecond-playheadOffset);timelineRef.current?.scrollTo({x,animated:true});setPosition(t);player.current?.setPositionAsync?.(t*1000)?.catch?.(()=>{});};
