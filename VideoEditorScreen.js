@@ -209,6 +209,7 @@ export default function VideoEditorScreen({source,initialSoundName,initialFilter
    </View>}
 
   </View>
+  </View>
  </KeyboardAvoidingView>;
 
 }
