@@ -2409,6 +2409,9 @@ export default function App() {
             </ScrollView>
             <View pointerEvents="none" style={{position:"absolute",top:22,bottom:32,left:"24%",width:2,backgroundColor:"#fff",zIndex:20}}>
               <View style={{position:"absolute",top:-3,left:-4,width:10,height:10,borderRadius:5,backgroundColor:"#fff"}}/>
+              <View style={{position:"absolute",top:-21,left:-22,minWidth:46,alignItems:"center"}}>
+                <Text style={{color:"#fff",fontSize:9,fontWeight:"800",backgroundColor:"#e72f67",paddingHorizontal:5,paddingVertical:2,borderRadius:4}}>{formatTime(editorPlaybackSeconds)}</Text>
+              </View>
             </View>
             <View style={{height:25,flexDirection:"row",alignItems:"center",justifyContent:"space-between",paddingHorizontal:17}}>
               <Text style={{color:"#b8b8c5",fontSize:11}}>Selected clip: {safeIndex+1}/{timelineClips.length||1}</Text>
