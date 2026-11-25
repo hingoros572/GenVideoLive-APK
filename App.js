@@ -391,6 +391,7 @@ export default function App() {
   const [timelineWidth,setTimelineWidth] = useState(220);
   const [trimDragSide,setTrimDragSide] = useState(null);
   const [timelineThumbs,setTimelineThumbs] = useState({});
+  const [editorPlaybackSeconds,setEditorPlaybackSeconds] = useState(0);
   useEffect(()=>{
     let cancelled=false;
     async function buildTimelineThumbs(){
@@ -2358,20 +2359,13 @@ export default function App() {
 
           <View style={{height:"31%",minHeight:155,maxHeight:265,marginHorizontal:10,backgroundColor:"#000",borderRadius:14,overflow:"hidden",alignItems:"center",justifyContent:"center"}}>
             {previewMedia?.uri ? (previewIsVideo
-              ? <Video key={previewMedia.uri} source={{uri:previewMedia.uri}} style={{width:"100%",height:"100%"}} resizeMode={ResizeMode.CONTAIN} shouldPlay isLooping isMuted={false} volume={1} useNativeControls={false} usePoster={!!timelineThumbs[previewMedia.uri]} posterSource={timelineThumbs[previewMedia.uri]?{uri:timelineThumbs[previewMedia.uri]}:undefined} onError={error=>console.log("EDITOR PREVIEW VIDEO ERROR:",error)}/>
+              ? <Video key={previewMedia.uri} source={{uri:previewMedia.uri}} style={{width:"100%",height:"100%"}} resizeMode={ResizeMode.CONTAIN} shouldPlay isLooping isMuted={false} volume={1} useNativeControls={false} usePoster={!!timelineThumbs[previewMedia.uri]} posterSource={timelineThumbs[previewMedia.uri]?{uri:timelineThumbs[previewMedia.uri]}:undefined} progressUpdateIntervalMillis={100} onPlaybackStatusUpdate={status=>{if(status.isLoaded)setEditorPlaybackSeconds(status.positionMillis/1000);}} onError={error=>console.log("EDITOR PREVIEW VIDEO ERROR:",error)}/>
               : <Image source={{uri:previewMedia.uri}} style={{width:"100%",height:"100%"}} resizeMode="contain"/>)
               : <Text style={{color:"#fff"}}>Gallery se video select karein</Text>}
-            <View style={{position:"absolute",top:9,left:10,right:10,flexDirection:"row",justifyContent:"space-between"}}>
-              <Text style={{color:"#fff",backgroundColor:"#0009",paddingHorizontal:9,paddingVertical:5,borderRadius:8,fontSize:11}}>{formatTime(clipStart)} / {formatTime(clipEnd)}</Text>
-              <TouchableOpacity onPress={()=>Alert.alert("Add sound","Audio toolbox aglay step mein connect karenge.")} style={{backgroundColor:"#0009",paddingHorizontal:13,paddingVertical:7,borderRadius:18}}><Text style={{color:"#fff",fontWeight:"800"}}>♫ Add sound</Text></TouchableOpacity>
-            </View>
+
           </View>
 
-          <View style={{height:32,flexDirection:"row",alignItems:"center",justifyContent:"space-around",paddingHorizontal:12}}>
-            <Text style={{color:"#d5d5df",fontSize:12,fontWeight:"700"}}>{formatTime(clipStart)} / {formatTime(clipEnd)}</Text>
-            <TouchableOpacity onPress={()=>Alert.alert("Split","Playhead par clip split ka control aglay editing step mein connect hoga.")} style={{paddingHorizontal:14,paddingVertical:6,backgroundColor:"#242432",borderRadius:8}}><Text style={{color:"#fff",fontWeight:"800"}}>✂ Split</Text></TouchableOpacity>
-            <TouchableOpacity onPress={()=>setTrimRanges(old=>({...old,[clipKey]:{start:0,end:clipDuration}}))} style={{paddingHorizontal:12,paddingVertical:6,backgroundColor:"#242432",borderRadius:8}}><Text style={{color:"#fff",fontWeight:"800"}}>Reset</Text></TouchableOpacity>
-          </View>
+          <View style={{height:12}}/>
 
           <View style={{flex:1,minHeight:150,backgroundColor:"#101018",paddingTop:7,paddingBottom:8}}>
             <View style={{height:20,flexDirection:"row",justifyContent:"space-between",paddingHorizontal:16}}>
@@ -2413,6 +2407,9 @@ export default function App() {
                 );
               })}
             </ScrollView>
+            <View pointerEvents="none" style={{position:"absolute",top:22,bottom:32,left:"24%",width:2,backgroundColor:"#fff",zIndex:20}}>
+              <View style={{position:"absolute",top:-3,left:-4,width:10,height:10,borderRadius:5,backgroundColor:"#fff"}}/>
+            </View>
             <View style={{height:25,flexDirection:"row",alignItems:"center",justifyContent:"space-between",paddingHorizontal:17}}>
               <Text style={{color:"#b8b8c5",fontSize:11}}>Selected clip: {safeIndex+1}/{timelineClips.length||1}</Text>
               <Text style={{color:C.green,fontSize:11,fontWeight:"800"}}>Trim: {formatTime(clipStart)} – {formatTime(clipEnd)}</Text>
