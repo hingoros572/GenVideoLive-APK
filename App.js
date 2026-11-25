@@ -2379,71 +2379,87 @@ export default function App() {
 
           </View>
 
-          <View style={{height:38,flexDirection:"row",alignItems:"center",justifyContent:"center",gap:28,backgroundColor:"#08080d"}}>
-            <TouchableOpacity onPress={async()=>{try{if(editorIsPlaying){await editorVideoRef.current?.pauseAsync();setEditorIsPlaying(false);}else{await editorVideoRef.current?.playAsync();setEditorIsPlaying(true);}}catch(error){console.log("EDITOR PLAY ERROR:",error.message);}}} style={{width:42,height:34,alignItems:"center",justifyContent:"center"}}><Text style={{color:"#fff",fontSize:23}}>{editorIsPlaying?"Ⅱ":"▶"}</Text></TouchableOpacity>
-            <TouchableOpacity onPress={async()=>{try{await editorVideoRef.current?.stopAsync();await editorVideoRef.current?.setPositionAsync(0);setEditorPlaybackSeconds(0);setEditorIsPlaying(false);}catch(error){console.log("EDITOR STOP ERROR:",error.message);}}} style={{width:42,height:34,alignItems:"center",justifyContent:"center"}}><Text style={{color:"#fff",fontSize:21}}>■</Text></TouchableOpacity>
-            <Text style={{color:"#c8c8d2",fontSize:11,fontWeight:"700"}}>{formatTime(editorPlaybackSeconds)} / {formatTime(clipDuration)}</Text>
+          <View style={{height:38,flexDirection:"row",alignItems:"center",justifyContent:"center",backgroundColor:"#08080d"}}>
+            <TouchableOpacity onPress={async()=>{try{if(editorIsPlaying){await editorVideoRef.current?.pauseAsync();setEditorIsPlaying(false);}else{await editorVideoRef.current?.playAsync();setEditorIsPlaying(true);}}catch(error){console.log("EDITOR PLAY ERROR:",error.message);}}} style={{width:54,height:36,alignItems:"center",justifyContent:"center"}}><Text style={{color:"#fff",fontSize:24}}>{editorIsPlaying?"Ⅱ":"▶"}</Text></TouchableOpacity>
+            <Text style={{color:"#c8c8d2",fontSize:11,fontWeight:"700",marginLeft:12}}>{formatTime(editorPlaybackSeconds)} / {formatTime(clipDuration)}</Text>
           </View>
 
-          <View style={{height:5}}/>
+          <View style={{flex:1,minHeight:190,backgroundColor:"#101018",paddingTop:7,paddingBottom:6}}>
+            <View style={{flexDirection:"row",flex:1}}>
+              <View style={{width:76,justifyContent:"flex-start",alignItems:"center",paddingTop:26,paddingBottom:5}}>
+                <TouchableOpacity onPress={()=>setClipMuteStates(old=>({...old,[clipKey]:!old[clipKey]}))} style={{width:60,height:48,alignItems:"center",justifyContent:"center",marginBottom:5}}>
+                  <Text style={{fontSize:21,color:"#fff"}}>{clipMuteStates[clipKey]?"🔇":"🔊"}</Text>
+                  <Text style={{color:"#d7d7df",fontSize:9,textAlign:"center"}}>{clipMuteStates[clipKey]?"Unmute clip":"Mute clip"}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={()=>Alert.alert("Cover","Cover frame selection ko aglay editing step mein connect karenge.")} style={{width:60,height:48,alignItems:"center",justifyContent:"center",marginBottom:12}}>
+                  <Text style={{fontSize:21,color:"#fff"}}>▧</Text>
+                  <Text style={{color:"#d7d7df",fontSize:9}}>Cover</Text>
+                </TouchableOpacity>
+                <View style={{flex:1,justifyContent:"center",gap:9}}>
+                  <View style={{width:40,height:38,borderRadius:7,backgroundColor:"#252536",alignItems:"center",justifyContent:"center"}}><Text style={{color:"#aaa",fontSize:19}}>♫</Text></View>
+                  <View style={{width:40,height:38,borderRadius:7,backgroundColor:"#252536",alignItems:"center",justifyContent:"center"}}><Text style={{color:"#aaa",fontSize:19}}>T</Text></View>
+                </View>
+              </View>
 
-          <View style={{flex:1,minHeight:150,backgroundColor:"#101018",paddingTop:7,paddingBottom:8}}>
-            <View style={{height:20,flexDirection:"row",justifyContent:"space-between",paddingHorizontal:16}}>
-              {[0,1,2,3,4].map((n)=><Text key={n} style={{color:"#9999a9",fontSize:11}}>{formatTime(n*2)}</Text>)}
-            </View>
-            <ScrollView ref={timelineScrollRef} horizontal showsHorizontalScrollIndicator={false} scrollEventThrottle={16} contentContainerStyle={{paddingHorizontal:Dimensions.get("window").width/2,alignItems:"center",gap:3}}>
-              {timelineClips.map((clip,index)=>{
-                const active=index===safeIndex;
-                const isImage=clip.type==="image"||clip.mimeType?.startsWith("image/");
-                const source=timelineThumbs[clip.uri]||clip.uri;
-                return (
-                  <TouchableOpacity key={clip.id||clip.uri||index} activeOpacity={0.9} onPress={()=>{setSelectedTimelineIndex(index);setEditorPlaybackSeconds(0);timelineScrollRef.current?.scrollTo({x:timelineClips.slice(0,index).reduce((sum,item)=>sum+Math.max(1,Number(item.duration||10)),0)*28,animated:true});if(clip.type==="video"||clip.mimeType?.startsWith("video/"))setSelectedVideo(clip);}}>
-                    <View
-                      onLayout={active?e=>setTimelineWidth(e.nativeEvent.layout.width):undefined}
-                      onStartShouldSetResponder={event=>active&&(event.nativeEvent.locationX<30||event.nativeEvent.locationX>timelineWidth-30)}
-                      onMoveShouldSetResponder={()=>active&&!!trimDragSide}
-                      onResponderGrant={event=>{if(active)setTrimDragSide(event.nativeEvent.locationX<timelineWidth/2?"start":"end");}}
-                      onResponderMove={updateTrimFromTouch}
-                      onResponderRelease={()=>setTrimDragSide(null)}
-                      style={{width:Math.max(90,Math.min(560,Math.max(0.5,((trimRanges[clip.uri]||{start:0,end:Math.max(1,Number(clip.duration||10))}).end-(trimRanges[clip.uri]||{start:0,end:Math.max(1,Number(clip.duration||10))}).start))*28)),height:62,borderWidth:active?2:1,borderColor:active?"#fff":"#555566",borderRadius:8,overflow:"hidden",backgroundColor:"#252536",justifyContent:"center"}}>
-                      {source?<Image source={{uri:source}} style={{width:"100%",height:"100%",position:"absolute"}} resizeMode="cover"/>:null}
-                      <TouchableOpacity onPress={()=>setClipMuteStates(old=>({...old,[clip.uri]:!old[clip.uri]}))} style={{position:"absolute",left:3,top:3,width:23,height:23,borderRadius:12,backgroundColor:"#000b",alignItems:"center",justifyContent:"center",zIndex:5}}><Text style={{color:"#fff",fontSize:12}}>{clipMuteStates[clip.uri]?"🔇":"🔊"}</Text></TouchableOpacity>
-                      <View style={{position:"absolute",left:0,right:0,bottom:0,backgroundColor:"#0009",paddingHorizontal:5,paddingVertical:3}}>
-                        <Text style={{color:"#fff",fontSize:9,fontWeight:"800"}} numberOfLines={1}>{clip.fileName|| (isImage?"Photo clip":"Video clip")}</Text>
-                      </View>
-                      {active&&(
-                        <>
-                          <View pointerEvents="none" style={{position:"absolute",left:0,top:0,bottom:0,width:3,backgroundColor:"#fff"}}/>
-                          <View pointerEvents="none" style={{position:"absolute",right:0,top:0,bottom:0,width:3,backgroundColor:"#fff"}}/>
-                          <View pointerEvents="none" style={{position:"absolute",left:0,top:0,bottom:0,width:19,backgroundColor:"#fff",alignItems:"center",justifyContent:"center"}}>
-                            <View style={{width:3,height:25,borderRadius:2,backgroundColor:"#222"}}/>
-                          </View>
-                          <View pointerEvents="none" style={{position:"absolute",right:0,top:0,bottom:0,width:25,backgroundColor:"#fff",alignItems:"center",justifyContent:"center"}}>
-                            <View style={{width:3,height:25,borderRadius:2,backgroundColor:"#222"}}/>
-                          </View>
-                        </>
-                      )}
+              <View style={{flex:1}}>
+                <View style={{height:22,flexDirection:"row",justifyContent:"space-between",paddingHorizontal:7}}>
+                  {[0,1,2,3,4].map((n)=><Text key={n} style={{color:"#9999a9",fontSize:10}}>{formatTime(n*2)}</Text>)}
+                </View>
+                <ScrollView ref={timelineScrollRef} horizontal showsHorizontalScrollIndicator={false} scrollEventThrottle={16} contentContainerStyle={{paddingHorizontal:Dimensions.get("window").width*0.36,alignItems:"flex-start"}}>
+                  <View>
+                    <View style={{height:66,flexDirection:"row",alignItems:"center",gap:3}}>
+                      {timelineClips.map((clip,index)=>{
+                        const active=index===safeIndex;
+                        const isImage=clip.type==="image"||clip.mimeType?.startsWith("image/");
+                        const source=timelineThumbs[clip.uri]||clip.uri;
+                        const range=trimRanges[clip.uri]||{start:0,end:Math.max(1,Number(clip.duration||10))};
+                        const clipWidth=Math.max(76,Math.min(560,Math.max(0.5,range.end-range.start)*28));
+                        return (
+                          <TouchableOpacity key={clip.id||clip.uri||index} activeOpacity={0.9} onPress={()=>{setSelectedTimelineIndex(index);setEditorPlaybackSeconds(0);setEditorIsPlaying(false);if(clip.type==="video"||clip.mimeType?.startsWith("video/"))setSelectedVideo(clip);}}>
+                            <View
+                              onLayout={active?e=>setTimelineWidth(e.nativeEvent.layout.width):undefined}
+                              onStartShouldSetResponder={event=>active&&(event.nativeEvent.locationX<24||event.nativeEvent.locationX>timelineWidth-24)}
+                              onMoveShouldSetResponder={()=>active&&!!trimDragSide}
+                              onResponderGrant={event=>{if(active)setTrimDragSide(event.nativeEvent.locationX<timelineWidth/2?"start":"end");}}
+                              onResponderMove={updateTrimFromTouch}
+                              onResponderRelease={()=>setTrimDragSide(null)}
+                              style={{width:clipWidth,height:62,borderWidth:active?2:1,borderColor:active?"#fff":"#555566",borderRadius:7,overflow:"hidden",backgroundColor:"#252536",justifyContent:"center"}}>
+                              {source?<Image source={{uri:source}} style={{width:"100%",height:"100%",position:"absolute"}} resizeMode="cover"/>:null}
+                              <View style={{position:"absolute",left:0,right:0,bottom:0,backgroundColor:"#0009",paddingHorizontal:4,paddingVertical:3}}>
+                                <Text style={{color:"#fff",fontSize:9,fontWeight:"800"}} numberOfLines={1}>{clip.fileName||(isImage?"Photo clip":"Video clip")}</Text>
+                              </View>
+                              {active&&<>
+                                <View pointerEvents="none" style={{position:"absolute",left:0,top:0,bottom:0,width:18,backgroundColor:"#fff",alignItems:"center",justifyContent:"center"}}><View style={{width:3,height:25,borderRadius:2,backgroundColor:"#222"}}/></View>
+                                <View pointerEvents="none" style={{position:"absolute",right:0,top:0,bottom:0,width:18,backgroundColor:"#fff",alignItems:"center",justifyContent:"center"}}><View style={{width:3,height:25,borderRadius:2,backgroundColor:"#222"}}/></View>
+                              </>}
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                      <TouchableOpacity onPress={()=>chooseVideoFromGallery(true)} activeOpacity={0.85} style={{width:48,height:48,borderRadius:8,backgroundColor:"#fff",alignItems:"center",justifyContent:"center"}}>
+                        <Text style={{color:"#171721",fontSize:31,fontWeight:"400",lineHeight:35}}>+</Text>
+                      </TouchableOpacity>
                     </View>
-                  </TouchableOpacity>
-                );
-              })}
-              <TouchableOpacity onPress={()=>chooseVideoFromGallery(true)} activeOpacity={0.85} style={{width:62,height:62,borderRadius:9,backgroundColor:"#fff",alignItems:"center",justifyContent:"center",borderWidth:1,borderColor:"#ddd"}}>
-                <Text style={{color:"#171721",fontSize:34,fontWeight:"400",lineHeight:38}}>+</Text>
-              </TouchableOpacity>
-            </ScrollView>
-            <View pointerEvents="none" style={{position:"absolute",top:22,bottom:32,left:"50%",width:2,backgroundColor:"#fff",zIndex:20}}>
+                    <View style={{height:43,marginTop:5,backgroundColor:"#20202b",borderRadius:5,justifyContent:"center",paddingHorizontal:10,minWidth:Math.max(260,timelineClips.reduce((sum,item)=>sum+Math.max(1,Number(item.duration||10))*28,0))}}>
+                      <Text style={{color:"#9a9aaa",fontSize:12}}>＋ Add audio</Text>
+                    </View>
+                    <View style={{height:43,marginTop:5,backgroundColor:"#20202b",borderRadius:5,justifyContent:"center",paddingHorizontal:10,minWidth:Math.max(260,timelineClips.reduce((sum,item)=>sum+Math.max(1,Number(item.duration||10))*28,0))}}>
+                      <Text style={{color:"#9a9aaa",fontSize:12}}>＋ Add text</Text>
+                    </View>
+                  </View>
+                </ScrollView>
+              </View>
+            </View>
+            <View pointerEvents="none" style={{position:"absolute",top:22,bottom:5,left:"50%",width:2,backgroundColor:"#fff",zIndex:20}}>
               <View style={{position:"absolute",top:-3,left:-4,width:10,height:10,borderRadius:5,backgroundColor:"#fff"}}/>
               <View style={{position:"absolute",top:-21,left:-22,minWidth:46,alignItems:"center"}}>
                 <Text style={{color:"#fff",fontSize:9,fontWeight:"800",backgroundColor:"#e72f67",paddingHorizontal:5,paddingVertical:2,borderRadius:4}}>{formatTime(editorPlaybackSeconds)}</Text>
               </View>
             </View>
-            <View style={{height:32,flexDirection:"row",alignItems:"center",justifyContent:"space-between",paddingHorizontal:17}}>
-              <View style={{width:12}}/>
-              <Text style={{color:"#b8b8c5",fontSize:11}}>Selected clip: {safeIndex+1}/{timelineClips.length||1}</Text>
-              <Text style={{color:C.green,fontSize:11,fontWeight:"800"}}>Trim: {formatTime(clipStart)} – {formatTime(clipEnd)}</Text>
+            <View style={{height:23,flexDirection:"row",alignItems:"center",justifyContent:"space-between",paddingHorizontal:12}}>
+              <Text style={{color:"#b8b8c5",fontSize:10}}>Clip {safeIndex+1}/{timelineClips.length||1}</Text>
+              <Text style={{color:C.green,fontSize:10,fontWeight:"800"}}>Trim: {formatTime(clipStart)} – {formatTime(clipEnd)}</Text>
             </View>
-            <View style={{height:1,backgroundColor:"#292938",marginHorizontal:12}}/>
-            <Text style={{color:"#888899",fontSize:10,paddingHorizontal:16,paddingTop:6}}>Timeline ko left-right swipe karein • White handles se start/end trim karein</Text>
           </View>
 
           <View style={{height:82,flexShrink:0,backgroundColor:"#151520",borderTopWidth:1,borderTopColor:"#302d43",paddingTop:7}}>
