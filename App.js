@@ -2349,16 +2349,16 @@ export default function App() {
       };
       const formatTime=(seconds)=>{const v=Math.max(0,Math.floor(seconds||0));return "00:"+String(v).padStart(2,"0");};
       return (
-        <View style={{flex:1,backgroundColor:"#08080d",paddingTop:4}}>
+        <View style={{flex:1,backgroundColor:"#08080d",paddingTop:2,paddingBottom:Platform.OS==="android"?26:8}}>
           <View style={{height:48,flexDirection:"row",alignItems:"center",justifyContent:"space-between",paddingHorizontal:13}}>
             <TouchableOpacity onPress={()=>setCreateStep("gallery")} style={{width:42,height:42,alignItems:"center",justifyContent:"center"}}><Text style={{color:"#fff",fontSize:31}}>‹</Text></TouchableOpacity>
             <Text style={{color:"#fff",fontSize:16,fontWeight:"900"}}>STUDIO PRO</Text>
             <TouchableOpacity onPress={()=>setSelectedEditorTool("")} style={{paddingHorizontal:13,paddingVertical:8,borderRadius:18,backgroundColor:C.pink}}><Text style={{color:"#fff",fontWeight:"900"}}>Done</Text></TouchableOpacity>
           </View>
 
-          <View style={{height:"36%",minHeight:190,maxHeight:330,marginHorizontal:10,backgroundColor:"#000",borderRadius:14,overflow:"hidden",alignItems:"center",justifyContent:"center"}}>
+          <View style={{height:"31%",minHeight:155,maxHeight:265,marginHorizontal:10,backgroundColor:"#000",borderRadius:14,overflow:"hidden",alignItems:"center",justifyContent:"center"}}>
             {previewMedia?.uri ? (previewIsVideo
-              ? <Video key={previewMedia.uri} source={{uri:previewMedia.uri}} style={{width:"100%",height:"100%"}} resizeMode={ResizeMode.CONTAIN} shouldPlay isLooping isMuted={false} volume={1} useNativeControls={false} onError={error=>console.log("EDITOR PREVIEW VIDEO ERROR:",error)}/>
+              ? <Video key={previewMedia.uri} source={{uri:previewMedia.uri}} style={{width:"100%",height:"100%"}} resizeMode={ResizeMode.CONTAIN} shouldPlay isLooping isMuted={false} volume={1} useNativeControls={false} usePoster={!!timelineThumbs[previewMedia.uri]} posterSource={timelineThumbs[previewMedia.uri]?{uri:timelineThumbs[previewMedia.uri]}:undefined} onError={error=>console.log("EDITOR PREVIEW VIDEO ERROR:",error)}/>
               : <Image source={{uri:previewMedia.uri}} style={{width:"100%",height:"100%"}} resizeMode="contain"/>)
               : <Text style={{color:"#fff"}}>Gallery se video select karein</Text>}
             <View style={{position:"absolute",top:9,left:10,right:10,flexDirection:"row",justifyContent:"space-between"}}>
@@ -2367,14 +2367,14 @@ export default function App() {
             </View>
           </View>
 
-          <View style={{height:36,flexDirection:"row",alignItems:"center",justifyContent:"space-around",paddingHorizontal:12}}>
+          <View style={{height:32,flexDirection:"row",alignItems:"center",justifyContent:"space-around",paddingHorizontal:12}}>
             <Text style={{color:"#d5d5df",fontSize:12,fontWeight:"700"}}>{formatTime(clipStart)} / {formatTime(clipEnd)}</Text>
             <TouchableOpacity onPress={()=>Alert.alert("Split","Playhead par clip split ka control aglay editing step mein connect hoga.")} style={{paddingHorizontal:14,paddingVertical:6,backgroundColor:"#242432",borderRadius:8}}><Text style={{color:"#fff",fontWeight:"800"}}>✂ Split</Text></TouchableOpacity>
             <TouchableOpacity onPress={()=>setTrimRanges(old=>({...old,[clipKey]:{start:0,end:clipDuration}}))} style={{paddingHorizontal:12,paddingVertical:6,backgroundColor:"#242432",borderRadius:8}}><Text style={{color:"#fff",fontWeight:"800"}}>Reset</Text></TouchableOpacity>
           </View>
 
           <View style={{flex:1,minHeight:150,backgroundColor:"#101018",paddingTop:7,paddingBottom:8}}>
-            <View style={{height:25,flexDirection:"row",justifyContent:"space-between",paddingHorizontal:16}}>
+            <View style={{height:20,flexDirection:"row",justifyContent:"space-between",paddingHorizontal:16}}>
               {[0,1,2,3,4].map((n)=><Text key={n} style={{color:"#9999a9",fontSize:11}}>{formatTime(n*2)}</Text>)}
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{paddingHorizontal:18,alignItems:"center",gap:8}}>
@@ -2391,7 +2391,7 @@ export default function App() {
                       onResponderGrant={event=>{if(active)setTrimDragSide(event.nativeEvent.locationX<timelineWidth/2?"start":"end");}}
                       onResponderMove={updateTrimFromTouch}
                       onResponderRelease={()=>setTrimDragSide(null)}
-                      style={{width:active?220:142,height:76,borderWidth:active?2:1,borderColor:active?"#fff":"#555566",borderRadius:8,overflow:"hidden",backgroundColor:"#252536",justifyContent:"center"}}>
+                      style={{width:active?184:118,height:62,borderWidth:active?2:1,borderColor:active?"#fff":"#555566",borderRadius:8,overflow:"hidden",backgroundColor:"#252536",justifyContent:"center"}}>
                       {source?<Image source={{uri:source}} style={{width:"100%",height:"100%",position:"absolute"}} resizeMode="cover"/>:null}
                       <View style={{position:"absolute",left:0,right:0,bottom:0,backgroundColor:"#0009",paddingHorizontal:5,paddingVertical:3}}>
                         <Text style={{color:"#fff",fontSize:9,fontWeight:"800"}} numberOfLines={1}>{clip.fileName|| (isImage?"Photo clip":"Video clip")}</Text>
@@ -2400,7 +2400,7 @@ export default function App() {
                         <>
                           <View pointerEvents="none" style={{position:"absolute",left:0,top:0,bottom:0,width:3,backgroundColor:"#fff"}}/>
                           <View pointerEvents="none" style={{position:"absolute",right:0,top:0,bottom:0,width:3,backgroundColor:"#fff"}}/>
-                          <View pointerEvents="none" style={{position:"absolute",left:0,top:0,bottom:0,width:25,backgroundColor:"#fff",alignItems:"center",justifyContent:"center"}}>
+                          <View pointerEvents="none" style={{position:"absolute",left:0,top:0,bottom:0,width:19,backgroundColor:"#fff",alignItems:"center",justifyContent:"center"}}>
                             <View style={{width:3,height:25,borderRadius:2,backgroundColor:"#222"}}/>
                           </View>
                           <View pointerEvents="none" style={{position:"absolute",right:0,top:0,bottom:0,width:25,backgroundColor:"#fff",alignItems:"center",justifyContent:"center"}}>
@@ -2413,7 +2413,7 @@ export default function App() {
                 );
               })}
             </ScrollView>
-            <View style={{height:31,flexDirection:"row",alignItems:"center",justifyContent:"space-between",paddingHorizontal:17}}>
+            <View style={{height:25,flexDirection:"row",alignItems:"center",justifyContent:"space-between",paddingHorizontal:17}}>
               <Text style={{color:"#b8b8c5",fontSize:11}}>Selected clip: {safeIndex+1}/{timelineClips.length||1}</Text>
               <Text style={{color:C.green,fontSize:11,fontWeight:"800"}}>Trim: {formatTime(clipStart)} – {formatTime(clipEnd)}</Text>
             </View>
@@ -2421,16 +2421,16 @@ export default function App() {
             <Text style={{color:"#888899",fontSize:10,paddingHorizontal:16,paddingTop:6}}>Timeline ko left-right swipe karein • White handles se start/end trim karein</Text>
           </View>
 
-          <View style={{height:105,backgroundColor:"#151520",borderTopWidth:1,borderTopColor:"#302d43",paddingTop:7}}>
+          <View style={{height:82,flexShrink:0,backgroundColor:"#151520",borderTopWidth:1,borderTopColor:"#302d43",paddingTop:7}}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{alignItems:"center",paddingHorizontal:9,gap:9}}>
-              {toolbox.map(([symbol,label])=><TouchableOpacity key={label} onPress={()=>setSelectedEditorTool(label)} style={{width:64,height:68,borderRadius:11,alignItems:"center",justifyContent:"center",backgroundColor:selectedEditorTool===label?"#51203f":"#252536",borderWidth:selectedEditorTool===label?1:0,borderColor:C.magenta}}>
-                <Text style={{color:"#fff",fontSize:20,fontWeight:"800"}}>{symbol}</Text><Text style={{color:"#fff",fontSize:10,fontWeight:"800",marginTop:5}}>{label}</Text>
+              {toolbox.map(([symbol,label])=><TouchableOpacity key={label} onPress={()=>setSelectedEditorTool(label)} style={{width:58,height:58,borderRadius:10,alignItems:"center",justifyContent:"center",backgroundColor:selectedEditorTool===label?"#51203f":"#252536",borderWidth:selectedEditorTool===label?1:0,borderColor:C.magenta}}>
+                <Text style={{color:"#fff",fontSize:18,fontWeight:"800"}}>{symbol}</Text><Text style={{color:"#fff",fontSize:9,fontWeight:"800",marginTop:3}}>{label}</Text>
               </TouchableOpacity>)}
             </ScrollView>
-            <View style={{height:24,alignItems:"center",justifyContent:"center"}}><Text style={{color:"#9d9dae",fontSize:10}}>{selectedEditorTool?selectedEditorTool+" tool will be configured next":"Toolbox • More editing tools will be added step by step"}</Text></View>
+            <View style={{height:16,alignItems:"center",justifyContent:"center"}}><Text style={{color:"#9d9dae",fontSize:10}}>{selectedEditorTool?selectedEditorTool+" tool will be configured next":"Toolbox • More editing tools will be added step by step"}</Text></View>
           </View>
 
-          <View style={{height:65,backgroundColor:"#09090f",flexDirection:"row",alignItems:"center",justifyContent:"space-between",paddingHorizontal:15}}>
+          <View style={{height:58,flexShrink:0,backgroundColor:"#09090f",flexDirection:"row",alignItems:"center",justifyContent:"space-between",paddingHorizontal:15,paddingBottom:Platform.OS==="android"?8:0}}>
             <TouchableOpacity onPress={()=>Alert.alert("Draft","Editor draft save aglay step mein connect karenge.")} style={{paddingHorizontal:16,paddingVertical:11,borderRadius:22,backgroundColor:"#292938"}}><Text style={{color:"#fff",fontWeight:"800"}}>Save draft</Text></TouchableOpacity>
             <TouchableOpacity onPress={()=>{if(!selectedVideo?.uri)return Alert.alert("Next","Pehle video clip select karein.");setCreateStep("location");}} style={{paddingHorizontal:30,paddingVertical:12,borderRadius:23,backgroundColor:C.pink}}><Text style={{color:"#fff",fontSize:15,fontWeight:"900"}}>Next</Text></TouchableOpacity>
           </View>
