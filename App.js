@@ -2384,7 +2384,14 @@ export default function App() {
                 const source=timelineThumbs[clip.uri]||clip.uri;
                 return (
                   <TouchableOpacity key={clip.id||clip.uri||index} activeOpacity={0.9} onPress={()=>{setSelectedTimelineIndex(index);if(clip.type==="video"||clip.mimeType?.startsWith("video/"))setSelectedVideo(clip);}}>
-                    <View style={{width:active?220:142,height:76,borderWidth:active?2:1,borderColor:active?"#fff":"#555566",borderRadius:8,overflow:"hidden",backgroundColor:"#252536",justifyContent:"center"}}>
+                    <View
+                      onLayout={active?e=>setTimelineWidth(e.nativeEvent.layout.width):undefined}
+                      onStartShouldSetResponder={event=>active&&(event.nativeEvent.locationX<30||event.nativeEvent.locationX>timelineWidth-30)}
+                      onMoveShouldSetResponder={()=>active&&!!trimDragSide}
+                      onResponderGrant={event=>{if(active)setTrimDragSide(event.nativeEvent.locationX<timelineWidth/2?"start":"end");}}
+                      onResponderMove={updateTrimFromTouch}
+                      onResponderRelease={()=>setTrimDragSide(null)}
+                      style={{width:active?220:142,height:76,borderWidth:active?2:1,borderColor:active?"#fff":"#555566",borderRadius:8,overflow:"hidden",backgroundColor:"#252536",justifyContent:"center"}}>
                       {source?<Image source={{uri:source}} style={{width:"100%",height:"100%",position:"absolute"}} resizeMode="cover"/>:null}
                       <View style={{position:"absolute",left:0,right:0,bottom:0,backgroundColor:"#0009",paddingHorizontal:5,paddingVertical:3}}>
                         <Text style={{color:"#fff",fontSize:9,fontWeight:"800"}} numberOfLines={1}>{clip.fileName|| (isImage?"Photo clip":"Video clip")}</Text>
@@ -2393,20 +2400,10 @@ export default function App() {
                         <>
                           <View pointerEvents="none" style={{position:"absolute",left:0,top:0,bottom:0,width:3,backgroundColor:"#fff"}}/>
                           <View pointerEvents="none" style={{position:"absolute",right:0,top:0,bottom:0,width:3,backgroundColor:"#fff"}}/>
-                          <View style={{position:"absolute",left:0,top:0,bottom:0,width:25,backgroundColor:"#fff",alignItems:"center",justifyContent:"center"}}
-                            onStartShouldSetResponder={()=>true}
-                            onMoveShouldSetResponder={()=>true}
-                            onResponderGrant={()=>setTrimDragSide("start")}
-                            onResponderMove={updateTrimFromTouch}
-                            onResponderRelease={()=>setTrimDragSide(null)}>
+                          <View pointerEvents="none" style={{position:"absolute",left:0,top:0,bottom:0,width:25,backgroundColor:"#fff",alignItems:"center",justifyContent:"center"}}>
                             <View style={{width:3,height:25,borderRadius:2,backgroundColor:"#222"}}/>
                           </View>
-                          <View style={{position:"absolute",right:0,top:0,bottom:0,width:25,backgroundColor:"#fff",alignItems:"center",justifyContent:"center"}}
-                            onStartShouldSetResponder={()=>true}
-                            onMoveShouldSetResponder={()=>true}
-                            onResponderGrant={()=>setTrimDragSide("end")}
-                            onResponderMove={updateTrimFromTouch}
-                            onResponderRelease={()=>setTrimDragSide(null)}>
+                          <View pointerEvents="none" style={{position:"absolute",right:0,top:0,bottom:0,width:25,backgroundColor:"#fff",alignItems:"center",justifyContent:"center"}}>
                             <View style={{width:3,height:25,borderRadius:2,backgroundColor:"#222"}}/>
                           </View>
                         </>
