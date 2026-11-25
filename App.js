@@ -392,6 +392,7 @@ export default function App() {
   const [trimDragSide,setTrimDragSide] = useState(null);
   const [timelineThumbs,setTimelineThumbs] = useState({});
   const [editorPlaybackSeconds,setEditorPlaybackSeconds] = useState(0);
+  const [addingToTimeline,setAddingToTimeline] = useState(false);
   useEffect(()=>{
     let cancelled=false;
     async function buildTimelineThumbs(){
@@ -1191,7 +1192,8 @@ export default function App() {
     }
   }
 
-  async function chooseVideoFromGallery() {
+  async function chooseVideoFromGallery(addToTimeline=false) {
+    setAddingToTimeline(!!addToTimeline);
     try {
       setGalleryLoading(true);
       setGallerySelectedIds(selectedCreateMedia.map(item=>item.id||item.uri));
@@ -1233,7 +1235,15 @@ export default function App() {
         };
       }));
       const videos=picked.filter(asset=>asset.type==="video"),photos=picked.filter(asset=>asset.type==="image");
-      setSelectedCreateMedia(picked); setCreatePhotos(photos); setSelectedVideo(videos[0]||null); setCreateStep("selected");
+      if(addingToTimeline) {
+        setSelectedCreateMedia(old=>{const merged=[...old,...picked.filter(item=>!old.some(existing=>existing.uri===item.uri||existing.id===item.id))];setSelectedTimelineIndex(Math.max(0,merged.length-1));return merged.slice(0,15);});
+        setCreatePhotos(old=>[...old,...photos.filter(item=>!old.some(existing=>existing.uri===item.uri||existing.id===item.id))]);
+        if(videos.length)setSelectedVideo(old=>old||videos[0]);
+        setAddingToTimeline(false);
+        setCreateStep("selected");
+      } else {
+        setSelectedCreateMedia(picked); setCreatePhotos(photos); setSelectedVideo(videos[0]||null); setSelectedTimelineIndex(0); setAddingToTimeline(false); setCreateStep("selected");
+      }
     } catch(error) {
       Alert.alert("Media preview",error?.message||"Selected media open nahi ho saka.");
     }
@@ -2406,8 +2416,11 @@ export default function App() {
                   </TouchableOpacity>
                 );
               })}
+              <TouchableOpacity onPress={()=>chooseVideoFromGallery(true)} activeOpacity={0.85} style={{width:62,height:62,borderRadius:9,backgroundColor:"#fff",alignItems:"center",justifyContent:"center",borderWidth:1,borderColor:"#ddd"}}>
+                <Text style={{color:"#171721",fontSize:34,fontWeight:"400",lineHeight:38}}>+</Text>
+              </TouchableOpacity>
             </ScrollView>
-            <View pointerEvents="none" style={{position:"absolute",top:22,bottom:32,left:"24%",width:2,backgroundColor:"#fff",zIndex:20}}>
+            <View pointerEvents="none" style={{position:"absolute",top:22,bottom:32,left:"50%",width:2,backgroundColor:"#fff",zIndex:20}}>
               <View style={{position:"absolute",top:-3,left:-4,width:10,height:10,borderRadius:5,backgroundColor:"#fff"}}/>
               <View style={{position:"absolute",top:-21,left:-22,minWidth:46,alignItems:"center"}}>
                 <Text style={{color:"#fff",fontSize:9,fontWeight:"800",backgroundColor:"#e72f67",paddingHorizontal:5,paddingVertical:2,borderRadius:4}}>{formatTime(editorPlaybackSeconds)}</Text>
