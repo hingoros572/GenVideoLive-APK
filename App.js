@@ -2371,7 +2371,7 @@ export default function App() {
 
           <View style={{height:"31%",minHeight:155,maxHeight:265,marginHorizontal:10,backgroundColor:"#000",borderRadius:14,overflow:"hidden",alignItems:"center",justifyContent:"center"}}>
             {previewMedia?.uri ? (previewIsVideo
-              ? <Video key={previewMedia.uri} source={{uri:previewMedia.uri}} style={{width:"100%",height:"100%"}} resizeMode={ResizeMode.CONTAIN} shouldPlay isLooping isMuted={!!clipMuteStates[clipKey]} volume={1} useNativeControls={false} usePoster={!!timelineThumbs[previewMedia.uri]} posterSource={timelineThumbs[previewMedia.uri]?{uri:timelineThumbs[previewMedia.uri]}:undefined} progressUpdateIntervalMillis={100} onPlaybackStatusUpdate={status=>{if(status.isLoaded){const seconds=status.positionMillis/1000;setEditorPlaybackSeconds(seconds);timelineScrollRef.current?.scrollTo({x:Math.max(0,seconds*28),animated:false});}}} onError={error=>console.log("EDITOR PREVIEW VIDEO ERROR:",error)}/>
+              ? <Video key={previewMedia.uri} source={{uri:previewMedia.uri}} style={{width:"100%",height:"100%"}} resizeMode={ResizeMode.CONTAIN} shouldPlay isLooping isMuted={!!clipMuteStates[clipKey]} volume={1} useNativeControls={false} usePoster={!!timelineThumbs[previewMedia.uri]} posterSource={timelineThumbs[previewMedia.uri]?{uri:timelineThumbs[previewMedia.uri]}:undefined} progressUpdateIntervalMillis={100} onPlaybackStatusUpdate={status=>{if(status.isLoaded){const seconds=status.positionMillis/1000;setEditorPlaybackSeconds(seconds);timelineScrollRef.current?.scrollTo({x:Math.max(0,(timelineClips.slice(0,safeIndex).reduce((sum,item)=>sum+Math.max(1,Number(item.duration||10)),0)+seconds)*28),animated:false});}}} onError={error=>console.log("EDITOR PREVIEW VIDEO ERROR:",error)}/>
               : <Image source={{uri:previewMedia.uri}} style={{width:"100%",height:"100%"}} resizeMode="contain"/>)
               : <Text style={{color:"#fff"}}>Gallery se video select karein</Text>}
 
@@ -2389,7 +2389,7 @@ export default function App() {
                 const isImage=clip.type==="image"||clip.mimeType?.startsWith("image/");
                 const source=timelineThumbs[clip.uri]||clip.uri;
                 return (
-                  <TouchableOpacity key={clip.id||clip.uri||index} activeOpacity={0.9} onPress={()=>{setSelectedTimelineIndex(index);if(clip.type==="video"||clip.mimeType?.startsWith("video/"))setSelectedVideo(clip);}}>
+                  <TouchableOpacity key={clip.id||clip.uri||index} activeOpacity={0.9} onPress={()=>{setSelectedTimelineIndex(index);setEditorPlaybackSeconds(0);timelineScrollRef.current?.scrollTo({x:timelineClips.slice(0,index).reduce((sum,item)=>sum+Math.max(1,Number(item.duration||10)),0)*28,animated:true});if(clip.type==="video"||clip.mimeType?.startsWith("video/"))setSelectedVideo(clip);}}>
                     <View
                       onLayout={active?e=>setTimelineWidth(e.nativeEvent.layout.width):undefined}
                       onStartShouldSetResponder={event=>active&&(event.nativeEvent.locationX<30||event.nativeEvent.locationX>timelineWidth-30)}
