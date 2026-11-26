@@ -396,6 +396,10 @@ export default function App() {
   const editorVideoRef = useRef(null);
   const timelineScrollRef = useRef(null);
   const [clipMuteStates,setClipMuteStates] = useState({});
+  const [previewBoxVisible,setPreviewBoxVisible] = useState(false);
+  const [previewScale,setPreviewScale] = useState(1);
+  const [previewShift,setPreviewShift] = useState({x:0,y:0});
+  const previewGestureRef = useRef({x:0,y:0,scale:1,shiftX:0,shiftY:0,mode:"move"});
   const [addingToTimeline,setAddingToTimeline] = useState(false);
   useEffect(()=>{
     let cancelled=false;
@@ -2372,11 +2376,17 @@ export default function App() {
           </View>
 
           <View style={{height:"31%",minHeight:155,maxHeight:265,marginHorizontal:10,backgroundColor:"#000",borderRadius:14,overflow:"hidden",alignItems:"center",justifyContent:"center"}}>
-            {previewMedia?.uri ? (previewIsVideo
-              ? <Video ref={editorVideoRef} key={previewMedia.id||previewMedia.uri} source={{uri:previewMedia.uri}} style={{width:"100%",height:"100%"}} resizeMode={ResizeMode.CONTAIN} shouldPlay={editorIsPlaying} isLooping={false} isMuted={!!clipMuteStates[clipKey]} volume={1} useNativeControls={false} usePoster={!!timelineThumbs[previewMedia.uri]} posterSource={timelineThumbs[previewMedia.uri]?{uri:timelineThumbs[previewMedia.uri]}:undefined} progressUpdateIntervalMillis={100} onPlaybackStatusUpdate={status=>{if(status.isLoaded){const seconds=status.positionMillis/1000;setEditorPlaybackSeconds(seconds);timelineScrollRef.current?.scrollTo({x:Math.max(0,(timelineClips.slice(0,safeIndex).reduce((sum,item)=>sum+Math.max(1,Number(item.duration||10)),0)+seconds)*28),animated:false});}}} onError={error=>console.log("EDITOR PREVIEW VIDEO ERROR:",error)}/>
-              : <Image source={{uri:previewMedia.uri}} style={{width:"100%",height:"100%"}} resizeMode="contain"/>)
-              : <Text style={{color:"#fff"}}>Gallery se video select karein</Text>}
-
+            {previewMedia?.uri ? (
+              <View style={{width:"100%",height:"100%",alignItems:"center",justifyContent:"center",overflow:"hidden"}}>
+                {previewIsVideo
+                  ? <Video ref={editorVideoRef} key={previewMedia.id||previewMedia.uri} source={{uri:previewMedia.uri}} style={{width:"100%",height:"100%",transform:[{scale:previewScale},{translateX:previewShift.x},{translateY:previewShift.y}]}} resizeMode={ResizeMode.CONTAIN} shouldPlay={editorIsPlaying} isLooping={false} isMuted={!!clipMuteStates[clipKey]} volume={1} useNativeControls={false} usePoster={!!timelineThumbs[previewMedia.uri]} posterSource={timelineThumbs[previewMedia.uri]?{uri:timelineThumbs[previewMedia.uri]}:undefined} progressUpdateIntervalMillis={100} onPlaybackStatusUpdate={status=>{if(status.isLoaded){const seconds=status.positionMillis/1000;setEditorPlaybackSeconds(seconds);timelineScrollRef.current?.scrollTo({x:Math.max(0,(timelineClips.slice(0,safeIndex).reduce((sum,item)=>sum+Math.max(1,Number(item.duration||10)),0)+seconds)*28),animated:false});}}} onError={error=>console.log("EDITOR PREVIEW VIDEO ERROR:",error)}/>
+                  : <Image source={{uri:previewMedia.uri}} style={{width:"100%",height:"100%",transform:[{scale:previewScale},{translateX:previewShift.x},{translateY:previewShift.y}]}} resizeMode="contain"/>}
+                {previewBoxVisible&&<View style={{position:"absolute",left:12,right:12,top:12,bottom:12,borderWidth:2,borderColor:"#25d9ff",backgroundColor:"transparent"}}>
+                  <View onStartShouldSetResponder={()=>true} onMoveShouldSetResponder={()=>true} onResponderGrant={e=>{previewGestureRef.current={...previewGestureRef.current,x:e.nativeEvent.pageX,y:e.nativeEvent.pageY,scale:previewScale,shiftX:previewShift.x,shiftY:previewShift.y,mode:"move"};}} onResponderMove={e=>{const g=previewGestureRef.current;setPreviewShift({x:Math.max(-130,Math.min(130,g.shiftX+e.nativeEvent.pageX-g.x)),y:Math.max(-130,Math.min(130,g.shiftY+e.nativeEvent.pageY-g.y))});}} style={{position:"absolute",left:18,right:18,top:18,bottom:18,backgroundColor:"transparent"}}/>
+                  {[[0,0],[1,0],[0,1],[1,1]].map(([right,bottom],idx)=><View key={idx} onStartShouldSetResponder={()=>true} onMoveShouldSetResponder={()=>true} onResponderGrant={e=>{previewGestureRef.current={...previewGestureRef.current,x:e.nativeEvent.pageY,scale:previewScale,mode:"scale"};}} onResponderMove={e=>{const g=previewGestureRef.current;setPreviewScale(Math.max(1,Math.min(3,g.scale+(g.x-e.nativeEvent.pageY)*0.008)));}} style={{position:"absolute",width:18,height:18,borderRadius:4,backgroundColor:"#25d9ff",borderWidth:2,borderColor:"#fff",...(right?{right:-9}:{left:-9}),...(bottom?{bottom:-9}:{top:-9})}}/>)}
+                </View>}
+              </View>
+            ) : <Text style={{color:"#fff"}}>Gallery se video select karein</Text>}
           </View>
 
           <View style={{height:38,flexDirection:"row",alignItems:"center",justifyContent:"center",backgroundColor:"#08080d"}}>
@@ -2415,7 +2425,7 @@ export default function App() {
                         const range=trimRanges[clip.uri]||{start:0,end:Math.max(1,Number(clip.duration||10))};
                         const clipWidth=Math.max(76,Math.min(560,Math.max(0.5,range.end-range.start)*28));
                         return (
-                          <TouchableOpacity key={clip.id||clip.uri||index} activeOpacity={0.9} onPress={()=>{setSelectedTimelineIndex(index);setEditorPlaybackSeconds(0);setEditorIsPlaying(false);if(clip.type==="video"||clip.mimeType?.startsWith("video/"))setSelectedVideo(clip);}}>
+                          <TouchableOpacity key={clip.id||clip.uri||index} activeOpacity={0.9} onPress={()=>{if(index===safeIndex){setPreviewBoxVisible(v=>!v);}else{setSelectedTimelineIndex(index);setPreviewBoxVisible(true);setPreviewScale(1);setPreviewShift({x:0,y:0});setEditorPlaybackSeconds(0);setEditorIsPlaying(false);}if(clip.type==="video"||clip.mimeType?.startsWith("video/"))setSelectedVideo(clip);}}>
                             <View
                               onLayout={active?e=>setTimelineWidth(e.nativeEvent.layout.width):undefined}
                               onStartShouldSetResponder={event=>active&&(event.nativeEvent.locationX<24||event.nativeEvent.locationX>timelineWidth-24)}
