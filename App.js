@@ -2359,7 +2359,7 @@ export default function App() {
       const updateTrimFromTouch=(event)=>{
         if(!trimDragSide||!previewMedia?.uri)return;
         const x=Math.max(0,Math.min(timelineWidth,event.nativeEvent.locationX));
-        const value=Math.max(0,Math.min(clipDuration,(x/timelineWidth)*clipDuration));
+        const value=Math.max(0,Math.min(clipDuration,(x/Math.max(1,timelineWidth))*clipDuration));
         setTrimRanges(old=>{
           const current=old[clipKey]||{start:0,end:clipDuration};
           if(trimDragSide==="start") return {...old,[clipKey]:{start:Math.min(value,current.end-0.5),end:current.end}};
@@ -2381,9 +2381,10 @@ export default function App() {
                 {previewIsVideo
                   ? <Video ref={editorVideoRef} key={previewMedia.id||previewMedia.uri} source={{uri:previewMedia.uri}} style={{width:"100%",height:"100%",transform:[{scale:previewScale},{translateX:previewShift.x},{translateY:previewShift.y}]}} resizeMode={ResizeMode.CONTAIN} shouldPlay={editorIsPlaying} isLooping={false} isMuted={!!clipMuteStates[clipKey]} volume={1} useNativeControls={false} usePoster={!!timelineThumbs[previewMedia.uri]} posterSource={timelineThumbs[previewMedia.uri]?{uri:timelineThumbs[previewMedia.uri]}:undefined} progressUpdateIntervalMillis={100} onPlaybackStatusUpdate={status=>{if(status.isLoaded){const seconds=status.positionMillis/1000;setEditorPlaybackSeconds(seconds);timelineScrollRef.current?.scrollTo({x:Math.max(0,(timelineClips.slice(0,safeIndex).reduce((sum,item)=>sum+Math.max(1,Number(item.duration||10)),0)+seconds)*28),animated:false});}}} onError={error=>console.log("EDITOR PREVIEW VIDEO ERROR:",error)}/>
                   : <Image source={{uri:previewMedia.uri}} style={{width:"100%",height:"100%",transform:[{scale:previewScale},{translateX:previewShift.x},{translateY:previewShift.y}]}} resizeMode="contain"/>}
-                {previewBoxVisible&&<View style={{position:"absolute",left:12,right:12,top:12,bottom:12,borderWidth:2,borderColor:"#25d9ff",backgroundColor:"transparent"}}>
-                  <View onStartShouldSetResponder={()=>true} onMoveShouldSetResponder={()=>true} onResponderGrant={e=>{previewGestureRef.current={...previewGestureRef.current,x:e.nativeEvent.pageX,y:e.nativeEvent.pageY,scale:previewScale,shiftX:previewShift.x,shiftY:previewShift.y,mode:"move"};}} onResponderMove={e=>{const g=previewGestureRef.current;setPreviewShift({x:Math.max(-130,Math.min(130,g.shiftX+e.nativeEvent.pageX-g.x)),y:Math.max(-130,Math.min(130,g.shiftY+e.nativeEvent.pageY-g.y))});}} style={{position:"absolute",left:18,right:18,top:18,bottom:18,backgroundColor:"transparent"}}/>
-                  {[[0,0],[1,0],[0,1],[1,1]].map(([right,bottom],idx)=><View key={idx} onStartShouldSetResponder={()=>true} onMoveShouldSetResponder={()=>true} onResponderGrant={e=>{previewGestureRef.current={...previewGestureRef.current,x:e.nativeEvent.pageY,scale:previewScale,mode:"scale"};}} onResponderMove={e=>{const g=previewGestureRef.current;setPreviewScale(Math.max(1,Math.min(3,g.scale+(g.x-e.nativeEvent.pageY)*0.008)));}} style={{position:"absolute",width:18,height:18,borderRadius:4,backgroundColor:"#25d9ff",borderWidth:2,borderColor:"#fff",...(right?{right:-9}:{left:-9}),...(bottom?{bottom:-9}:{top:-9})}}/>)}
+                {previewBoxVisible&&<View pointerEvents="box-none" style={{position:"absolute",left:12,right:12,top:12,bottom:12,borderWidth:2,borderColor:"#25d9ff",backgroundColor:"transparent"}}>
+                  <View pointerEvents="none" style={{position:"absolute",left:18,right:18,top:18,bottom:18,borderWidth:1,borderColor:"#ffffff88"}}/>
+                  <View onStartShouldSetResponder={()=>true} onMoveShouldSetResponder={()=>true} onResponderTerminationRequest={()=>false} onResponderGrant={e=>{previewGestureRef.current={x:e.nativeEvent.pageX,y:e.nativeEvent.pageY,scale:previewScale,shiftX:previewShift.x,shiftY:previewShift.y,mode:"move"};}} onResponderMove={e=>{const g=previewGestureRef.current;if(g.mode!=="move")return;setPreviewShift({x:Math.max(-220,Math.min(220,g.shiftX+e.nativeEvent.pageX-g.x)),y:Math.max(-220,Math.min(220,g.shiftY+e.nativeEvent.pageY-g.y))});}} style={{position:"absolute",left:24,right:24,top:24,bottom:24,backgroundColor:"transparent"}}/>
+                  {[[0,0],[1,0],[0,1],[1,1]].map(([right,bottom],idx)=><View key={idx} hitSlop={12} onStartShouldSetResponder={()=>true} onMoveShouldSetResponder={()=>true} onResponderTerminationRequest={()=>false} onResponderGrant={e=>{previewGestureRef.current={x:e.nativeEvent.pageY,scale:previewScale,mode:"scale"};}} onResponderMove={e=>{const g=previewGestureRef.current;if(g.mode!=="scale")return;const delta=g.x-e.nativeEvent.pageY;setPreviewScale(Math.max(0.35,Math.min(4,g.scale+delta*0.012)));}} style={{position:"absolute",width:30,height:30,borderRadius:5,backgroundColor:"#25d9ff",borderWidth:2,borderColor:"#fff",...(right?{right:-15}:{left:-15}),...(bottom?{bottom:-15}:{top:-15})}}/>)}
                 </View>}
               </View>
             ) : <Text style={{color:"#fff"}}>Gallery se video select karein</Text>}
@@ -2428,11 +2429,13 @@ export default function App() {
                           <TouchableOpacity key={clip.id||clip.uri||index} activeOpacity={0.9} onPress={()=>{if(index===safeIndex){setPreviewBoxVisible(v=>!v);}else{setSelectedTimelineIndex(index);setPreviewBoxVisible(true);setPreviewScale(1);setPreviewShift({x:0,y:0});setEditorPlaybackSeconds(0);setEditorIsPlaying(false);}if(clip.type==="video"||clip.mimeType?.startsWith("video/"))setSelectedVideo(clip);}}>
                             <View
                               onLayout={active?e=>setTimelineWidth(e.nativeEvent.layout.width):undefined}
-                              onStartShouldSetResponder={event=>active&&(event.nativeEvent.locationX<24||event.nativeEvent.locationX>timelineWidth-24)}
+                              onStartShouldSetResponderCapture={event=>active&&(event.nativeEvent.locationX<30||event.nativeEvent.locationX>clipWidth-30)}
                               onMoveShouldSetResponder={()=>active&&!!trimDragSide}
-                              onResponderGrant={event=>{if(active)setTrimDragSide(event.nativeEvent.locationX<timelineWidth/2?"start":"end");}}
+                              onResponderTerminationRequest={()=>false}
+                              onResponderGrant={event=>{if(active)setTrimDragSide(event.nativeEvent.locationX<clipWidth/2?"start":"end");}}
                               onResponderMove={updateTrimFromTouch}
                               onResponderRelease={()=>setTrimDragSide(null)}
+                              onResponderTerminate={()=>setTrimDragSide(null)}
                               style={{width:clipWidth,height:62,borderWidth:active?2:1,borderColor:active?"#fff":"#555566",borderRadius:7,overflow:"hidden",backgroundColor:"#252536",justifyContent:"center"}}>
                               {source?<Image source={{uri:source}} style={{width:"100%",height:"100%",position:"absolute"}} resizeMode="cover"/>:null}
                               <View style={{position:"absolute",left:0,right:0,bottom:0,backgroundColor:"#0009",paddingHorizontal:4,paddingVertical:3}}>
