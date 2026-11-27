@@ -297,8 +297,9 @@ function ReelCard({
           </TouchableOpacity>
         )}
 
-        <TouchableOpacity style={styles.discButton} onPress={onSound}>
-          <SpinningDisc avatarUrl={reel.avatarUrl}/>
+        <TouchableOpacity style={styles.soundNameButton} onPress={onSound} activeOpacity={0.85}>
+          <Text style={styles.soundNameIcon}>♫</Text>
+          <Text style={styles.soundNameText} numberOfLines={1}>{reel.music||"Original Sound"}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -2002,7 +2003,7 @@ export default function App() {
   function renderHeader() {
     return (
       <View style={[styles.header,styles.headerOverlay]}>
-        <Text style={styles.logo}>👑 Gen-Live</Text>
+        <TouchableOpacity onPress={openLive} activeOpacity={0.8}><Text style={styles.logo}>👑 Gen-Live</Text></TouchableOpacity>
         <View style={styles.headerTabs}>
           {["Following","For You"].map(tab=>(
             <TouchableOpacity key={tab} onPress={()=>setFeedTab(tab)} style={styles.headerTabTouch}>
@@ -2014,9 +2015,7 @@ export default function App() {
         <TouchableOpacity style={styles.searchButton} onPress={()=>setPage("Explore")}>
           <Text style={styles.searchIcon}>⌕</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.liveButton} onPress={openLive}>
-          <Text style={styles.liveText}>{liveUnlocked?"🔴 LIVE":"🔒 LIVE"}</Text>
-        </TouchableOpacity>
+
       </View>
     );
   }
@@ -3364,7 +3363,9 @@ const styles=StyleSheet.create({
   bookmarkIcon:{width:16,height:20,borderWidth:2,borderBottomWidth:0,borderTopLeftRadius:2,borderTopRightRadius:2,position:"relative",marginTop:1},
   bookmarkCutLeft:{position:"absolute",width:9,height:2,bottom:1,left:-1,transform:[{rotate:38}]},
   bookmarkCutRight:{position:"absolute",width:9,height:2,bottom:1,right:-1,transform:[{rotate:-38}]},
-  discButton:{marginTop:2,marginBottom:4},
+  soundNameButton:{maxWidth:118,minHeight:38,paddingHorizontal:9,borderRadius:20,backgroundColor:"rgba(0,0,0,0.72)",borderWidth:1,borderColor:"rgba(255,255,255,0.35)",flexDirection:"row",alignItems:"center",justifyContent:"center",gap:5,marginTop:2,marginBottom:4},
+  soundNameIcon:{color:C.white,fontSize:17,fontWeight:"900"},
+  soundNameText:{color:C.white,fontSize:10,fontWeight:"900",maxWidth:82},
   disc:{width:42,height:42,borderRadius:21,backgroundColor:"#15151d",borderWidth:4,borderColor:"#393944",alignItems:"center",justifyContent:"center"},
   discCenter:{width:16,height:16,borderRadius:8,backgroundColor:C.magenta,alignItems:"center",justifyContent:"center",overflow:"hidden"},
   discAvatar:{width:16,height:16,borderRadius:8},
