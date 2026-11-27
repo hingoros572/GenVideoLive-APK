@@ -2543,7 +2543,7 @@ export default function App() {
       <ScrollView style={styles.pageScroll} contentContainerStyle={styles.pageContent} keyboardShouldPersistTaps="handled">
         <View style={{flexDirection:"row",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
           <TouchableOpacity onPress={goBack}><Text style={{color:C.magenta,fontSize:16,fontWeight:"800"}}>‹ Back</Text></TouchableOpacity>
-          <Text style={[styles.pageTitle,{fontSize:20,marginBottom:0}]}>{pageTitle}</Text>
+          {createStep==="gallery" ? <TouchableOpacity onPress={openSystemFileManager}><Text style={[styles.pageTitle,{fontSize:20,marginBottom:0}]}>Recents ⌄</Text></TouchableOpacity> : <Text style={[styles.pageTitle,{fontSize:20,marginBottom:0}]}>{pageTitle}</Text>}
           <Text style={{color:C.gray,fontSize:12}}>{stepNumber}</Text>
         </View>
 
