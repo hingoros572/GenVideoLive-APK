@@ -2808,7 +2808,7 @@ export default function App() {
   }
 
   function renderSound() {
-    const soundReels=allReels.filter(reel=>soundSourcePostId ? reel.soundSourcePostId===soundSourcePostId : (reel.music||"Original Sound")===soundTitle);
+    const soundReels=allReels.filter(reel=>soundSourcePostId ? (reel.id===soundSourcePostId||reel.soundSourcePostId===soundSourcePostId) : (reel.music||"Original Sound")===soundTitle);
 
     return (
       <ScrollView style={styles.pageScroll} contentContainerStyle={styles.pageContent}>
