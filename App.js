@@ -446,6 +446,7 @@ export default function App() {
   const [postMention,setPostMention] = useState("");
   const [postLocation,setPostLocation] = useState("");
   const [postLink,setPostLink] = useState("");
+  const [openPostSection,setOpenPostSection] = useState("");
   const [allowComments,setAllowComments] = useState(true);
   const [allowReuse,setAllowReuse] = useState(true);
   const [videoLanguage,setVideoLanguage] = useState("English");
@@ -2387,27 +2388,73 @@ export default function App() {
         </View>
       );
     }
-    if(createStep==="selected") {
+    if(createStep==="selected"||createStep==="location"||createStep==="post") {
       const directVideo=selectedVideo||selectedCreateMedia.find(item=>item.type==="video"||item.mimeType?.startsWith("video/"))||null;
+      const section=(key,title,summary,content)=>(
+        <View style={{borderWidth:1,borderColor:C.border,borderRadius:14,overflow:"hidden",marginTop:10,backgroundColor:C.card}}>
+          <TouchableOpacity onPress={()=>setOpenPostSection(v=>v===key?"":key)} style={{minHeight:58,paddingHorizontal:14,paddingVertical:11,flexDirection:"row",alignItems:"center",justifyContent:"space-between"}}>
+            <View style={{flex:1,paddingRight:12}}>
+              <Text style={{color:C.white,fontSize:15,fontWeight:"900"}}>{title}</Text>
+              {!!summary&&<Text numberOfLines={1} style={{color:C.gray,fontSize:11,marginTop:3}}>{summary}</Text>}
+            </View>
+            <Text style={{color:C.magenta,fontSize:22,fontWeight:"900"}}>{openPostSection===key?"−":"＋"}</Text>
+          </TouchableOpacity>
+          {openPostSection===key?<View style={{paddingHorizontal:14,paddingBottom:14,borderTopWidth:1,borderTopColor:C.border,paddingTop:12}}>{content}</View>:null}
+        </View>
+      );
       return (
-        <View style={{flex:1,backgroundColor:"#08080d",padding:16,paddingTop:8}}>
-          <View style={{height:52,flexDirection:"row",alignItems:"center",justifyContent:"space-between"}}>
-            <TouchableOpacity onPress={()=>setCreateStep("gallery")} style={{padding:8}}><Text style={{color:"#fff",fontSize:28}}>‹</Text></TouchableOpacity>
-            <Text style={{color:"#fff",fontSize:17,fontWeight:"900"}}>DIRECT VIDEO POST</Text>
-            <View style={{width:36}}/>
-          </View>
-          {directVideo?.uri ? (
-            <Video source={{uri:directVideo.uri}} style={{width:"100%",flex:1,backgroundColor:"#000",borderRadius:14,marginTop:8}} useNativeControls resizeMode={ResizeMode.CONTAIN}/>
-          ) : (
-            <View style={{flex:1,alignItems:"center",justifyContent:"center"}}><Text style={{color:"#fff"}}>Gallery se video select karein.</Text></View>
-          )}
-          <Text style={{color:"#c8c8d2",fontSize:13,marginTop:12,textAlign:"center"}}>Video seedha post hogi. Koi editor ya timeline nahi.</Text>
-          <TouchableOpacity onPress={()=>setCreateStep("gallery")} style={{height:48,borderRadius:24,backgroundColor:"#292938",alignItems:"center",justifyContent:"center",marginTop:12}}>
-            <Text style={{color:"#fff",fontWeight:"800"}}>Change Video</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={()=>{if(!directVideo?.uri)return Alert.alert("Video required","Pehle Gallery se video select karein.");setSelectedVideo(directVideo);setCreateStep("location");}} style={{height:52,borderRadius:26,backgroundColor:C.pink,alignItems:"center",justifyContent:"center",marginTop:10}}>
-            <Text style={{color:"#fff",fontSize:16,fontWeight:"900"}}>Continue to Direct Post</Text>
-          </TouchableOpacity>
+        <View style={{flex:1,backgroundColor:C.bg}}>
+          <ScrollView style={{flex:1}} contentContainerStyle={{paddingHorizontal:16,paddingTop:12,paddingBottom:24}} keyboardShouldPersistTaps="handled">
+            <View style={{flexDirection:"row",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+              <TouchableOpacity onPress={()=>setCreateStep("gallery")}><Text style={{color:C.magenta,fontSize:16,fontWeight:"900"}}>‹ Back</Text></TouchableOpacity>
+              <Text style={{color:C.white,fontSize:20,fontWeight:"900"}}>Post Video</Text>
+              <TouchableOpacity onPress={()=>setCreateStep("gallery")}><Text style={{color:C.magenta,fontSize:13,fontWeight:"800"}}>Change</Text></TouchableOpacity>
+            </View>
+
+            <View style={{backgroundColor:C.card,borderWidth:1,borderColor:C.border,borderRadius:18,padding:12}}>
+              {directVideo?.uri ? <Video source={{uri:directVideo.uri}} style={{width:"100%",height:270,backgroundColor:"#000",borderRadius:12}} useNativeControls resizeMode={ResizeMode.CONTAIN}/> : <View style={{height:190,alignItems:"center",justifyContent:"center"}}><Text style={{color:C.gray}}>Pehle Gallery se video select karein.</Text></View>}
+              {selectedSound?<View style={{marginTop:12,padding:12,backgroundColor:C.card2,borderRadius:12,gap:12}}>
+                <Text style={{color:C.white,fontSize:15,fontWeight:"900"}}>🎵 Sound Mix · {selectedSound}</Text>
+                <View style={{gap:6}}>
+                  <Text style={{color:C.white,fontWeight:"800"}}>Selected Sound · {selectedSoundVolume}%</Text>
+                  <View style={{flexDirection:"row",alignItems:"center",gap:10}}>
+                    <TouchableOpacity onPress={()=>setSelectedSoundVolume(v=>Math.max(0,v-5))} style={{width:36,height:36,borderRadius:10,backgroundColor:C.card,alignItems:"center",justifyContent:"center"}}><Text style={{color:C.white,fontSize:22}}>−</Text></TouchableOpacity>
+                    <View style={{flex:1,height:8,borderRadius:8,backgroundColor:C.border,overflow:"hidden"}}><View style={{width:`${selectedSoundVolume}%`,height:8,backgroundColor:C.pink}}/></View>
+                    <TouchableOpacity onPress={()=>setSelectedSoundVolume(v=>Math.min(100,v+5))} style={{width:36,height:36,borderRadius:10,backgroundColor:C.card,alignItems:"center",justifyContent:"center"}}><Text style={{color:C.white,fontSize:22}}>＋</Text></TouchableOpacity>
+                  </View>
+                </View>
+                <View style={{gap:6}}>
+                  <Text style={{color:C.white,fontWeight:"800"}}>Original Video Sound · {originalVideoVolume}%</Text>
+                  <View style={{flexDirection:"row",alignItems:"center",gap:10}}>
+                    <TouchableOpacity onPress={()=>setOriginalVideoVolume(v=>Math.max(0,v-5))} style={{width:36,height:36,borderRadius:10,backgroundColor:C.card,alignItems:"center",justifyContent:"center"}}><Text style={{color:C.white,fontSize:22}}>−</Text></TouchableOpacity>
+                    <View style={{flex:1,height:8,borderRadius:8,backgroundColor:C.border,overflow:"hidden"}}><View style={{width:`${originalVideoVolume}%`,height:8,backgroundColor:C.green}}/></View>
+                    <TouchableOpacity onPress={()=>setOriginalVideoVolume(v=>Math.min(100,v+5))} style={{width:36,height:36,borderRadius:10,backgroundColor:C.card,alignItems:"center",justifyContent:"center"}}><Text style={{color:C.white,fontSize:22}}>＋</Text></TouchableOpacity>
+                  </View>
+                </View>
+              </View>:null}
+              <Text style={{color:C.gray,fontSize:11,marginTop:8}}>Video ka original frame size barqarar rahega.</Text>
+            </View>
+
+            <Text style={{color:C.gray,fontSize:13,fontWeight:"800",marginTop:16,marginBottom:7}}>Description / Caption</Text>
+            <TextInput style={[styles.input,styles.captionInput,{minHeight:100,textAlignVertical:"top"}]} placeholder="Write a caption..." placeholderTextColor={C.gray} multiline value={caption} onChangeText={setCaption}/>
+
+            {section("hashtags","# Hashtags",postHashtags||"Hashtags add karein",<TextInput style={styles.input} placeholder="#video #fun" placeholderTextColor={C.gray} value={postHashtags} onChangeText={setPostHashtags}/>)}
+            {section("mention","@ Mention",postMention||"Username mention karein",<TextInput style={styles.input} placeholder="@username" placeholderTextColor={C.gray} value={postMention} onChangeText={setPostMention}/>)}
+            {section("location","📍 Location",postLocation||"Location add karein",<TextInput style={styles.input} placeholder="Enter location" placeholderTextColor={C.gray} value={postLocation} onChangeText={setPostLocation}/>)}
+            {section("privacy","Who can watch?",privacy,<View style={{gap:8}}>{["Public","Friends","Private"].map(v=><TouchableOpacity key={v} onPress={()=>setPrivacy(v)} style={[styles.selectedBox,{marginBottom:0}]}><Text style={styles.selectedTitle}>{privacy===v?"◉":"○"}  {v}</Text></TouchableOpacity>)}</View>)}
+            {section("comments","Allow comments",allowComments?"Comments On":"Comments Off",<TouchableOpacity style={styles.selectedBox} onPress={()=>setAllowComments(v=>!v)}><Text style={styles.selectedTitle}>{allowComments?"✓ Comments On":"○ Comments Off"}</Text></TouchableOpacity>)}
+            {section("reuse","Allow reuse / remix",allowReuse?"Reuse On":"Reuse Off",<TouchableOpacity style={styles.selectedBox} onPress={()=>setAllowReuse(v=>!v)}><Text style={styles.selectedTitle}>{allowReuse?"✓ Reuse On":"○ Reuse Off"}</Text></TouchableOpacity>)}
+            {section("language","Video language",videoLanguage,<View style={{flexDirection:"row",gap:7}}>{["English","Urdu","Other"].map(v=><TouchableOpacity key={v} onPress={()=>setVideoLanguage(v)} style={{flex:1,minHeight:48,borderRadius:12,backgroundColor:videoLanguage===v?C.pink:C.card2,borderWidth:1,borderColor:C.border,alignItems:"center",justifyContent:"center"}}><Text style={{color:C.white,fontWeight:"800"}}>{v}</Text></TouchableOpacity>)}</View>)}
+            {section("link","Add link",postLink||"Optional link",<TextInput style={styles.input} placeholder="https://..." placeholderTextColor={C.gray} value={postLink} onChangeText={setPostLink} autoCapitalize="none"/>)}
+
+            <TouchableOpacity onPress={uploadVideoPost} disabled={uploading||!directVideo?.uri} style={{height:58,borderRadius:16,backgroundColor:uploading?"#777":C.pink,alignItems:"center",justifyContent:"center",marginTop:18,opacity:directVideo?.uri?1:0.55}}>
+              <Text style={{color:"#fff",fontSize:18,fontWeight:"900"}}>{uploading?"Uploading...":"🚀 Publish Video"}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={saveCurrentDraft} disabled={uploading} style={{height:52,borderRadius:15,borderWidth:1,borderColor:C.border,alignItems:"center",justifyContent:"center",marginTop:9}}>
+              <Text style={{color:C.white,fontSize:16,fontWeight:"800"}}>Save as Draft</Text>
+            </TouchableOpacity>
+            {uploading&&<View style={styles.uploadProgressBox}><View style={styles.uploadProgressHeader}><Text style={styles.uploadProgressTitle}>{uploadStage}</Text><Text style={styles.uploadPercent}>{uploadProgress}%</Text></View><View style={styles.progressTrack}><View style={[styles.progressFill,{width:`${uploadProgress}%`}]}/></View><ActivityIndicator color={C.magenta} style={{marginTop:12}}/><Text style={styles.uploadHint}>Upload ke dauran app band na karein.</Text></View>}
+          </ScrollView>
         </View>
       );
     }
