@@ -7,6 +7,7 @@ import {
   Share, Dimensions, Linking
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import * as DocumentPicker from "expo-document-picker";
 import * as MediaLibrary from "expo-media-library";
 import * as VideoThumbnails from "expo-video-thumbnails";
 import { CameraView, Camera } from "expo-camera";
@@ -40,7 +41,9 @@ const SCREEN_HEIGHT = Dimensions.get("window").height;
 
 // Profile/feed mein sirf asli playable video posts dikhayein.
 function isRealVideoPost(post) {
-  return !!(post && typeof post.videoUrl === "string" && /^https?:\/\//i.test(post.videoUrl));
+  const hasVideo=!!(post && typeof post.videoUrl === "string" && /^https?:\/\//i.test(post.videoUrl));
+  const hasPhotos=!!(post && Array.isArray(post.photoUrls) && post.photoUrls.some(url=>typeof url==="string"&&/^https?:\/\//i.test(url)));
+  return hasVideo||hasPhotos;
 }
 
 // Profile grid thumbnail is generated from the exact uploaded video URL.
@@ -193,6 +196,8 @@ function ReelCard({
           isLooping
           useNativeControls={false}
         />
+      ) : reel.photoUrls?.length ? (
+        <Image source={{uri:reel.photoUrls[0]}} style={styles.reelVideo} resizeMode="contain"/>
       ) : (
         <View style={styles.reelCenter}>
           <Text style={styles.reelEmoji}>{reel.emoji||"🎬"}</Text>
@@ -1259,6 +1264,28 @@ export default function App() {
     });
   }
 
+  async function openSystemFileManager() {
+    try {
+      const result=await DocumentPicker.getDocumentAsync({
+        type:["image/*","video/*"], multiple:true, copyToCacheDirectory:true
+      });
+      if(result.canceled||!result.assets?.length) return;
+      const picked=result.assets.map((asset,index)=>{
+        const mime=asset.mimeType||"";
+        const isVideo=mime.startsWith("video/");
+        return {id:asset.name+"-"+index+"-"+Date.now(),uri:asset.uri,originalUri:asset.uri,type:isVideo?"video":"image",mimeType:mime||(isVideo?"video/mp4":"image/jpeg"),fileName:asset.name||"Selected media",duration:asset.duration||0};
+      });
+      setSelectedCreateMedia(old=>[...old,...picked.filter(item=>!old.some(existing=>existing.uri===item.uri))].slice(0,15));
+      setCreatePhotos(old=>[...old,...picked.filter(item=>item.type==="image"&&!old.some(existing=>existing.uri===item.uri))]);
+      const firstVideo=picked.find(item=>item.type==="video");
+      if(firstVideo) setSelectedVideo(old=>old||firstVideo);
+      setCreateStep("gallery");
+      Alert.alert("Files selected",picked.length+" file(s) File Manager se add ho gayi hain.");
+    } catch(error) {
+      Alert.alert("File Manager",error.message||"File Manager open nahi ho saka.");
+    }
+  }
+
   async function continueFromGallery() {
     const selectedAssets=gallerySelectedIds.map(id=>galleryAssets.find(asset=>(asset.id||asset.uri)===id)).filter(Boolean);
     if(!selectedAssets.length) return Alert.alert("Select media","Pehle gallery se photo ya video select karein.");
@@ -1542,18 +1569,20 @@ export default function App() {
   async function uploadVideoPost() {
     if(!user?.token) return Alert.alert("Login required","Pehle login karein.");
     if(!selectedVideo?.uri) return Alert.alert("Video required","Pehle Gallery ya Camera se video select karein.");
-    if(!caption.trim()) return Alert.alert("Caption required","Apni video ka caption likhein.");
+    if(!selectedVideo?.uri && !createPhotos.length) return Alert.alert("Media required","Pehle kam az kam ek photo ya video select karein.");
+    if(!caption.trim()) return Alert.alert("Caption required","Apni post ka caption likhein.");
     if(uploading) return;
 
     setUploading(true);
     setUploadProgress(0);
-    setUploadStage("Video upload shuru ho rahi hai...");
+    setUploadStage(selectedVideo?.uri?"Video aur photos upload shuru ho rahe hain...":"Photos upload shuru ho rahi hain...");
 
     let cloudinaryUploaded=false;
 
     try {
+      let cloudData=null;
+      if(selectedVideo?.uri) {
       const formData=new FormData();
-
       let videoUploadUri=selectedVideo.uri;
       if(selectedSound && soundSourceVideoUrl) {
         setUploadStage("Selected sound aur original video ki awaaz mix ho rahi hain...");
@@ -1587,11 +1616,20 @@ export default function App() {
 
       setUploadStage("Video Cloudinary par upload ho rahi hai...");
 
-      const cloudData=await uploadToCloudinary(formData);
+      cloudData=await uploadToCloudinary(formData);
       cloudinaryUploaded=true;
+      }
 
+      const photoUrls=[];
+      for(let i=0;i<createPhotos.length;i++) {
+        const photo=createPhotos[i];
+        if(!photo?.uri) continue;
+        setUploadStage("Photo "+(i+1)+"/"+createPhotos.length+" Cloudinary par upload ho rahi hai...");
+        photoUrls.push(await uploadImageToCloudinary(photo.uri,"post-photo-"+(i+1)));
+        setUploadProgress(Math.round(((i+1)/(createPhotos.length+(selectedVideo?.uri?1:0)))*100));
+      }
       setUploadProgress(100);
-      setUploadStage("Video upload ho gayi! Ab post save ho rahi hai...");
+      setUploadStage("Media upload ho gayi! Ab post save ho rahi hai...");
 
       let finalCoverUrl=postCoverImage||"";
       if(finalCoverUrl && !finalCoverUrl.startsWith("http")) {
@@ -1607,12 +1645,13 @@ export default function App() {
         location:location||"",
         caption:caption.trim(),
         privacy,
-        videoUrl:cloudData.secure_url,
+        videoUrl:cloudData?.secure_url||"",
+        photoUrls,
         coverUrl:finalCoverUrl,
-        cloudinaryPublicId:cloudData.public_id||"",
-        resourceType:cloudData.resource_type||"video",
-        format:cloudData.format||"",
-        duration:cloudData.duration||null,
+        cloudinaryPublicId:cloudData?.public_id||"",
+        resourceType:cloudData?.resource_type||(photoUrls.length?"image":"video"),
+        format:cloudData?.format||"",
+        duration:cloudData?.duration||null,
         music:selectedSound||"Original Sound",
         soundSourcePostId:selectedSound?soundSourcePostId:"",
         soundCreator:selectedSound?soundCreator:"",
@@ -1666,7 +1705,7 @@ export default function App() {
 
       Alert.alert(
         "🎉 Upload Successful!",
-        "Mubarak ho! Aapki video upload aur publish ho gayi hai.",
+        "Mubarak ho! Aapki photo/video post publish ho gayi hai.",
         [
           {
             text:"View My Video",
@@ -2434,7 +2473,8 @@ export default function App() {
             </View>
 
             <View style={{backgroundColor:C.card,borderWidth:1,borderColor:C.border,borderRadius:18,padding:12}}>
-              {directVideo?.uri ? <Video source={{uri:directVideo.uri}} style={{width:"100%",height:270,backgroundColor:"#000",borderRadius:12}} useNativeControls volume={selectedSound?Math.max(0,Math.min(100,originalVideoVolume))/100:1} isMuted={!!selectedSound&&originalVideoVolume<=0} resizeMode={ResizeMode.CONTAIN}/> : <View style={{height:190,alignItems:"center",justifyContent:"center"}}><Text style={{color:C.gray}}>Pehle Gallery se video select karein.</Text></View>}
+              {directVideo?.uri ? <Video source={{uri:directVideo.uri}} style={{width:"100%",height:270,backgroundColor:"#000",borderRadius:12}} useNativeControls volume={selectedSound?Math.max(0,Math.min(100,originalVideoVolume))/100:1} isMuted={!!selectedSound&&originalVideoVolume<=0} resizeMode={ResizeMode.CONTAIN}/> : createPhotos[0]?.uri ? <Image source={{uri:createPhotos[0].uri}} style={{width:"100%",height:270,backgroundColor:"#000",borderRadius:12}} resizeMode="contain"/> : <View style={{height:190,alignItems:"center",justifyContent:"center"}}><Text style={{color:C.gray}}>Pehle Gallery se photo ya video select karein.</Text></View>}
+              {createPhotos.length>0&&<Text style={{color:C.green,fontSize:12,fontWeight:"800",marginTop:8}}>{createPhotos.length} photo(s) selected</Text>}
               {selectedSound?<View style={{marginTop:12,padding:12,backgroundColor:C.card2,borderRadius:12,gap:12}}>
                 <Text style={{color:C.white,fontSize:15,fontWeight:"900"}}>🎵 Sound Mix · {selectedSound}</Text>
                 <View style={{gap:6}}>
@@ -2480,8 +2520,8 @@ export default function App() {
             {section("language","Video language",videoLanguage,<View style={{flexDirection:"row",gap:7}}>{["English","Urdu","Other"].map(v=><TouchableOpacity key={v} onPress={()=>setVideoLanguage(v)} style={{flex:1,minHeight:48,borderRadius:12,backgroundColor:videoLanguage===v?C.pink:C.card2,borderWidth:1,borderColor:C.border,alignItems:"center",justifyContent:"center"}}><Text style={{color:C.white,fontWeight:"800"}}>{v}</Text></TouchableOpacity>)}</View>)}
             {section("link","Add link",postLink||"Optional link",<TextInput style={styles.input} placeholder="https://..." placeholderTextColor={C.gray} value={postLink} onChangeText={setPostLink} autoCapitalize="none"/>)}
 
-            <TouchableOpacity onPress={uploadVideoPost} disabled={uploading||!directVideo?.uri} style={{height:58,borderRadius:16,backgroundColor:uploading?"#777":C.pink,alignItems:"center",justifyContent:"center",marginTop:18,opacity:directVideo?.uri?1:0.55}}>
-              <Text style={{color:"#fff",fontSize:18,fontWeight:"900"}}>{uploading?"Uploading...":"🚀 Publish Video"}</Text>
+            <TouchableOpacity onPress={uploadVideoPost} disabled={uploading||(!directVideo?.uri&&!createPhotos.length)} style={{height:58,borderRadius:16,backgroundColor:uploading?"#777":C.pink,alignItems:"center",justifyContent:"center",marginTop:18,opacity:(directVideo?.uri||createPhotos.length)?1:0.55}}>
+              <Text style={{color:"#fff",fontSize:18,fontWeight:"900"}}>{uploading?"Uploading...":"🚀 Publish Post"}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={saveCurrentDraft} disabled={uploading} style={{height:52,borderRadius:15,borderWidth:1,borderColor:C.border,alignItems:"center",justifyContent:"center",marginTop:9}}>
               <Text style={{color:C.white,fontSize:16,fontWeight:"800"}}>Save as Draft</Text>
@@ -2516,6 +2556,7 @@ export default function App() {
             <Text style={styles.helpText}>Selected photos & videos</Text>
           </View>
           <Button title="▣ Open Phone Gallery" onPress={chooseVideoFromGallery}/>
+          <Button title="📁 Open File Manager" secondary onPress={openSystemFileManager}/>
           {selectedCreateMedia.length>0&&<View style={{marginTop:14}}>
             <Text style={styles.selectedTitle}>✓ {selectedCreateMedia.length} files selected</Text>
             {selectedCreateMedia.map((asset,index)=>(
@@ -2524,7 +2565,7 @@ export default function App() {
               </View>
             ))}
           </View>}
-          <Button title="Continue" onPress={()=>{if(!selectedVideo?.uri)return Alert.alert("Video required","Abhi sirf media selection set ki hai. Aage ka photo/video workflow aglay step mein set karenge.");setCreateStep("selected");}}/>
+          <Button title="Continue" onPress={()=>{if(!selectedCreateMedia.length&&!selectedVideo?.uri&&!createPhotos.length)return Alert.alert("Select media","Pehle photo ya video select karein.");setCreateStep("selected");}}/>
         </View>}
 
         {createStep==="selected"&&<View style={styles.card}>
