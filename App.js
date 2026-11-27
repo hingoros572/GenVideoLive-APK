@@ -455,6 +455,9 @@ export default function App() {
 
   const [selectedSound,setSelectedSound] = useState("");
   const [soundTitle,setSoundTitle] = useState("Dil Se Dil Tak");
+  const [renameSoundOpen,setRenameSoundOpen] = useState(false);
+  const [renameSoundText,setRenameSoundText] = useState("");
+  const [renamingSound,setRenamingSound] = useState(false);
   const [soundCreator,setSoundCreator] = useState("Gen Video Live");
   const [soundAvatarUrl,setSoundAvatarUrl] = useState("");
   const [soundSourceVideoUrl,setSoundSourceVideoUrl] = useState("");
@@ -2886,10 +2889,37 @@ export default function App() {
                 </View>
               </View>
               <View style={{flex:1}}>
-                <Text style={{color:"#111",fontSize:22,fontWeight:"900",lineHeight:28}} numberOfLines={3}>{soundTitle}</Text>
+                <View style={{flexDirection:"row",alignItems:"center",gap:8}}>
+                  <Text style={{color:"#111",fontSize:22,fontWeight:"900",lineHeight:28,flex:1}} numberOfLines={3}>{soundTitle}</Text>
+                  {sourceReel&&(sourceReel.ownerId===user?.id||sourceReel.userId===user?.id)?<TouchableOpacity onPress={()=>{setRenameSoundText(soundTitle);setRenameSoundOpen(v=>!v);}} style={{width:36,height:36,borderRadius:18,backgroundColor:"#f0f0f0",alignItems:"center",justifyContent:"center"}}><Text style={{fontSize:19,color:"#111"}}>✎</Text></TouchableOpacity>:null}
+                </View>
                 <Text style={{color:"#888",fontSize:16,marginTop:7}}>{soundCreator}</Text>
               </View>
             </View>
+            {renameSoundOpen?<View style={{marginTop:14,padding:12,borderRadius:12,backgroundColor:"#f3f3f3",gap:9}}>
+              <Text style={{color:"#111",fontSize:14,fontWeight:"800"}}>Sound ka naya naam</Text>
+              <TextInput value={renameSoundText} onChangeText={setRenameSoundText} placeholder="Sound name" placeholderTextColor="#888" maxLength={60} style={{height:46,borderRadius:10,borderWidth:1,borderColor:"#bbb",paddingHorizontal:12,color:"#111",backgroundColor:"#fff"}}/>
+              <View style={{flexDirection:"row",gap:8}}>
+                <TouchableOpacity onPress={()=>setRenameSoundOpen(false)} style={{flex:1,height:42,borderRadius:10,backgroundColor:"#ddd",alignItems:"center",justifyContent:"center"}}><Text style={{color:"#111",fontWeight:"800"}}>Cancel</Text></TouchableOpacity>
+                <TouchableOpacity disabled={renamingSound||!renameSoundText.trim()} onPress={async()=>{
+                  const nextName=renameSoundText.trim();
+                  if(!nextName)return;
+                  setRenamingSound(true);
+                  try {
+                    const sourceId=sourceReel?.id||soundSourcePostId;
+                    if(sourceId&&user?.token) {
+                      const response=await fetch(DATABASE_URL+"/posts/"+sourceId+".json?auth="+encodeURIComponent(user.token),{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({music:nextName})});
+                      if(!response.ok)throw new Error("Sound ka naam save nahi ho saka.");
+                      setPosts(old=>old.map(post=>post.id===sourceId?{...post,music:nextName}:post));
+                    }
+                    setSoundTitle(nextName);
+                    setRenameSoundOpen(false);
+                    Alert.alert("Saved","Sound ka naya naam save ho gaya.");
+                  } catch(error){Alert.alert("Save Error",error.message||"Sound name save nahi hua.");}
+                  finally{setRenamingSound(false);}
+                }} style={{flex:1,height:42,borderRadius:10,backgroundColor:"#ff2458",alignItems:"center",justifyContent:"center",opacity:renamingSound||!renameSoundText.trim()?0.55:1}}><Text style={{color:"#fff",fontWeight:"900"}}>{renamingSound?"Saving...":"Save Name"}</Text></TouchableOpacity>
+              </View>
+            </View>:null}
             <View style={{flexDirection:"row",alignItems:"center",marginTop:28,gap:9}}>
               <Text style={{color:"#111",fontSize:16}}>▶ {soundDuration}</Text>
               <View style={{height:24,width:1,backgroundColor:"#ccc"}}/>
@@ -2923,7 +2953,7 @@ export default function App() {
             </View>:<Text style={{color:"#777",textAlign:"center",paddingVertical:35}}>Is sound ke saath videos yahan show hongi.</Text>}
           </View>
         </ScrollView>
-        <View style={{height:76,backgroundColor:"#fff",borderTopWidth:1,borderTopColor:"#eee",paddingHorizontal:16,paddingTop:10,paddingBottom:8,flexDirection:"row",gap:10}}>
+        <View style={{height:Platform.OS==="android"?104:84,backgroundColor:"#fff",borderTopWidth:1,borderTopColor:"#eee",paddingHorizontal:16,paddingTop:10,paddingBottom:Platform.OS==="android"?30:8,flexDirection:"row",gap:10}}>
           <TouchableOpacity onPress={()=>setSoundSaved(v=>!v)} style={{flex:1,borderRadius:28,backgroundColor:"#f1f1f1",alignItems:"center",justifyContent:"center",flexDirection:"row",gap:7}}>
             <Text style={{fontSize:19,color:"#111"}}>♫</Text><Text style={{fontSize:16,fontWeight:"900",color:"#111"}}>Jam Sound</Text>
           </TouchableOpacity>
