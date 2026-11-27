@@ -1568,7 +1568,6 @@ export default function App() {
 
   async function uploadVideoPost() {
     if(!user?.token) return Alert.alert("Login required","Pehle login karein.");
-    if(!selectedVideo?.uri) return Alert.alert("Video required","Pehle Gallery ya Camera se video select karein.");
     if(!selectedVideo?.uri && !createPhotos.length) return Alert.alert("Media required","Pehle kam az kam ek photo ya video select karein.");
     if(!caption.trim()) return Alert.alert("Caption required","Apni post ka caption likhein.");
     if(uploading) return;
@@ -1688,6 +1687,8 @@ export default function App() {
       setPosts(old=>[newPost,...old.filter(post=>post.id!==newPost.id)]);
 
       setSelectedVideo(null);
+      setSelectedCreateMedia([]);
+      setGallerySelectedIds([]);
       setCaption("");
       setPrivacy("Public");
       setCreateStep("camera");
@@ -1708,7 +1709,7 @@ export default function App() {
         "Mubarak ho! Aapki photo/video post publish ho gayi hai.",
         [
           {
-            text:"View My Video",
+            text:"View My Post",
             onPress:()=>{
               setProfileTab(postData.privacy==="Private"?"Private":"Videos");
               setPage("Profile");
