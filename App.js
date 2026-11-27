@@ -458,8 +458,10 @@ export default function App() {
   const [soundAvatarUrl,setSoundAvatarUrl] = useState("");
   const [soundSourceVideoUrl,setSoundSourceVideoUrl] = useState("");
   const [soundSourcePostId,setSoundSourcePostId] = useState("");
-  const [selectedSoundVolume,setSelectedSoundVolume] = useState(70);
-  const [originalVideoVolume,setOriginalVideoVolume] = useState(70);
+  const [soundSearchText,setSoundSearchText] = useState("");
+  const [soundSaved,setSoundSaved] = useState(false);
+  const [selectedSoundVolume,setSelectedSoundVolume] = useState(100);
+  const [originalVideoVolume,setOriginalVideoVolume] = useState(0);
   const [playingPost,setPlayingPost] = useState(null);
 
   const [activeReelIndex,setActiveReelIndex] = useState(0);
@@ -2809,30 +2811,80 @@ export default function App() {
 
   function renderSound() {
     const soundReels=allReels.filter(reel=>soundSourcePostId ? (reel.id===soundSourcePostId||reel.soundSourcePostId===soundSourcePostId) : (reel.music||"Original Sound")===soundTitle);
+    const filteredSoundReels=soundReels.filter(reel=>{
+      const q=soundSearchText.trim().toLowerCase();
+      return !q || (reel.caption||"").toLowerCase().includes(q) || (reel.creator||"").toLowerCase().includes(q);
+    });
+    const sourceReel=soundReels.find(reel=>reel.id===soundSourcePostId)||soundReels[0];
+    const soundDuration=sourceReel?.duration ? Math.round(Number(sourceReel.duration))+"s" : "Original sound";
+    const soundImage=soundAvatarUrl||sourceReel?.coverUrl||"";
 
     return (
-      <ScrollView style={styles.pageScroll} contentContainerStyle={styles.pageContent}>
-        <TouchableOpacity onPress={()=>setPage(soundReturnPage)}><Text style={styles.backText}>‹ Back</Text></TouchableOpacity>
-        <View style={styles.soundHero}>
-          <SpinningDisc avatarUrl={soundAvatarUrl}/>
-          <Text style={styles.soundTitle}>{soundTitle}</Text>
-          <View style={styles.soundCreatorRow}>
-            {soundAvatarUrl ? (
-              <Image source={{uri:soundAvatarUrl}} style={styles.soundCreatorAvatar}/>
-            ) : null}
-            <Text style={styles.soundCreator}>Original sound • @{soundCreator}</Text>
+      <View style={{flex:1,backgroundColor:"#fff"}}>
+        <ScrollView style={{flex:1}} contentContainerStyle={{paddingBottom:18}}>
+          <View style={{height:62,flexDirection:"row",alignItems:"center",paddingHorizontal:16,gap:12}}>
+            <TouchableOpacity onPress={()=>setPage(soundReturnPage)} style={{width:34,height:42,justifyContent:"center"}}><Text style={{fontSize:34,color:"#111",lineHeight:38}}>‹</Text></TouchableOpacity>
+            <View style={{flex:1,height:44,borderWidth:1.5,borderColor:"#999",borderRadius:13,flexDirection:"row",alignItems:"center",paddingHorizontal:12,gap:8}}>
+              <Text style={{fontSize:22,color:"#555"}}>⌕</Text>
+              <TextInput value={soundSearchText} onChangeText={setSoundSearchText} placeholder={soundTitle} placeholderTextColor="#888" style={{flex:1,color:"#111",fontSize:15,padding:0}}/>
+            </View>
+            <TouchableOpacity onPress={()=>Share.share({message:`${soundTitle} by @${soundCreator} on Gen Video Live`})} style={{width:34,alignItems:"center"}}><Text style={{fontSize:27,color:"#111"}}>↗</Text></TouchableOpacity>
           </View>
-          <Button title="＋ Use This Sound" onPress={()=>{setSelectedSound(soundTitle);setSelectedSoundVolume(70);setOriginalVideoVolume(70);setPage("Create");setCreateStep("camera");chooseVideoFromGallery();}}/>
-          <Button title="↗ Share Sound" secondary onPress={()=>Share.share({message:`${soundTitle} on Gen Video Live`})}/>
-        </View>
-        <Text style={styles.sectionTitle}>Videos using this sound</Text>
-        {soundReels.length>0?<View style={{flexDirection:"row",flexWrap:"wrap",justifyContent:"space-between",rowGap:8}}>{soundReels.map(reel=>(
-          <TouchableOpacity key={reel.id} onPress={()=>{setPlayingPost(reel);setPage("Home");setFeedTab("For You");}} style={{width:"32.8%",aspectRatio:0.72,backgroundColor:C.card2,borderRadius:7,overflow:"hidden",marginBottom:2}}>
-            {getVideoThumbnail(reel)?<Image source={{uri:getVideoThumbnail(reel)}} style={{width:"100%",height:"100%"}} resizeMode="cover"/>:<View style={{flex:1,alignItems:"center",justifyContent:"center"}}><Text style={{fontSize:30}}>🎬</Text></View>}
-            <View style={{position:"absolute",left:6,bottom:6,backgroundColor:"#0009",paddingHorizontal:6,paddingVertical:3,borderRadius:5}}><Text style={{color:"#fff",fontSize:11,fontWeight:"800"}}>▶ @{reel.creator}</Text></View>
+
+          <View style={{paddingHorizontal:22,paddingTop:20,paddingBottom:14}}>
+            <View style={{flexDirection:"row",alignItems:"center",gap:18}}>
+              <View style={{width:116,height:116,borderRadius:58,borderWidth:5,borderColor:"#12c9df",padding:4,backgroundColor:"#fff"}}>
+                <View style={{flex:1,borderRadius:50,borderWidth:4,borderColor:"#19d5a6",overflow:"hidden",backgroundColor:"#292033",alignItems:"center",justifyContent:"center"}}>
+                  {soundImage?<Image source={{uri:soundImage}} style={{width:"100%",height:"100%"}}/>:<Text style={{fontSize:38}}>🎵</Text>}
+                </View>
+              </View>
+              <View style={{flex:1}}>
+                <Text style={{color:"#111",fontSize:22,fontWeight:"900",lineHeight:28}} numberOfLines={3}>{soundTitle}</Text>
+                <Text style={{color:"#888",fontSize:16,marginTop:7}}>{soundCreator}</Text>
+              </View>
+            </View>
+            <View style={{flexDirection:"row",alignItems:"center",marginTop:28,gap:9}}>
+              <Text style={{color:"#111",fontSize:16}}>▶ {soundDuration}</Text>
+              <View style={{height:24,width:1,backgroundColor:"#ccc"}}/>
+              <Text style={{color:"#111",fontSize:15,flex:1}} numberOfLines={1}>Original sound by: <Text style={{fontWeight:"800"}}>{soundCreator}</Text></Text>
+              <Text style={{color:"#888",fontSize:13}}>{soundReels.length} posts</Text>
+            </View>
+            <View style={{flexDirection:"row",gap:10,marginTop:23}}>
+              <TouchableOpacity onPress={()=>Alert.alert("Jam Sound","Jam Sound feature abhi available nahi hai.")} style={{flex:1,height:52,borderRadius:28,backgroundColor:"#f0f0f0",alignItems:"center",justifyContent:"center",flexDirection:"row",gap:7}}>
+                <Text style={{fontSize:21,color:"#111"}}>♫</Text><Text style={{fontSize:15,fontWeight:"800",color:"#111"}}>Jam Sound</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={()=>setSoundSaved(v=>!v)} style={{flex:1,height:52,borderRadius:28,backgroundColor:"#f0f0f0",alignItems:"center",justifyContent:"center",flexDirection:"row",gap:7}}>
+                <Text style={{fontSize:21,color:"#111"}}>{soundSaved?"♥":"♧"}</Text><Text style={{fontSize:15,fontWeight:"800",color:"#111"}}>{soundSaved?"Saved":"Save"}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={{height:1,backgroundColor:"#eee",marginTop:4}}/>
+          <View style={{paddingHorizontal:12,paddingTop:16}}>
+            <View style={{flexDirection:"row",alignItems:"center",justifyContent:"space-between",paddingHorizontal:3,paddingBottom:12}}>
+              <Text style={{fontSize:18,fontWeight:"900",color:"#111"}}>Videos using this sound</Text>
+              <Text style={{fontSize:12,color:"#888"}}>{filteredSoundReels.length} videos</Text>
+            </View>
+            {filteredSoundReels.length>0?<View style={{flexDirection:"row",flexWrap:"wrap",gap:2}}>
+              {filteredSoundReels.map(reel=>(
+                <TouchableOpacity key={reel.id} onPress={()=>{setPlayingPost(reel);setPage("Home");setFeedTab("For You");}} style={{width:"32.9%",aspectRatio:0.72,backgroundColor:"#ddd",overflow:"hidden"}}>
+                  {getVideoThumbnail(reel)?<Image source={{uri:getVideoThumbnail(reel)}} style={{width:"100%",height:"100%"}} resizeMode="cover"/>:<View style={{flex:1,alignItems:"center",justifyContent:"center"}}><Text style={{fontSize:30}}>🎬</Text></View>}
+                  {reel.id===soundSourcePostId?<View style={{position:"absolute",top:7,left:6,backgroundColor:"#ff315f",paddingHorizontal:7,paddingVertical:3,borderRadius:5}}><Text style={{color:"#fff",fontSize:10,fontWeight:"900"}}>Original</Text></View>:null}
+                  <View style={{position:"absolute",left:6,bottom:7,flexDirection:"row",alignItems:"center",gap:4}}><Text style={{color:"#fff",fontSize:12,fontWeight:"900",textShadowColor:"#000",textShadowRadius:4}}>▶ {reel.views||0}</Text></View>
+                </TouchableOpacity>
+              ))}
+            </View>:<Text style={{color:"#777",textAlign:"center",paddingVertical:35}}>Is sound ke saath videos yahan show hongi.</Text>}
+          </View>
+        </ScrollView>
+        <View style={{height:76,backgroundColor:"#fff",borderTopWidth:1,borderTopColor:"#eee",paddingHorizontal:16,paddingTop:10,paddingBottom:8,flexDirection:"row",gap:10}}>
+          <TouchableOpacity onPress={()=>setSoundSaved(v=>!v)} style={{flex:1,borderRadius:28,backgroundColor:"#f1f1f1",alignItems:"center",justifyContent:"center",flexDirection:"row",gap:7}}>
+            <Text style={{fontSize:19,color:"#111"}}>♫</Text><Text style={{fontSize:16,fontWeight:"900",color:"#111"}}>Jam Sound</Text>
           </TouchableOpacity>
-        ))}</View>:<Text style={styles.smallMuted}>Is sound ke saath videos yahan show hongi.</Text>}
-      </ScrollView>
+          <TouchableOpacity onPress={()=>{setSelectedSound(soundTitle);setSelectedSoundVolume(100);setOriginalVideoVolume(0);setPage("Create");setCreateStep("camera");chooseVideoFromGallery();}} style={{flex:1,borderRadius:28,backgroundColor:"#ff2458",alignItems:"center",justifyContent:"center",flexDirection:"row",gap:7}}>
+            <Text style={{fontSize:19,color:"#fff"}}>▣</Text><Text style={{fontSize:16,fontWeight:"900",color:"#fff"}}>Use sound</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     );
   }
 
