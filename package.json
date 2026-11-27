@@ -28,7 +28,8 @@
     "expo-modules-core": "~3.0.15",
     "expo-camera": "~17.0.10",
     "expo-media-library": "~18.2.1",
-    "expo-video-thumbnails": "~10.0.7"
+    "expo-video-thumbnails": "~10.0.7",
+    "expo-speech": "~14.0.8"
   },
   "devDependencies": {
     "babel-preset-expo": "~54.0.10"
