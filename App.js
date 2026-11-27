@@ -2435,7 +2435,7 @@ export default function App() {
             </View>
 
             <View style={{backgroundColor:C.card,borderWidth:1,borderColor:C.border,borderRadius:18,padding:12}}>
-              {directVideo?.uri ? <Video source={{uri:directVideo.uri}} style={{width:"100%",height:270,backgroundColor:"#000",borderRadius:12}} useNativeControls resizeMode={ResizeMode.CONTAIN}/> : <View style={{height:190,alignItems:"center",justifyContent:"center"}}><Text style={{color:C.gray}}>Pehle Gallery se video select karein.</Text></View>}
+              {directVideo?.uri ? <Video source={{uri:directVideo.uri}} style={{width:"100%",height:270,backgroundColor:"#000",borderRadius:12}} useNativeControls volume={Math.max(0,Math.min(100,originalVideoVolume))/100} isMuted={originalVideoVolume<=0} resizeMode={ResizeMode.CONTAIN}/> : <View style={{height:190,alignItems:"center",justifyContent:"center"}}><Text style={{color:C.gray}}>Pehle Gallery se video select karein.</Text></View>}
               {selectedSound?<View style={{marginTop:12,padding:12,backgroundColor:C.card2,borderRadius:12,gap:12}}>
                 <Text style={{color:C.white,fontSize:15,fontWeight:"900"}}>🎵 Sound Mix · {selectedSound}</Text>
                 <View style={{gap:6}}>
@@ -2446,13 +2446,24 @@ export default function App() {
                     <TouchableOpacity onPress={()=>setSelectedSoundVolume(v=>Math.min(100,v+5))} style={{width:36,height:36,borderRadius:10,backgroundColor:C.card,alignItems:"center",justifyContent:"center"}}><Text style={{color:C.white,fontSize:22}}>＋</Text></TouchableOpacity>
                   </View>
                 </View>
-                <View style={{gap:6}}>
-                  <Text style={{color:C.white,fontWeight:"800"}}>Original Video Sound · {originalVideoVolume}%</Text>
+                <View style={{gap:9}}>
+                  <View style={{flexDirection:"row",alignItems:"center",justifyContent:"space-between"}}>
+                    <Text style={{color:C.white,fontWeight:"800"}}>Original Video Sound · {originalVideoVolume}%</Text>
+                    <TouchableOpacity onPress={()=>setOriginalVideoVolume(v=>v>0?0:70)} style={{paddingHorizontal:13,paddingVertical:8,borderRadius:10,backgroundColor:originalVideoVolume===0?C.pink:C.card,borderWidth:1,borderColor:C.border}}>
+                      <Text style={{color:C.white,fontWeight:"900"}}>{originalVideoVolume===0?"Unmute":"Mute"}</Text>
+                    </TouchableOpacity>
+                  </View>
                   <View style={{flexDirection:"row",alignItems:"center",gap:10}}>
                     <TouchableOpacity onPress={()=>setOriginalVideoVolume(v=>Math.max(0,v-5))} style={{width:36,height:36,borderRadius:10,backgroundColor:C.card,alignItems:"center",justifyContent:"center"}}><Text style={{color:C.white,fontSize:22}}>−</Text></TouchableOpacity>
-                    <View style={{flex:1,height:8,borderRadius:8,backgroundColor:C.border,overflow:"hidden"}}><View style={{width:`${originalVideoVolume}%`,height:8,backgroundColor:C.green}}/></View>
+                    <View style={{flex:1,height:9,borderRadius:9,backgroundColor:C.border,overflow:"hidden"}}><View style={{width:`${originalVideoVolume}%`,height:9,backgroundColor:C.green}}/></View>
                     <TouchableOpacity onPress={()=>setOriginalVideoVolume(v=>Math.min(100,v+5))} style={{width:36,height:36,borderRadius:10,backgroundColor:C.card,alignItems:"center",justifyContent:"center"}}><Text style={{color:C.white,fontSize:22}}>＋</Text></TouchableOpacity>
                   </View>
+                  <View style={{flexDirection:"row",gap:6}}>
+                    {[0,25,50,75,100].map(level=><TouchableOpacity key={level} onPress={()=>setOriginalVideoVolume(level)} style={{flex:1,paddingVertical:8,borderRadius:9,alignItems:"center",backgroundColor:originalVideoVolume===level?C.green:C.card,borderWidth:1,borderColor:C.border}}>
+                      <Text style={{color:C.white,fontSize:11,fontWeight:"900"}}>{level===0?"Mute":level+"%"}</Text>
+                    </TouchableOpacity>)}
+                  </View>
+                  <Text style={{color:C.gray,fontSize:11}}>0% = mute · 100% = original video ki full awaaz</Text>
                 </View>
               </View>:null}
               <Text style={{color:C.gray,fontSize:11,marginTop:8}}>Video ka original frame size barqarar rahega.</Text>
