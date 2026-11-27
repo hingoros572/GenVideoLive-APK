@@ -390,6 +390,7 @@ export default function App() {
   const [trimRanges,setTrimRanges] = useState({});
   const [timelineWidth,setTimelineWidth] = useState(220);
   const [trimDragSide,setTrimDragSide] = useState(null);
+  const trimGestureRef = useRef(null);
   const [timelineThumbs,setTimelineThumbs] = useState({});
   const [editorPlaybackSeconds,setEditorPlaybackSeconds] = useState(0);
   const [editorIsPlaying,setEditorIsPlaying] = useState(true);
@@ -2357,13 +2358,18 @@ export default function App() {
       const clipEnd=Math.max(clipStart+0.5,Math.min(clipRange.end,clipDuration));
       const toolbox=[["✂","Edit"],["♫","Audio"],["Aa","Text"],["▧","Overlay"],["✦","Effects"],["◉","Filters"],["CC","Captions"],["◷","Speed"],["▣","Crop"],["⬆","Export"]];
       const updateTrimFromTouch=(event)=>{
-        if(!trimDragSide||!previewMedia?.uri)return;
-        const x=Math.max(0,Math.min(timelineWidth,event.nativeEvent.locationX));
-        const value=Math.max(0,Math.min(clipDuration,(x/Math.max(1,timelineWidth))*clipDuration));
+        const gesture=trimGestureRef.current;
+        if(!gesture||!previewMedia?.uri)return;
+        const pageX=Number(event.nativeEvent.pageX);
+        const deltaX=(Number.isFinite(pageX)?pageX:gesture.pageX)-gesture.pageX;
+        const deltaSeconds=deltaX/28;
         setTrimRanges(old=>{
-          const current=old[clipKey]||{start:0,end:clipDuration};
-          if(trimDragSide==="start") return {...old,[clipKey]:{start:Math.min(value,current.end-0.5),end:current.end}};
-          return {...old,[clipKey]:{start:current.start,end:Math.max(current.start+0.5,value)}};
+          if(gesture.side==="start"){
+            const nextStart=Math.max(0,Math.min(gesture.end-0.5,gesture.start+deltaSeconds));
+            return {...old,[clipKey]:{start:nextStart,end:gesture.end}};
+          }
+          const nextEnd=Math.max(gesture.start+0.5,Math.min(clipDuration,gesture.end+deltaSeconds));
+          return {...old,[clipKey]:{start:gesture.start,end:nextEnd}};
         });
       };
       const formatTime=(seconds)=>{const v=Math.max(0,Math.floor(seconds||0));return "00:"+String(v).padStart(2,"0");};
@@ -2432,10 +2438,10 @@ export default function App() {
                               onStartShouldSetResponderCapture={event=>active&&(event.nativeEvent.locationX<30||event.nativeEvent.locationX>clipWidth-30)}
                               onMoveShouldSetResponder={()=>active&&!!trimDragSide}
                               onResponderTerminationRequest={()=>false}
-                              onResponderGrant={event=>{if(active)setTrimDragSide(event.nativeEvent.locationX<clipWidth/2?"start":"end");}}
+                              onResponderGrant={event=>{if(active){const side=event.nativeEvent.locationX<clipWidth/2?"start":"end";const range=trimRanges[clip.uri]||{start:0,end:Math.max(1,Number(clip.duration||10))};trimGestureRef.current={side,pageX:event.nativeEvent.pageX,start:range.start,end:range.end};setTrimDragSide(side);}}}
                               onResponderMove={updateTrimFromTouch}
-                              onResponderRelease={()=>setTrimDragSide(null)}
-                              onResponderTerminate={()=>setTrimDragSide(null)}
+                              onResponderRelease={()=>{trimGestureRef.current=null;setTrimDragSide(null);}}
+                              onResponderTerminate={()=>{trimGestureRef.current=null;setTrimDragSide(null);}}
                               style={{width:clipWidth,height:62,borderWidth:active?2:1,borderColor:active?"#fff":"#555566",borderRadius:7,overflow:"hidden",backgroundColor:"#252536",justifyContent:"center"}}>
                               {source?<Image source={{uri:source}} style={{width:"100%",height:"100%",position:"absolute"}} resizeMode="cover"/>:null}
                               <View style={{position:"absolute",left:0,right:0,bottom:0,backgroundColor:"#0009",paddingHorizontal:4,paddingVertical:3}}>
@@ -2465,9 +2471,6 @@ export default function App() {
             </View>
             <View pointerEvents="none" style={{position:"absolute",top:22,bottom:5,left:"50%",width:2,backgroundColor:"#fff",zIndex:20}}>
               <View style={{position:"absolute",top:-3,left:-4,width:10,height:10,borderRadius:5,backgroundColor:"#fff"}}/>
-              <View style={{position:"absolute",top:-21,left:-22,minWidth:46,alignItems:"center"}}>
-                <Text style={{color:"#fff",fontSize:9,fontWeight:"800",backgroundColor:"#e72f67",paddingHorizontal:5,paddingVertical:2,borderRadius:4}}>{formatTime(editorPlaybackSeconds)}</Text>
-              </View>
             </View>
             <View style={{height:23,flexDirection:"row",alignItems:"center",justifyContent:"space-between",paddingHorizontal:12}}>
               <Text style={{color:"#b8b8c5",fontSize:10}}>Clip {safeIndex+1}/{timelineClips.length||1}</Text>
