@@ -1269,23 +1269,37 @@ export default function App() {
 
   async function openSystemFileManager() {
     try {
+      // Open Android's full document browser so Downloads and other folders are available.
       const result=await DocumentPicker.getDocumentAsync({
-        type:["image/*","video/*"], multiple:true, copyToCacheDirectory:true
+        type:"*/*", multiple:true, copyToCacheDirectory:true
       });
       if(result.canceled||!result.assets?.length) return;
       const picked=result.assets.map((asset,index)=>{
-        const mime=asset.mimeType||"";
-        const isVideo=mime.startsWith("video/");
-        return {id:asset.name+"-"+index+"-"+Date.now(),uri:asset.uri,originalUri:asset.uri,type:isVideo?"video":"image",mimeType:mime||(isVideo?"video/mp4":"image/jpeg"),fileName:asset.name||"Selected media",duration:asset.duration||0};
-      });
-      setSelectedCreateMedia(old=>[...old,...picked.filter(item=>!old.some(existing=>existing.uri===item.uri))].slice(0,15));
-      setCreatePhotos(old=>[...old,...picked.filter(item=>item.type==="image"&&!old.some(existing=>existing.uri===item.uri))]);
-      const firstVideo=picked.find(item=>item.type==="video");
-      if(firstVideo) setSelectedVideo(old=>old||firstVideo);
-      setCreateStep("gallery");
-      Alert.alert("Files selected",picked.length+" file(s) File Manager se add ho gayi hain.");
+        const name=String(asset.name||"").toLowerCase();
+        const mime=String(asset.mimeType||"").toLowerCase();
+        const isVideo=mime.startsWith("video/")||/\\.(mp4|mov|m4v|webm|3gp|mkv)$/.test(name);
+        const isImage=mime.startsWith("image/")||/\\.(jpg|jpeg|png|webp|gif|heic|heif)$/.test(name);
+        if(!isVideo&&!isImage) return null;
+        return {
+          id:(asset.name||"media")+"-"+index+"-"+Date.now(),
+          uri:asset.uri,originalUri:asset.uri,
+          type:isVideo?"video":"image",
+          mimeType:mime||(isVideo?"video/mp4":"image/jpeg"),
+          fileName:asset.name||"Selected media",
+          duration:asset.duration||0
+        };
+      }).filter(Boolean);
+      if(!picked.length) return Alert.alert("Media not supported","Downloads se JPG, PNG, MP4 ya MOV photo/video select karein.");
+      const videos=picked.filter(item=>item.type==="video");
+      const photos=picked.filter(item=>item.type==="image");
+      setSelectedCreateMedia(picked.slice(0,15));
+      setCreatePhotos(photos.slice(0,15));
+      setSelectedVideo(videos[0]||null);
+      setSelectedTimelineIndex(0);
+      setGallerySelectedIds([]);
+      setCreateStep("selected");
     } catch(error) {
-      Alert.alert("File Manager",error.message||"File Manager open nahi ho saka.");
+      Alert.alert("File Manager",error.message||"Android File Manager open nahi ho saka.");
     }
   }
 
@@ -2346,7 +2360,7 @@ export default function App() {
         <View style={{flex:1,backgroundColor:"#fff"}}>
           <View style={{height:58,paddingHorizontal:18,flexDirection:"row",alignItems:"center",justifyContent:"space-between",borderBottomWidth:1,borderBottomColor:"#eee"}}>
             <TouchableOpacity onPress={()=>setCreateStep("camera")} style={{width:38,height:44,alignItems:"flex-start",justifyContent:"center"}}><Text style={{fontSize:30,color:"#111",lineHeight:34}}>×</Text></TouchableOpacity>
-            <TouchableOpacity onPress={()=>Alert.alert("Albums","Abhi Recents album khula hai.")} style={{flexDirection:"row",alignItems:"center",gap:6}}><Text style={{fontSize:19,fontWeight:"800",color:"#111"}}>Recents</Text><Text style={{fontSize:18,color:"#111"}}>⌄</Text></TouchableOpacity>
+            <TouchableOpacity onPress={openSystemFileManager} style={{flexDirection:"row",alignItems:"center",gap:6}}><Text style={{fontSize:19,fontWeight:"800",color:"#111"}}>Recents</Text><Text style={{fontSize:18,color:"#111"}}>⌄</Text></TouchableOpacity>
             <TouchableOpacity onPress={()=>Alert.alert("Text","Text option aglay editor step mein set karenge.")} style={{paddingHorizontal:12,paddingVertical:8,borderRadius:18,backgroundColor:"#f3f3f3"}}><Text style={{fontSize:13,fontWeight:"800",color:"#222"}}>✎ Text</Text></TouchableOpacity>
           </View>
           <View style={{height:48,flexDirection:"row",borderBottomWidth:1,borderBottomColor:"#eee"}}>
