@@ -2435,7 +2435,7 @@ export default function App() {
             </View>
 
             <View style={{backgroundColor:C.card,borderWidth:1,borderColor:C.border,borderRadius:18,padding:12}}>
-              {directVideo?.uri ? <Video source={{uri:directVideo.uri}} style={{width:"100%",height:270,backgroundColor:"#000",borderRadius:12}} useNativeControls volume={Math.max(0,Math.min(100,originalVideoVolume))/100} isMuted={originalVideoVolume<=0} resizeMode={ResizeMode.CONTAIN}/> : <View style={{height:190,alignItems:"center",justifyContent:"center"}}><Text style={{color:C.gray}}>Pehle Gallery se video select karein.</Text></View>}
+              {directVideo?.uri ? <Video source={{uri:directVideo.uri}} style={{width:"100%",height:270,backgroundColor:"#000",borderRadius:12}} useNativeControls volume={selectedSound?Math.max(0,Math.min(100,originalVideoVolume))/100:1} isMuted={!!selectedSound&&originalVideoVolume<=0} resizeMode={ResizeMode.CONTAIN}/> : <View style={{height:190,alignItems:"center",justifyContent:"center"}}><Text style={{color:C.gray}}>Pehle Gallery se video select karein.</Text></View>}
               {selectedSound?<View style={{marginTop:12,padding:12,backgroundColor:C.card2,borderRadius:12,gap:12}}>
                 <Text style={{color:C.white,fontSize:15,fontWeight:"900"}}>🎵 Sound Mix · {selectedSound}</Text>
                 <View style={{gap:6}}>
