@@ -13,6 +13,7 @@ import { CameraView, Camera } from "expo-camera";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Video, ResizeMode, Audio } from "expo-av";
 import * as FileSystem from "expo-file-system/legacy";
+import * as Speech from "expo-speech";
 import MediaEngine from "@projectyoked/expo-media-engine";
 // Preview playback uses expo-av; MediaEngine handles final native composition.
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -305,6 +306,10 @@ function ReelCard({
 }
 
 export default function App() {
+  const [showIntro,setShowIntro] = useState(true);
+  const introGen = useRef(new Animated.Value(0)).current;
+  const introVideo = useRef(new Animated.Value(0)).current;
+  const introLive = useRef(new Animated.Value(0)).current;
   const [email,setEmail] = useState("");
   const [password,setPassword] = useState("");
   const [signupUsername,setSignupUsername] = useState("");
@@ -313,6 +318,21 @@ export default function App() {
 
   const [user,setUser] = useState(null);
   const [sessionLoading,setSessionLoading] = useState(true);
+
+  useEffect(()=>{
+    const sequence=Animated.stagger(620,[introGen,introVideo,introLive].map(value =>
+      Animated.spring(value,{toValue:1,useNativeDriver:true,speed:3,bounciness:9})
+    ));
+    sequence.start();
+    const voiceTimer=setTimeout(()=>Speech.speak("Welcome Gen Video Live",{language:"en-US",rate:0.88,pitch:1.0}),2300);
+    const finishTimer=setTimeout(()=>setShowIntro(false),5700);
+    return ()=>{
+      clearTimeout(voiceTimer);
+      clearTimeout(finishTimer);
+      sequence.stop();
+      Speech.stop();
+    };
+  },[]);
   const [username,setUsername] = useState("");
   const [appLanguage,setAppLanguage] = useState("auto");
   const [bio,setBio] = useState("Welcome to my Gen Video Live profile! 👑");
@@ -2006,7 +2026,7 @@ export default function App() {
       <KeyboardAvoidingView style={styles.authScreen} behavior={Platform.OS==="ios"?"padding":"height"} keyboardVerticalOffset={0}>
         <StatusBar backgroundColor={C.bg} barStyle="light-content"/>
         <ScrollView contentContainerStyle={styles.authContent} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" scrollsChildToFocus={true} showsVerticalScrollIndicator={true}>
-          <Text style={styles.crown}>👑</Text>
+          <Image source={require("./assets/icon.png")} style={{width:116,height:116,alignSelf:"center",marginBottom:12,borderRadius:24}} resizeMode="contain"/>
           <Text style={styles.authTitle}>Gen Video Live</Text>
           <Text style={styles.authSubtitle}>Watch • Create • Connect</Text>
 
@@ -3006,6 +3026,17 @@ export default function App() {
     );
   }
 
+  if(showIntro) return (
+    <View style={styles.launchScreen}>
+      <StatusBar backgroundColor="#000000" barStyle="light-content"/>
+      <Image source={require("./assets/icon.png")} style={[styles.launchLogo,{width:220,height:220,marginBottom:24}]} resizeMode="contain"/>
+      <Animated.Text style={[styles.introWord,{opacity:introGen,transform:[{translateY:introGen.interpolate({inputRange:[0,1],outputRange:[24,0]})},{scale:introGen.interpolate({inputRange:[0,1],outputRange:[0.72,1]})}]}]}>GEN</Animated.Text>
+      <Animated.Text style={[styles.introWord,{color:"#58cfff",opacity:introVideo,transform:[{translateY:introVideo.interpolate({inputRange:[0,1],outputRange:[24,0]})},{scale:introVideo.interpolate({inputRange:[0,1],outputRange:[0.72,1]})}]}]}>VIDEO</Animated.Text>
+      <Animated.Text style={[styles.introWord,{color:"#d9aaff",opacity:introLive,transform:[{translateY:introLive.interpolate({inputRange:[0,1],outputRange:[24,0]})},{scale:introLive.interpolate({inputRange:[0,1],outputRange:[0.72,1]})}]}]}>LIVE</Animated.Text>
+      <Text style={styles.launchSubtitle}>WATCH • CREATE • CONNECT</Text>
+    </View>
+  );
+
   if(sessionLoading) return (
     <View style={styles.launchScreen}>
       <StatusBar backgroundColor="#100019" barStyle="light-content"/>
@@ -3213,6 +3244,7 @@ const styles=StyleSheet.create({
   launchLogo:{width:150,height:150,marginBottom:18},
   launchTitle:{color:C.white,fontSize:24,fontWeight:"900",letterSpacing:2},
   launchSubtitle:{color:C.magenta,fontSize:11,fontWeight:"800",letterSpacing:2,marginTop:9},
+  introWord:{color:"#ffffff",fontSize:34,fontWeight:"900",letterSpacing:7,marginTop:2,textShadowColor:"#258dff",textShadowRadius:16},
   screen:{flex:1,backgroundColor:C.bg},
   authScreen:{flex:1,backgroundColor:C.bg},
   authContent:{flexGrow:1,justifyContent:"center",padding:22,paddingBottom:42},
