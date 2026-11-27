@@ -12,6 +12,8 @@ import * as VideoThumbnails from "expo-video-thumbnails";
 import { CameraView, Camera } from "expo-camera";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Video, ResizeMode, Audio } from "expo-av";
+import * as FileSystem from "expo-file-system/legacy";
+import MediaEngine from "@projectyoked/expo-media-engine";
 // Preview playback uses expo-av; MediaEngine handles final native composition.
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
@@ -454,6 +456,10 @@ export default function App() {
   const [soundTitle,setSoundTitle] = useState("Dil Se Dil Tak");
   const [soundCreator,setSoundCreator] = useState("Gen Video Live");
   const [soundAvatarUrl,setSoundAvatarUrl] = useState("");
+  const [soundSourceVideoUrl,setSoundSourceVideoUrl] = useState("");
+  const [soundSourcePostId,setSoundSourcePostId] = useState("");
+  const [selectedSoundVolume,setSelectedSoundVolume] = useState(70);
+  const [originalVideoVolume,setOriginalVideoVolume] = useState(70);
   const [playingPost,setPlayingPost] = useState(null);
 
   const [activeReelIndex,setActiveReelIndex] = useState(0);
@@ -1521,10 +1527,33 @@ export default function App() {
     try {
       const formData=new FormData();
 
+      let videoUploadUri=selectedVideo.uri;
+      if(selectedSound && soundSourceVideoUrl) {
+        setUploadStage("Selected sound aur original video ki awaaz mix ho rahi hain...");
+        if(!MediaEngine.isAvailable()) throw new Error("Audio mixing module native APK mein available nahi hai. Naya Android build zaroori hai.");
+        const sourceVideoPath=`${FileSystem.cacheDirectory}sound-source-${Date.now()}.mp4`;
+        const sourceDownload=await FileSystem.downloadAsync(soundSourceVideoUrl,sourceVideoPath);
+        if(!sourceDownload?.uri) throw new Error("Selected sound download nahi ho saka.");
+        const extractedAudioPath=`${FileSystem.cacheDirectory}selected-sound-${Date.now()}.m4a`;
+        await MediaEngine.extractAudio(sourceDownload.uri,extractedAudioPath);
+        const mixedOutputPath=`${FileSystem.cacheDirectory}gen-live-mixed-${Date.now()}.mp4`;
+        const mixedResult=await MediaEngine.exportComposition({
+          videoPath:selectedVideo.uri,
+          outputPath:mixedOutputPath,
+          duration:Number(selectedVideo.duration)||undefined,
+          musicPath:extractedAudioPath,
+          musicVolume:Math.max(0,Math.min(100,selectedSoundVolume))/100,
+          originalVolume:Math.max(0,Math.min(100,originalVideoVolume))/100,
+          quality:"high"
+        });
+        if(!mixedResult) throw new Error("Dono awaazon wali video tayyar nahi ho saki.");
+        videoUploadUri=mixedResult;
+      }
+
       formData.append("file",{
-        uri:selectedVideo.uri,
-        name:getVideoFileName(selectedVideo),
-        type:selectedVideo.mimeType||"video/mp4"
+        uri:videoUploadUri,
+        name:videoUploadUri===selectedVideo.uri?getVideoFileName(selectedVideo):`gen-live-mixed-${Date.now()}.mp4`,
+        type:"video/mp4"
       });
 
       formData.append("upload_preset",UPLOAD_PRESET);
@@ -1558,6 +1587,10 @@ export default function App() {
         format:cloudData.format||"",
         duration:cloudData.duration||null,
         music:selectedSound||"Original Sound",
+        soundSourcePostId:selectedSound?soundSourcePostId:"",
+        soundCreator:selectedSound?soundCreator:"",
+        selectedSoundVolume:selectedSound?selectedSoundVolume:0,
+        originalVideoVolume:selectedSound?originalVideoVolume:100,
         hashtags:postHashtags.trim(),
         mention:postMention.trim(),
         postLocation:postLocation.trim(),
@@ -1595,6 +1628,10 @@ export default function App() {
       setCreatePhotos([]);
       setPostCoverImage(null); setPostHashtags(""); setPostMention(""); setPostLocation(""); setPostLink("");
       setSelectedSound("");
+      setSoundSourceVideoUrl("");
+      setSoundSourcePostId("");
+      setSelectedSoundVolume(70);
+      setOriginalVideoVolume(70);
       setUploadProgress(100);
       setUploadStage("Upload complete!");
 
@@ -1768,6 +1805,8 @@ export default function App() {
     setSoundTitle(reel.music||"Original Sound");
     setSoundCreator(reel.creator||"Gen Video Live");
     setSoundAvatarUrl(reel.avatarUrl||"");
+    setSoundSourceVideoUrl(reel.videoUrl||"");
+    setSoundSourcePostId(reel.id||"");
     setPage("Sound");
   }
 
@@ -2410,6 +2449,26 @@ export default function App() {
           <Text style={styles.sectionTitle}>▶ Video Preview</Text>
           {selectedVideo?.uri?<Video source={{uri:selectedVideo.uri}} style={{width:"100%",height:360,backgroundColor:"#000",borderRadius:14}} useNativeControls resizeMode={ResizeMode.CONTAIN}/>:<Text style={styles.helpText}>Pehle video select karein.</Text>}
           <Button title="Change Video" secondary onPress={()=>setCreateStep("gallery")}/>
+          {selectedSound ? <View style={{backgroundColor:C.card,borderRadius:14,padding:14,marginTop:14,gap:12}}>
+            <Text style={{color:C.white,fontSize:16,fontWeight:"900"}}>🎵 Sound Mix</Text>
+            <View style={{gap:7}}>
+              <Text style={{color:C.white,fontWeight:"800"}}>Selected Sound · {selectedSoundVolume}%</Text>
+              <View style={{flexDirection:"row",alignItems:"center",gap:10}}>
+                <TouchableOpacity onPress={()=>setSelectedSoundVolume(v=>Math.max(0,v-5))} style={{width:38,height:38,borderRadius:10,backgroundColor:C.card2,alignItems:"center",justifyContent:"center"}}><Text style={{color:C.white,fontSize:22}}>−</Text></TouchableOpacity>
+                <View style={{flex:1,height:9,borderRadius:9,backgroundColor:C.card2,overflow:"hidden"}}><View style={{width:`${selectedSoundVolume}%`,height:9,backgroundColor:C.pink}}/></View>
+                <TouchableOpacity onPress={()=>setSelectedSoundVolume(v=>Math.min(100,v+5))} style={{width:38,height:38,borderRadius:10,backgroundColor:C.card2,alignItems:"center",justifyContent:"center"}}><Text style={{color:C.white,fontSize:22}}>＋</Text></TouchableOpacity>
+              </View>
+            </View>
+            <View style={{gap:7}}>
+              <Text style={{color:C.white,fontWeight:"800"}}>Original Video Sound · {originalVideoVolume}%</Text>
+              <View style={{flexDirection:"row",alignItems:"center",gap:10}}>
+                <TouchableOpacity onPress={()=>setOriginalVideoVolume(v=>Math.max(0,v-5))} style={{width:38,height:38,borderRadius:10,backgroundColor:C.card2,alignItems:"center",justifyContent:"center"}}><Text style={{color:C.white,fontSize:22}}>−</Text></TouchableOpacity>
+                <View style={{flex:1,height:9,borderRadius:9,backgroundColor:C.card2,overflow:"hidden"}}><View style={{width:`${originalVideoVolume}%`,height:9,backgroundColor:C.green}}/></View>
+                <TouchableOpacity onPress={()=>setOriginalVideoVolume(v=>Math.min(100,v+5))} style={{width:38,height:38,borderRadius:10,backgroundColor:C.card2,alignItems:"center",justifyContent:"center"}}><Text style={{color:C.white,fontSize:22}}>＋</Text></TouchableOpacity>
+              </View>
+            </View>
+            <Text style={{color:C.gray,fontSize:11}}>− aur ＋ se har awaaz 0% se 100% tak alag adjust karein.</Text>
+          </View> : null}
           <Button title="Continue to Post Settings" onPress={()=>{if(!selectedVideo?.uri)return Alert.alert("Video required","Pehle video select karein.");setCreateStep("location");}}/>
         </View>}
 
@@ -2749,7 +2808,7 @@ export default function App() {
   }
 
   function renderSound() {
-    const soundReels=allReels.filter(reel=>(reel.music||"Original Sound")===soundTitle);
+    const soundReels=allReels.filter(reel=>soundSourcePostId ? reel.soundSourcePostId===soundSourcePostId : (reel.music||"Original Sound")===soundTitle);
 
     return (
       <ScrollView style={styles.pageScroll} contentContainerStyle={styles.pageContent}>
@@ -2763,19 +2822,16 @@ export default function App() {
             ) : null}
             <Text style={styles.soundCreator}>Original sound • @{soundCreator}</Text>
           </View>
-          <Button title="＋ Use This Sound" onPress={()=>{setSelectedSound(soundTitle);setPage(soundReturnPage);}}/>
+          <Button title="＋ Use This Sound" onPress={()=>{setSelectedSound(soundTitle);setSelectedSoundVolume(70);setOriginalVideoVolume(70);setPage("Create");setCreateStep("camera");chooseVideoFromGallery();}}/>
           <Button title="↗ Share Sound" secondary onPress={()=>Share.share({message:`${soundTitle} on Gen Video Live`})}/>
         </View>
         <Text style={styles.sectionTitle}>Videos using this sound</Text>
-        {soundReels.length>0?soundReels.map(reel=>(
-          <View key={reel.id} style={styles.soundVideoRow}>
-            <Text style={{fontSize:28}}>{reel.videoUrl?"▶":reel.emoji||"🎬"}</Text>
-            <View style={{flex:1}}>
-              <Text style={styles.creatorName}>@{reel.creator}</Text>
-              <Text style={styles.smallMuted}>{reel.caption}</Text>
-            </View>
-          </View>
-        )):<Text style={styles.smallMuted}>Is sound ke saath videos yahan show hongi.</Text>}
+        {soundReels.length>0?<View style={{flexDirection:"row",flexWrap:"wrap",justifyContent:"space-between",rowGap:8}}>{soundReels.map(reel=>(
+          <TouchableOpacity key={reel.id} onPress={()=>{setPlayingPost(reel);setPage("Home");setFeedTab("For You");}} style={{width:"32.8%",aspectRatio:0.72,backgroundColor:C.card2,borderRadius:7,overflow:"hidden",marginBottom:2}}>
+            {getVideoThumbnail(reel)?<Image source={{uri:getVideoThumbnail(reel)}} style={{width:"100%",height:"100%"}} resizeMode="cover"/>:<View style={{flex:1,alignItems:"center",justifyContent:"center"}}><Text style={{fontSize:30}}>🎬</Text></View>}
+            <View style={{position:"absolute",left:6,bottom:6,backgroundColor:"#0009",paddingHorizontal:6,paddingVertical:3,borderRadius:5}}><Text style={{color:"#fff",fontSize:11,fontWeight:"800"}}>▶ @{reel.creator}</Text></View>
+          </TouchableOpacity>
+        ))}</View>:<Text style={styles.smallMuted}>Is sound ke saath videos yahan show hongi.</Text>}
       </ScrollView>
     );
   }
