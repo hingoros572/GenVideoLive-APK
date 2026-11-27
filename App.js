@@ -50,7 +50,10 @@ function isRealVideoPost(post) {
 // Do not use manually selected cover images or demo/sample artwork here.
 function getVideoThumbnail(post) {
   const url = post?.videoUrl || "";
-  if (!/^https?:\/\//i.test(url)) return "";
+  if (!/^https?:\/\//i.test(url)) {
+    const photo=Array.isArray(post?.photoUrls)?post.photoUrls.find(item=>typeof item==="string"&&/^https?:\/\//i.test(item)):"";
+    return photo||"";
+  }
   if (!url.includes("res.cloudinary.com") || !url.includes("/video/upload/")) return "";
   return url
     .replace("/video/upload/", "/video/upload/so_0,w_480,h_720,c_fill/")
