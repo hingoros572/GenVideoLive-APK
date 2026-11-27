@@ -1553,7 +1553,7 @@ export default function App() {
       formData.append("file",{
         uri:videoUploadUri,
         name:videoUploadUri===selectedVideo.uri?getVideoFileName(selectedVideo):`gen-live-mixed-${Date.now()}.mp4`,
-        type:"video/mp4"
+        type:videoUploadUri===selectedVideo.uri?(selectedVideo.mimeType||"video/mp4"):"video/mp4"
       });
 
       formData.append("upload_preset",UPLOAD_PRESET);
