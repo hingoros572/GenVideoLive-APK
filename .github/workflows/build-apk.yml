@@ -5,6 +5,10 @@ on:
   push:
     branches:
       - main
+      - feature/share-repost-inbox
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build:
@@ -32,8 +36,7 @@ jobs:
       - name: Generate native Android project
         run: npx expo prebuild --platform android --no-install --non-interactive
 
-      # IMPORTANT: assembleRelease bundles the JavaScript into the APK.
-      # assembleDebug is a development build and expects Metro to be running.
+      # Release build bundles the JavaScript and creates an installable APK.
       - name: Build standalone Release APK
         working-directory: android
         run: |
