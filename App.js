@@ -258,12 +258,14 @@ function ReelCard({
               </View>
             )}
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.followPlus,following&&styles.followedButton]}
-            onPress={onFollow}
-          >
-            <Text style={styles.followPlusText}>{following?"✓":"+"}</Text>
-          </TouchableOpacity>
+          {!isOwner&&(
+            <TouchableOpacity
+              style={[styles.followPlus,following&&styles.followedButton]}
+              onPress={onFollow}
+            >
+              <Text style={styles.followPlusText}>{following?"✓":"+"}</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <TouchableOpacity style={styles.actionButton} onPress={onLike}>
