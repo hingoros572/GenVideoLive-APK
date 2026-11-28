@@ -114,10 +114,15 @@ function NavItem({ icon, label, active, onPress }) {
   );
 }
 
-function SpinningDisc({ avatarUrl }) {
+function SpinningDisc({ avatarUrl, isPlaying=true }) {
   const spin = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if(!isPlaying) {
+      spin.stopAnimation();
+      spin.setValue(0);
+      return;
+    }
     const animation = Animated.loop(
       Animated.timing(spin,{
         toValue:1,duration:5000,useNativeDriver:true
@@ -125,7 +130,7 @@ function SpinningDisc({ avatarUrl }) {
     );
     animation.start();
     return () => animation.stop();
-  },[spin]);
+  },[spin,isPlaying]);
 
   const rotate = spin.interpolate({
     inputRange:[0,1],
@@ -233,6 +238,13 @@ function ReelCard({
         {!!reel.repostedByUsername&&<Text style={styles.repostAttribution}>↻ Reposted by @{reel.repostedByUsername}</Text>}
         <TouchableOpacity onPress={()=>onOpenProfile?.(reel.ownerId)} disabled={!reel.ownerId}><Text style={styles.creatorName}>@{reel.creator||"Creator"}</Text></TouchableOpacity>
         <Text style={styles.caption}>{reel.caption||""}</Text>
+        <TouchableOpacity style={styles.audioLine} onPress={onSound} activeOpacity={0.85}>
+          <Text style={styles.musicNote}>♫</Text>
+          <Text style={styles.music} numberOfLines={1}>
+            {reel.music&&reel.music!=="Original Sound"?reel.music:`Original Sound · ${reel.soundCreator||reel.creator||"Creator"}`}
+          </Text>
+          <Text style={styles.audioArrow}>›</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.actionStack}>
@@ -305,9 +317,8 @@ function ReelCard({
           </TouchableOpacity>
         )}
 
-        <TouchableOpacity style={styles.soundNameButton} onPress={onSound} activeOpacity={0.85}>
-          <Text style={styles.soundNameIcon}>♫</Text>
-          <Text style={styles.soundNameText} numberOfLines={1}>{reel.music||"Original Sound"}</Text>
+        <TouchableOpacity style={styles.audioDiscButton} onPress={onSound} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Open sound details">
+          <SpinningDisc avatarUrl={reel.avatarUrl} isPlaying={!!isActive}/>
         </TouchableOpacity>
       </View>
     </View>
@@ -3353,11 +3364,11 @@ const styles=StyleSheet.create({
   reelBottom:{position:"absolute",left:15,right:88,bottom:25,zIndex:3},
   creatorName:{color:C.white,fontSize:15,fontWeight:"900"},
   caption:{color:C.white,fontSize:13,lineHeight:19,marginTop:8,marginBottom:11},
-  audioLine:{flexDirection:"row",alignItems:"center",backgroundColor:"rgba(0,0,0,0.5)",alignSelf:"flex-start",paddingHorizontal:10,paddingVertical:7,borderRadius:20},
+  audioLine:{flexDirection:"row",alignItems:"center",backgroundColor:"rgba(0,0,0,0.62)",alignSelf:"flex-start",paddingHorizontal:10,paddingVertical:7,borderRadius:20,maxWidth:"100%",marginTop:1},
   musicNote:{color:C.magenta,fontSize:17,marginRight:7},
-  music:{color:C.white,fontSize:12,fontWeight:"700",maxWidth:160},
+  music:{color:C.white,fontSize:12,fontWeight:"700",maxWidth:185},
   audioArrow:{color:C.white,marginLeft:8,fontSize:18},
-  actionStack:{position:"absolute",right:8,bottom:16,alignItems:"center",gap:9,zIndex:4},
+  actionStack:{position:"absolute",right:8,bottom:18,alignItems:"center",gap:9,zIndex:4},
   postMoreButton:{width:34,height:30,borderRadius:15,backgroundColor:"rgba(0,0,0,0.58)",alignItems:"center",justifyContent:"center",marginBottom:2},
   postMoreText:{color:C.white,fontSize:16,fontWeight:"900",letterSpacing:1,lineHeight:18},
   profileDeleteButton:{position:"absolute",top:5,right:5,zIndex:5,width:27,height:25,borderRadius:13,backgroundColor:"rgba(0,0,0,0.72)",alignItems:"center",justifyContent:"center"},
@@ -3422,12 +3433,10 @@ const styles=StyleSheet.create({
   bookmarkIcon:{width:16,height:20,borderWidth:2,borderBottomWidth:0,borderTopLeftRadius:2,borderTopRightRadius:2,position:"relative",marginTop:1},
   bookmarkCutLeft:{position:"absolute",width:9,height:2,bottom:1,left:-1,transform:[{rotate:38}]},
   bookmarkCutRight:{position:"absolute",width:9,height:2,bottom:1,right:-1,transform:[{rotate:-38}]},
-  soundNameButton:{maxWidth:118,minHeight:38,paddingHorizontal:9,borderRadius:20,backgroundColor:"rgba(0,0,0,0.72)",borderWidth:1,borderColor:"rgba(255,255,255,0.35)",flexDirection:"row",alignItems:"center",justifyContent:"center",gap:5,marginTop:2,marginBottom:4},
-  soundNameIcon:{color:C.white,fontSize:17,fontWeight:"900"},
-  soundNameText:{color:C.white,fontSize:10,fontWeight:"900",maxWidth:82},
-  disc:{width:42,height:42,borderRadius:21,backgroundColor:"#15151d",borderWidth:4,borderColor:"#393944",alignItems:"center",justifyContent:"center"},
-  discCenter:{width:16,height:16,borderRadius:8,backgroundColor:C.magenta,alignItems:"center",justifyContent:"center",overflow:"hidden"},
-  discAvatar:{width:16,height:16,borderRadius:8},
+  audioDiscButton:{width:54,height:54,borderRadius:27,backgroundColor:"rgba(0,0,0,0.72)",borderWidth:2,borderColor:"rgba(255,255,255,0.65)",alignItems:"center",justifyContent:"center",marginTop:3,elevation:5},
+  disc:{width:46,height:46,borderRadius:23,backgroundColor:"#15151d",borderWidth:4,borderColor:"#393944",alignItems:"center",justifyContent:"center"},
+  discCenter:{width:25,height:25,borderRadius:13,backgroundColor:C.magenta,alignItems:"center",justifyContent:"center",overflow:"hidden"},
+  discAvatar:{width:25,height:25,borderRadius:13},
   emptyFeed:{alignItems:"center",justifyContent:"center",padding:25,backgroundColor:C.bg},
   emptyText:{color:C.gray,textAlign:"center",marginTop:15,fontSize:14},
   bottomNav:{height:Platform.OS==="android"?90:66,paddingBottom:Platform.OS==="android"?24:0,backgroundColor:"#151522",borderTopWidth:1,borderTopColor:"#2b293b",flexDirection:"row",justifyContent:"space-around",alignItems:"center",paddingHorizontal:2},
